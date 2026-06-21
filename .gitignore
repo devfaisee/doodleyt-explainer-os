@@ -1,0 +1,13 @@
+# Local server files
+config.json
+server.js
+run.bat
+
+# Generated outputs
+output/
+*.json
+*.csv
+
+# System / OS files
+.DS_Store
+Thumbs.db
