@@ -2,27 +2,45 @@ import React, { useState, useEffect, useRef } from 'react';
 
 // --- PRESETS & HARDCODED BLUEPRINTS ---
 const DEFAULT_TOPICS = [
-    { id: 1, title: "Why Complete Silence Terrifies The Human Brain", cat: "Psychology", curiosity: 9.8, novelty: 9.5, relatability: 9.2, hook: "Absolute silence can cause visual hallucinations in less than 45 minutes because the brain starves for input." },
-    { id: 2, title: "The Dark Reason Why Wild Animals Fear Us", cat: "Evolution", curiosity: 9.9, novelty: 9.7, relatability: 9.4, hook: "Humans are the only predators that hunt by persistence—tracking prey until it drops dead of heat exhaustion." },
-    { id: 3, title: "How A Single Coding Error Wiped Out $500M", cat: "History", curiosity: 9.6, novelty: 9.1, relatability: 9.0, hook: "A junior dev forgot one line of validation code and triggered an automated loop that drained the system in 45 seconds." },
-    { id: 4, title: "Why You Can't Remember Being A Baby", cat: "Memory", curiosity: 9.4, novelty: 9.0, relatability: 9.8, hook: "Your infant brain grows new neurons so fast it literally overrides and overwrites its own memory storage cables." }
+    { id: 1, title: "The Bizarre Secret Niche: The Wallpaper That Poisoned A King", cat: "Strange History", curiosity: 9.9, novelty: 9.8, relatability: 9.0, hook: "In the 1800s, a vibrant green dye containing arsenic was used in royal wallpapers, slowly poisoning King Napoleon." },
+    { id: 2, title: "Why The World's Quietest Room Causes Auditory Hallucinations", cat: "Psychology", curiosity: 9.8, novelty: 9.5, relatability: 9.2, hook: "Inside Microsoft's anechoic chamber, the silence is so absolute that you can hear your own heartbeat and lungs grinding." },
+    { id: 3, title: "The 45-Second Error That Drained A Crypto Exchange", cat: "Tech History", curiosity: 9.7, novelty: 9.4, relatability: 9.1, hook: "A single missing check in a smart contract allowed an automated recursive function to withdraw all assets in seconds." },
+    { id: 4, title: "The Evolutionary Reason Why Humans Lack Fur", cat: "Evolution", curiosity: 9.5, novelty: 9.2, relatability: 9.7, hook: "Losing our fur allowed us to sweat and run for hours in the midday heat, chasing prey until it collapsed from heatstroke." }
 ];
 
-const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'figure', 'character'];
+const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
 
 // --- UTILITY COMPONENT: DYNAMIC DOODLE PREVIEW RENDERER ---
-function DoodlePreview({ prompt = "" }) {
+function DoodlePreview({ prompt = "", characters = [] }) {
     const upPrompt = prompt.toUpperCase();
     
-    // Check flags
-    const hasBob = upPrompt.includes("BOB") || upPrompt.includes("RED BASEBALL CAP") || upPrompt.includes("BLUE HOODIE");
-    const hasSara = upPrompt.includes("SARA") || upPrompt.includes("PINK SHIRT") || upPrompt.includes("BLUE SKIRT");
-    const isShocked = upPrompt.includes("SHOCK") || upPrompt.includes("TERROR") || upPrompt.includes("BELIEVE") || upPrompt.includes("FEAR") || upPrompt.includes("SCREAM");
+    // Find active characters based on their names in the prompt
+    const activeChars = characters.filter(c => upPrompt.includes(c.name.toUpperCase()));
+    
+    // Fallback checks
+    const hasBob = activeChars.some(c => c.name.toUpperCase() === 'BOB') || upPrompt.includes("RED BASEBALL CAP") || upPrompt.includes("BLUE HOODIE");
+    const hasSara = activeChars.some(c => c.name.toUpperCase() === 'SARA') || upPrompt.includes("PINK SHIRT") || upPrompt.includes("BLUE SKIRT");
+    
+    const isShocked = upPrompt.includes("SHOCK") || upPrompt.includes("TERROR") || upPrompt.includes("BELIEVE") || upPrompt.includes("FEAR") || upPrompt.includes("SCREAM") || upPrompt.includes("WILD EYED");
     const hasEar = upPrompt.includes("EAR") || upPrompt.includes("HEAR") || upPrompt.includes("SOUND") || upPrompt.includes("SILENCE");
     const hasButton = upPrompt.includes("BUTTON");
     const hasCoffee = upPrompt.includes("COFFEE") || upPrompt.includes("SPLASH") || upPrompt.includes("CUP");
-    const hasMoney = upPrompt.includes("MONEY") || upPrompt.includes("BILLION") || upPrompt.includes("DOLLAR");
+    const hasMoney = upPrompt.includes("MONEY") || upPrompt.includes("BILLION") || upPrompt.includes("DOLLAR") || upPrompt.includes("CASH");
     const isDark = upPrompt.includes("DARK") || upPrompt.includes("VOID") || upPrompt.includes("BLACK BACKGROUND");
+
+    // Dynamic color parsing based on descriptions
+    const getShirtColor = (charName) => {
+        const char = characters.find(c => c.name.toUpperCase() === charName.toUpperCase());
+        if (!char) return charName === 'BOB' ? '#3b82f6' : '#ec4899';
+        const desc = char.description.toLowerCase();
+        if (desc.includes('red shirt') || desc.includes('red hoodie') || desc.includes('red cap')) return '#ef4444';
+        if (desc.includes('green shirt') || desc.includes('green hoodie') || desc.includes('green tunic')) return '#22c55e';
+        if (desc.includes('yellow shirt') || desc.includes('yellow hoodie')) return '#eab308';
+        if (desc.includes('blue shirt') || desc.includes('blue hoodie') || desc.includes('blue coat')) return '#3b82f6';
+        if (desc.includes('pink shirt') || desc.includes('pink dress')) return '#ec4899';
+        if (desc.includes('purple shirt') || desc.includes('purple robe')) return '#a855f7';
+        return '#737373'; // Default neutral
+    };
 
     return (
         <div className={`w-full h-full min-h-[140px] rounded-xl flex items-center justify-center border transition-all ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-neutral-200'}`}>
@@ -44,88 +62,98 @@ function DoodlePreview({ prompt = "" }) {
                     </g>
                 )}
                 
-                {/* Character 1: Bob */}
-                {hasBob && (
-                    <g transform="translate(10, 0)">
-                        <line x1="70" y1="75" x2="70" y2="115" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <line x1="70" y1="115" x2="55" y2="140" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <line x1="70" y1="115" x2="85" y2="140" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <path d="M 60 77 L 80 77 L 85 110 L 55 110 Z" fill="#3b82f6" opacity="0.8" />
-                        {isShocked ? (
-                            <g stroke="#000" strokeWidth="3.5" strokeLinecap="round">
-                                <line x1="70" y1="85" x2="45" y2="60" />
-                                <line x1="70" y1="85" x2="95" y2="60" />
-                            </g>
-                        ) : (
-                            <g stroke="#000" strokeWidth="3.5" strokeLinecap="round">
-                                <line x1="70" y1="85" x2="50" y2="100" />
-                                <line x1="70" y1="85" x2="90" y2="100" />
-                            </g>
-                        )}
-                        <circle cx="70" cy="50" r="16" fill="#fff" stroke="#000" strokeWidth="3.5" />
-                        <path d="M 54 48 C 54 36, 86 36, 86 48 Z" fill="#ef4444" stroke="#000" strokeWidth="2" />
-                        <path d="M 78 46 L 98 42 L 95 49 Z" fill="#ef4444" stroke="#000" strokeWidth="2" />
-                        {isShocked ? (
-                            <g fill="#000">
-                                <circle cx="64" cy="48" r="2.5" />
-                                <circle cx="76" cy="48" r="2.5" />
-                                <ellipse cx="70" cy="58" rx="5" ry="4" fill="none" stroke="#000" strokeWidth="2" />
-                                <path d="M 45 42 Q 40 45 42 48" stroke="#3b82f6" strokeWidth="2" fill="none" />
-                                <path d="M 95 42 Q 100 45 98 48" stroke="#3b82f6" strokeWidth="2" fill="none" />
-                            </g>
-                        ) : (
-                            <g fill="#000">
-                                <circle cx="64" cy="48" r="2.5" />
-                                <circle cx="76" cy="48" r="2.5" />
-                                <path d="M 64 56 Q 70 64 76 56" fill="none" stroke="#000" strokeWidth="2" strokeLinecap="round" />
-                            </g>
-                        )}
-                        {hasCoffee && (
-                            <g>
-                                <rect x="92" y="95" width="10" height="12" rx="1" fill="#fff" stroke="#000" strokeWidth="2" transform="rotate(35 97 101)" />
-                                <path d="M 98 90 Q 105 75 112 85 Q 102 70 96 90" fill="#78350f" opacity="0.9" />
-                            </g>
-                        )}
-                    </g>
-                )}
+                {/* Render up to 2 detected characters dynamically */}
+                {activeChars.length > 0 ? (
+                    activeChars.slice(0, 2).map((char, index) => {
+                        const isLeft = index === 0;
+                        const transX = isLeft ? 20 : 100;
+                        const name = char.name.toUpperCase();
+                        const isCharShocked = isShocked || char.description.toLowerCase().includes("shocked") || char.description.toLowerCase().includes("surprised");
+                        const color = getShirtColor(name);
 
-                {/* Character 2: Sara */}
-                {hasSara && (
-                    <g transform={hasBob ? "translate(60, 10)" : "translate(10, 10)"}>
-                        <path d="M 50 35 Q 35 25 35 60 Q 40 30 65 30 Q 80 25 85 60 Q 75 30 50 35" fill="none" stroke="#000" strokeWidth="3" />
-                        <line x1="60" y1="75" x2="60" y2="110" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <line x1="60" y1="110" x2="48" y2="135" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <line x1="60" y1="110" x2="72" y2="135" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <path d="M 52 77 L 68 77 L 72 100 L 48 100 Z" fill="#ec4899" opacity="0.8" />
-                        <path d="M 48 100 L 72 100 L 75 110 L 45 110 Z" fill="#3b82f6" opacity="0.8" />
-                        <line x1="60" y1="82" x2="42" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round"/>
-                        <line x1="60" y1="82" x2="78" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round"/>
-                        <circle cx="60" cy="50" r="15" fill="#fff" stroke="#000" strokeWidth="3.5" />
-                        <circle cx="53" cy="48" r="5" fill="none" stroke="#000" strokeWidth="1.8" />
-                        <circle cx="67" cy="48" r="5" fill="none" stroke="#000" strokeWidth="1.8" />
-                        <line x1="58" y1="48" x2="62" y2="48" stroke="#000" strokeWidth="2" />
-                        {isShocked ? (
-                            <ellipse cx="60" cy="58" rx="4" ry="5" fill="none" stroke="#000" strokeWidth="2" />
-                        ) : (
-                            <path d="M 56 56 Q 60 62 64 56" fill="none" stroke="#000" strokeWidth="2" />
-                        )}
-                    </g>
-                )}
+                        return (
+                            <g key={char.name} transform={`translate(${transX}, 10)`}>
+                                {/* Head */}
+                                <circle cx="40" cy="45" r="14" fill="#fff" stroke="#000" strokeWidth="3" />
+                                {/* Spine */}
+                                <line x1="40" y1="59" x2="40" y2="95" stroke="#000" strokeWidth="3" />
+                                {/* Legs */}
+                                <line x1="40" y1="95" x2="28" y2="125" stroke="#000" strokeWidth="3" />
+                                <line x1="40" y1="95" x2="52" y2="125" stroke="#000" strokeWidth="3" />
+                                
+                                {/* Shirt Fill */}
+                                <path d="M 32 60 L 48 60 L 51 90 L 29 90 Z" fill={color} opacity="0.8" />
+                                
+                                {/* Arms */}
+                                {isCharShocked ? (
+                                    <g stroke="#000" strokeWidth="3" strokeLinecap="round">
+                                        <line x1="40" y1="68" x2="20" y2="45" />
+                                        <line x1="40" y1="68" x2="60" y2="45" />
+                                    </g>
+                                ) : (
+                                    <g stroke="#000" strokeWidth="3" strokeLinecap="round">
+                                        <line x1="40" y1="68" x2="24" y2="85" />
+                                        <line x1="40" y1="68" x2="56" y2="85" />
+                                    </g>
+                                )}
 
-                {/* Generic Doodle */}
-                {!hasBob && !hasSara && (
+                                {/* Eyes / Expression */}
+                                <circle cx="35" cy="42" r="2" fill="#000" />
+                                <circle cx="45" cy="42" r="2" fill="#000" />
+                                {isCharShocked ? (
+                                    <ellipse cx="40" cy="51" rx="3.5" ry="4.5" fill="none" stroke="#000" strokeWidth="1.8" />
+                                ) : (
+                                    <path d="M 35 50 Q 40 55 45 50" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round" />
+                                )}
+
+                                {/* Simple Label */}
+                                <text x="40" y="24" textAnchor="middle" fill="#737373" fontSize="8" fontWeight="bold" fontFamily="monospace">{name}</text>
+                            </g>
+                        );
+                    })
+                ) : (
+                    /* Default Fallback characters (Bob and Sara style) if no characters detected */
                     <g>
-                        <circle cx="100" cy="55" r="18" fill="#fff" stroke="#000" strokeWidth="3.5" />
-                        <line x1="100" y1="73" x2="100" y2="115" stroke="#000" strokeWidth="3.5" />
-                        <line x1="100" y1="85" x2="75" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <line x1="100" y1="85" x2="125" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                        <line x1="100" y1="115" x2="85" y2="142" stroke="#000" strokeWidth="3.5" />
-                        <line x1="100" y1="115" x2="115" y2="142" stroke="#000" strokeWidth="3.5" />
-                        <circle cx="94" cy="52" r="2.5" fill="#000" />
-                        <circle cx="106" cy="52" r="2.5" fill="#000" />
-                        <path d="M 94 62 Q 100 68 106 62" fill="none" stroke="#000" strokeWidth="2" />
-                        <text x="125" y="45" fill="#ef4444" fontSize="18" fontWeight="bold">?</text>
-                        <text x="65" y="45" fill="#ef4444" fontSize="18" fontWeight="bold">?</text>
+                        {hasBob && (
+                            <g transform="translate(10, 0)">
+                                <line x1="70" y1="75" x2="70" y2="115" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <line x1="70" y1="115" x2="55" y2="140" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <line x1="70" y1="115" x2="85" y2="140" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <path d="M 60 77 L 80 77 L 85 110 L 55 110 Z" fill="#3b82f6" opacity="0.8" />
+                                <circle cx="70" cy="50" r="16" fill="#fff" stroke="#000" strokeWidth="3.5" />
+                                <path d="M 54 48 C 54 36, 86 36, 86 48 Z" fill="#ef4444" stroke="#000" strokeWidth="2" />
+                                <circle cx="64" cy="48" r="2.5" fill="#000" />
+                                <circle cx="76" cy="48" r="2.5" fill="#000" />
+                                <path d="M 64 56 Q 70 64 76 56" fill="none" stroke="#000" strokeWidth="2" />
+                            </g>
+                        )}
+                        {hasSara && (
+                            <g transform={hasBob ? "translate(60, 10)" : "translate(10, 10)"}>
+                                <path d="M 50 35 Q 35 25 35 60 Q 40 30 65 30 Q 80 25 85 60 Q 75 30 50 35" fill="none" stroke="#000" strokeWidth="3" />
+                                <line x1="60" y1="75" x2="60" y2="110" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <line x1="60" y1="110" x2="48" y2="135" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <line x1="60" y1="110" x2="72" y2="135" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <path d="M 52 77 L 68 77 L 72 100 L 48 100 Z" fill="#ec4899" opacity="0.8" />
+                                <circle cx="60" cy="50" r="15" fill="#fff" stroke="#000" strokeWidth="3.5" />
+                                <circle cx="53" cy="48" r="4.5" fill="none" stroke="#000" strokeWidth="1.8" />
+                                <circle cx="67" cy="48" r="4.5" fill="none" stroke="#000" strokeWidth="1.8" />
+                                <path d="M 56 56 Q 60 62 64 56" fill="none" stroke="#000" strokeWidth="2" />
+                            </g>
+                        )}
+                        {!hasBob && !hasSara && (
+                            <g transform="translate(50, 0)">
+                                <circle cx="50" cy="55" r="18" fill="#fff" stroke="#000" strokeWidth="3.5" />
+                                <line x1="50" y1="73" x2="50" y2="115" stroke="#000" strokeWidth="3.5" />
+                                <line x1="50" y1="85" x2="25" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <line x1="50" y1="85" x2="75" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
+                                <line x1="50" y1="115" x2="35" y2="142" stroke="#000" strokeWidth="3.5" />
+                                <line x1="50" y1="115" x2="65" y2="142" stroke="#000" strokeWidth="3.5" />
+                                <circle cx="44" cy="52" r="2.5" fill="#000" />
+                                <circle cx="56" cy="52" r="2.5" fill="#000" />
+                                <path d="M 44 62 Q 50 68 56 62" fill="none" stroke="#000" strokeWidth="2" />
+                                <text x="75" y="45" fill="#ef4444" fontSize="18" fontWeight="bold">?</text>
+                            </g>
+                        )}
                     </g>
                 )}
             </svg>
@@ -139,13 +167,14 @@ function App() {
     const [passKey, setPassKey] = useState('');
     const [activeTab, setActiveTab] = useState('terminal');
     
-    // App state buffers
+    // App configuration variables
     const [apiKey, setApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-chat');
     const [outputPath, setOutputPath] = useState('');
     const [characters, setCharacters] = useState([]);
     
     const [topicBank, setTopicBank] = useState(DEFAULT_TOPICS);
+    const [customNicheInput, setCustomNicheInput] = useState('');
     const [selectedTopic, setSelectedTopic] = useState(DEFAULT_TOPICS[0]);
     
     const [pipelineLogs, setPipelineLogs] = useState([]);
@@ -153,7 +182,6 @@ function App() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [serverStatus, setServerStatus] = useState('Checking...');
     
-    // Modal/Detail State
     const [activePreviewPrompt, setActivePreviewPrompt] = useState('');
     
     const logEndRef = useRef(null);
@@ -187,8 +215,7 @@ function App() {
                     setCharacters(JSON.parse(cachedChars));
                 } else {
                     setCharacters([
-                        { name: 'BOB', description: 'Stick figure man, round head, thin body, red baseball cap forward, blue hoodie, black pants, white sneakers, large eyebrows, goofy smile' },
-                        { name: 'SARA', description: 'Female stick figure, long hair drawn as squiggly lines, pink shirt, blue skirt, glasses, surprised expression' }
+                        { name: 'HERO', description: 'Stick figure with round head, black outlines, green warrior tunic, brown leather belt, two dot eyes, and determined grin.' }
                     ]);
                 }
             });
@@ -201,9 +228,7 @@ function App() {
         }
     }, [pipelineLogs]);
 
-    // Save config back to local server / localStorage
     const saveConfig = async (updatedFields) => {
-        // Always save to local storage for static redundancy
         if (updatedFields.apiKey !== undefined) localStorage.setItem('doodleyt_api_key', updatedFields.apiKey);
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
@@ -243,13 +268,13 @@ function App() {
         };
     };
 
-    // Dynamic Niche Topic AI Generation
+    // Dynamic Niche Topic AI Generation (Generates 5 true bizarre niches)
     const generateTopicsViaAI = async () => {
         if (!apiKey) {
             alert('Please set your OpenRouter API Key in the Settings tab first!');
             return;
         }
-        addLog('Inquiring OpenRouter for viral niche topics...');
+        addLog('Inquiring OpenRouter for extremely weird, viral niche topics...');
         setIsGenerating(true);
         try {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -265,13 +290,14 @@ function App() {
                     messages: [
                         {
                             role: 'user',
-                            content: `Generate 5 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory' (mystery, strange history, bizarre facts, psychology, evolution). 
+                            content: `Generate 5 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory' (mystery, strange history, bizarre facts, psychology, evolution).
+The ideas MUST NOT be generic. They should target extremely specific, weird niches (e.g. historical anomalies, psychological oddities, bizarre nature facts).
 For each topic, evaluate and assign scores (0-10) for Curiosity, Novelty, and Relatability.
 Also write a brief 1-sentence hook statement for each.
 
 Output strictly as a JSON array inside a code block, formatted like this:
 [
-  {"id": 101, "title": "Topic Title Here", "cat": "Category", "curiosity": 9.5, "novelty": 9.0, "relatability": 8.5, "hook": "Shocking hook sentence"}
+  {"id": 201, "title": "Specific Bizarre Niche Title", "cat": "Strange History", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
 ]`
                         }
                     ]
@@ -286,7 +312,7 @@ Output strictly as a JSON array inside a code block, formatted like this:
                 const parsed = JSON.parse(jsonMatch[0]);
                 setTopicBank(parsed);
                 setSelectedTopic(parsed[0]);
-                addLog(`Successfully parsed ${parsed.length} new AI viral topics.`);
+                addLog(`Successfully parsed ${parsed.length} new AI niche topics.`);
             } else {
                 throw new Error("Could not extract JSON format from completion.");
             }
@@ -299,7 +325,8 @@ Output strictly as a JSON array inside a code block, formatted like this:
     };
 
     // Main Orchestrated Script & Visual Prompt Generation Run
-    const runScriptGeneration = async (topic) => {
+    // Autonomously designs topic and custom characters, writing stateless prompts.
+    const runScriptGeneration = async (topicTheme) => {
         if (!apiKey) {
             addLog('❌ Generation Aborted: Missing OpenRouter API Key. Please insert key in Settings.');
             setActiveTab('settings');
@@ -308,48 +335,53 @@ Output strictly as a JSON array inside a code block, formatted like this:
 
         setIsGenerating(true);
         setPipelineLogs([]);
-        addLog(`⚙️ Booting Explainer OS Generation Core...`);
-        addLog(`🎯 Target Topic Lock: "${topic.title}"`);
+        addLog(`⚙️ Booting Explainer OS Autonomous Core...`);
+        if (topicTheme) {
+            addLog(`🎯 Target Theme: "${topicTheme}"`);
+        } else {
+            addLog(`🎯 Running in 100% Autonomous Niche Discovery Mode...`);
+        }
         addLog(`🧠 Selected LLM: ${model}`);
 
         try {
-            addLog(`🧬 Injecting Visual Style DNA & Character definitions...`);
-            const charsString = characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+            addLog(`⚡ Constructing Master Prompt with Stateless Character design guidelines...`);
             
-            const prompt = `You are the visual director and scriptwriter for the channel "Doodle Theory".
-Produce a highly engaging video script about: "${topic.title}"
-Hook Statement: "${topic.hook}"
+            const prompt = `You are the visual director and scriptwriter for the YouTube channel "Doodle Theory".
+The channel explains fascinating, bizarre, mysterious, or shocking niche topics using simple, funny, badly-drawn stick figures and doodles on a white background.
 
-Character Presets to use:
-${charsString}
+Task: Autonomously select and write a complete, high-retention video script.
+${topicTheme ? `Focus on this theme/topic: "${topicTheme}". Make it an extremely specific, bizarre, or mysterious niche sub-topic.` : `Autonomously choose a highly specific, bizarre, or mysterious niche topic (e.g. strange history, weird psychology, evolutionary mysteries, tech anomalies).`}
 
-### CHANNEL GUIDELINES:
-- Tone: chaotic, humorous, mildly sarcastic, friendly, explaining bizarre occurrences.
-- Art style for prompts: hand-drawn stick figure doodles, simple lines, funny exaggerated expressions, white background.
-- Visual pacing rule: Fast-paced scenes of 1-3 seconds.
-- Stateless Prompts Rule (THE GOLDEN RULE): Image generator has no memory. Never use character names alone (e.g., "Bob is shocked") and never use pronouns (he, she, it, they, his, her, their, its, same, similar, previous, earlier, above, below, again, identical, character, figure). You must fully describe the character and environment in every single row.
+Instructions:
+1. INVENT CHARACTERS: Design 1-3 custom characters needed for this topic. For each character, write a complete physical description as a hand-drawn MS Paint stickman (e.g. hat, shirt color, expression, pants, sneakers). Keep the art style: crude stickman doodle, black outlines, flat colors, white background.
+2. WRITE SCRIPT: Generate Act 1 of the script (at least 30 scenes, 1-3 seconds per scene).
+3. STATELESS PROMPTS (THE GOLDEN RULE): AI image generators have no memory. You must never use character names alone (like "Bob is shocked") and never use pronouns (he, she, it, they, his, her, same, previous, earlier). Instead, you must copy and paste the character's full visual description (which you designed in Step 1) every single time they appear in an image prompt.
 
-Generate Act 1 (the first 1.5 - 2 minutes of the video, at least 30 scenes).
-Return strictly valid JSON format. Do not write explanations outside the JSON block.
+Output format: You MUST return a single, valid JSON object. Do not include markdown wraps or text outside the JSON block.
 
 Expected JSON schema:
 {
-  "title": "...",
-  "thumbnail": "...",
+  "title": "[Niche click-through title]",
+  "category": "[Niche category]",
+  "nicheReason": "[Why this topic is an extremely high-click niche]",
+  "thumbnail": "[Stateless prompt for the thumbnail doodle]",
+  "characters": [
+    { "name": "NAME", "description": "Complete physical visual description" }
+  ],
   "scenes": [
     {
-      "time": "0:00",
-      "duration": 3,
-      "voiceover": "...",
-      "camera": "...",
-      "sfx": "...",
-      "prompt": "...",
-      "textOverlay": "..."
+      "time": "MM:SS",
+      "duration": [1, 2, or 3],
+      "voiceover": "[Exact spoken sentence]",
+      "camera": "[Camera/Editing instruction]",
+      "sfx": "[Sound effect]",
+      "prompt": "[Complete, stateless visual prompt. Must inject the full character description of any character appearing, with no pronouns or name-only references. Art style: crude MS Paint stickman doodle, black outlines, flat colors, white background]",
+      "textOverlay": "[Text overlay or null]"
     }
   ]
 }`;
 
-            addLog(`⚡ Launching request stream to OpenRouter API (this may take up to 30-45 seconds)...`);
+            addLog(`⚡ Dispatching stream request to OpenRouter API (this may take up to 45 seconds)...`);
             
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                 method: 'POST',
@@ -374,7 +406,7 @@ Expected JSON schema:
             const result = await response.json();
             const content = result.choices[0].message.content;
             
-            addLog(`📥 Completion received. Running structural sanitation parsing...`);
+            addLog(`📥 Content received. Parsing autonomous JSON package...`);
             const jsonMatch = content.match(/\{[\s\S]*\}/);
             
             if (!jsonMatch) {
@@ -383,7 +415,13 @@ Expected JSON schema:
 
             const scriptData = JSON.parse(jsonMatch[0]);
             
-            // Run QC checks on prompts
+            addLog(`👥 Found ${scriptData.characters ? scriptData.characters.length : 0} custom characters designed for this script.`);
+            if (scriptData.characters) {
+                setCharacters(scriptData.characters);
+                saveConfig({ characters: scriptData.characters });
+            }
+
+            // Run QC checks on prompts using the dynamically generated characters!
             addLog(`🛡️ Triggering Stateless Quality Control check sweeps...`);
             let qcErrorsCount = 0;
             
@@ -427,7 +465,8 @@ Expected JSON schema:
         addLog(`🔄 Initiating Script Extension sequence (Act 2)...`);
         
         try {
-            const charsString = characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+            const currentChars = currentScript.characters || characters;
+            const charsString = currentChars.map(c => `- **${c.name}**: ${c.description}`).join('\n');
             const lastScene = currentScript.scenes[currentScript.scenes.length - 1];
             
             const prompt = `You are continuing the Doodle Theory script: "${currentScript.title}".
@@ -436,7 +475,7 @@ Here is the summary of the script so far:
 - Last Scene Time: ${lastScene.time}
 - Last Scene Voiceover: "${lastScene.voiceover}"
 
-Character Presets:
+Character Presets (You MUST use these exact visual descriptions in your scene prompts, with no names alone or pronouns):
 ${charsString}
 
 Write Act 2 (the next 1.5 - 2 minutes of the video, at least 30 additional scenes).
@@ -519,7 +558,8 @@ Return strictly valid JSON format matching the schema:
         addLog(`🔧 Launching Automated Pronoun Correction Routine for ${flaggedIndices.length} items...`);
 
         try {
-            const charsString = characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+            const currentChars = currentScript.characters || characters;
+            const charsString = currentChars.map(c => `- **${c.name}**: ${c.description}`).join('\n');
             
             for (const index of flaggedIndices) {
                 const scene = currentScript.scenes[index];
@@ -527,7 +567,7 @@ Return strictly valid JSON format matching the schema:
                 
                 const prompt = `Correct this image prompt for an AI image generator to make it completely stateless (independent of previous scenes).
 Rules:
-1. Replace character names (Bob, Sara, etc.) with their full visual descriptions.
+1. Replace character names with their full visual descriptions.
 2. Remove all relative reference words (he, she, it, they, his, her, their, same, previous, earlier, above, below, again).
 3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
 
@@ -703,13 +743,13 @@ Return only the corrected prompt text, nothing else.`;
                             <span>💻</span> Execution Terminal
                         </button>
                         <button onClick={() => setActiveTab('topics')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'topics' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
-                            <span>🧠</span> Topic Matrix
+                            <span>🧠</span> Topic Brainstormer
                         </button>
                         <button onClick={() => setActiveTab('sandbox')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'sandbox' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>📝</span> Script Sandbox
                         </button>
                         <button onClick={() => setActiveTab('characters')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'characters' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
-                            <span>👥</span> Character Registry
+                            <span>👥</span> Custom Character DNA
                         </button>
                         <button onClick={() => setActiveTab('settings')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'settings' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>⚙️</span> Settings & Models
@@ -717,8 +757,8 @@ Return only the corrected prompt text, nothing else.`;
                     </div>
                     <div className="bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800 text-[10px] text-neutral-500 leading-relaxed font-mono">
                         🔒 Secured Pipeline Vault<br/>
-                        Art Presets: MS Paint Stickman<br/>
-                        Output Target: Safe Path
+                        Art Presets: Dynamic Stickman<br/>
+                        Mode: 100% AI Autonomous
                     </div>
                 </aside>
 
@@ -728,28 +768,50 @@ Return only the corrected prompt text, nothing else.`;
                     {/* EXECUTION TERMINAL TAB */}
                     {activeTab === 'terminal' && (
                         <div className="space-y-6 max-w-5xl">
-                            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl flex items-center justify-between shadow-lg">
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
                                 <div>
-                                    <h2 className="text-xl font-bold text-white mb-1">Pipeline Execution Control</h2>
-                                    <p className="text-sm text-neutral-400">Deploy live script compilation and stateless prompt checks for the selected topic.</p>
-                                    <div className="mt-2 text-xs bg-neutral-950 inline-block px-3 py-1.5 rounded-lg border border-neutral-800">
-                                        <span className="text-neutral-500">Selected Niche Topic:</span> <strong className="text-blue-400">"{selectedTopic.title}"</strong>
-                                    </div>
+                                    <h2 className="text-xl font-bold text-white mb-1">Autonomous Execution Terminal</h2>
+                                    <p className="text-sm text-neutral-400">Deploy your autonomous script generator. If you leave the theme field empty, the AI will search out and compile its own highly unique niche viral topic and custom characters.</p>
                                 </div>
-                                <button 
-                                    onClick={() => runScriptGeneration(selectedTopic)}
-                                    disabled={isGenerating}
-                                    className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-6 py-3.5 rounded-2xl transition-all shadow-lg shadow-blue-600/15 shrink-0 flex items-center gap-2 glow-active"
-                                >
-                                    {isGenerating ? (
-                                        <>
-                                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                            Compiling pipeline...
-                                        </>
-                                    ) : (
-                                        '🚀 Launch Production Blueprint'
+                                
+                                <div className="space-y-3">
+                                    <label className="text-xs font-semibold text-neutral-400 block font-mono">Custom Niche Theme or Topic Keyword (Optional)</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="e.g. The wallpaper that poisoned a king, weird medieval trials, or leave blank for autonomous niche..."
+                                        className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-4 rounded-xl text-sm text-neutral-200 outline-none font-mono"
+                                        value={customNicheInput}
+                                        onChange={(e) => setCustomNicheInput(e.target.value)}
+                                    />
+                                    {selectedTopic && !customNicheInput && (
+                                        <div className="text-xs text-neutral-500 flex items-center gap-1">
+                                            <span>💡 Suggestion from brainstormer:</span>
+                                            <button 
+                                                onClick={() => setCustomNicheInput(selectedTopic.title)}
+                                                className="text-blue-400 hover:underline font-bold"
+                                            >
+                                                "{selectedTopic.title}"
+                                            </button>
+                                        </div>
                                     )}
-                                </button>
+                                </div>
+
+                                <div className="flex justify-end pt-2">
+                                    <button 
+                                        onClick={() => runScriptGeneration(customNicheInput)}
+                                        disabled={isGenerating}
+                                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-7 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/15 flex items-center gap-2 glow-active"
+                                    >
+                                        {isGenerating ? (
+                                            <>
+                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                                Compiling pipeline...
+                                            </>
+                                        ) : (
+                                            '🚀 Launch Production Blueprint'
+                                        )}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -790,6 +852,11 @@ Return only the corrected prompt text, nothing else.`;
                                                     <div>
                                                         <div className="text-[10px] font-mono text-blue-400 mb-1">PROCESSED METRICS</div>
                                                         <div className="text-lg font-black text-white tracking-tight leading-tight">{currentScript.title}</div>
+                                                        {currentScript.nicheReason && (
+                                                            <div className="text-[11px] text-neutral-400 mt-1 font-mono">
+                                                                🎯 <strong>Niche Viability:</strong> {currentScript.nicheReason}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="bg-neutral-950 text-neutral-400 text-xs px-3 py-1.5 rounded-xl border border-neutral-800 flex items-center gap-1.5 font-semibold">
                                                         ⚡ {currentScript.scenes.length} Scenes
@@ -807,7 +874,7 @@ Return only the corrected prompt text, nothing else.`;
                                                             <div className="flex-1 space-y-2">
                                                                 <div className="flex justify-between items-center text-xs">
                                                                     <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded font-mono font-bold">{scene.time} ({scene.duration}s)</span>
-                                                                    <span className="text-purple-400 font-mono">SFX: {scene.sfx}</span>
+                                                                    <span className="text-purple-400 font-mono font-medium">SFX: {scene.sfx}</span>
                                                                 </div>
                                                                 <p className="text-sm text-neutral-200">"{scene.voiceover}"</p>
                                                                 <div className="text-[10px] font-mono text-neutral-500 leading-relaxed bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-800">
@@ -816,7 +883,7 @@ Return only the corrected prompt text, nothing else.`;
                                                                 </div>
                                                             </div>
                                                             <div className="w-[120px] h-[90px] shrink-0">
-                                                                <DoodlePreview prompt={scene.prompt} />
+                                                                <DoodlePreview prompt={scene.prompt} characters={currentScript.characters || characters} />
                                                             </div>
                                                         </div>
                                                     ))}
@@ -835,7 +902,7 @@ Return only the corrected prompt text, nothing else.`;
                                         ) : (
                                             <div className="h-full flex flex-col items-center justify-center text-neutral-600 gap-3">
                                                 <span className="text-4xl">📄</span>
-                                                <p className="text-xs">No script content has been compiled yet. Choose a topic and run the blueprint generation.</p>
+                                                <p className="text-xs">No script content has been compiled yet. Input a theme or run autonomously to generate.</p>
                                             </div>
                                         )}
                                     </div>
@@ -849,15 +916,15 @@ Return only the corrected prompt text, nothing else.`;
                         <div className="space-y-6 max-w-4xl">
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl flex justify-between items-center shadow-lg">
                                 <div>
-                                    <h2 className="text-xl font-bold text-white mb-1">Niche Topic & Title Matrix</h2>
-                                    <p className="text-sm text-neutral-400">Curates viral concepts targeted at high click-through rates. Generate new ideas via LLM logic.</p>
+                                    <h2 className="text-xl font-bold text-white mb-1">Niche Brainstormer Matrix</h2>
+                                    <p className="text-sm text-neutral-400">Autonomously researches highly targeted, specific, bizarre niches. Click any topic to load it into the terminal.</p>
                                 </div>
                                 <button 
                                     onClick={generateTopicsViaAI}
                                     disabled={isGenerating}
                                     className="bg-neutral-800 hover:bg-neutral-700 disabled:bg-neutral-900 disabled:text-neutral-600 border border-neutral-700 text-white font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2"
                                 >
-                                    Generate AI Topics
+                                    Research AI Niches
                                 </button>
                             </div>
 
@@ -867,7 +934,9 @@ Return only the corrected prompt text, nothing else.`;
                                         key={t.id} 
                                         onClick={() => {
                                             setSelectedTopic(t);
-                                            addLog(`Topic locked: "${t.title}"`);
+                                            setCustomNicheInput(t.title);
+                                            addLog(`Brainstorm topic locked: "${t.title}"`);
+                                            setActiveTab('terminal');
                                         }}
                                         className={`p-5 rounded-3xl border-2 cursor-pointer transition-all flex flex-col justify-between h-[210px] ${selectedTopic.id === t.id ? 'bg-blue-600/10 border-blue-500 text-white shadow-lg shadow-blue-500/5' : 'bg-neutral-900/60 border-neutral-850 text-neutral-450 hover:border-neutral-700'}`}
                                     >
@@ -883,8 +952,8 @@ Return only the corrected prompt text, nothing else.`;
                                             <p className="text-xs text-neutral-400 line-clamp-3 mt-2 leading-relaxed">"{t.hook}"</p>
                                         </div>
                                         <div className="pt-3 border-t border-neutral-800/60 flex justify-between text-[10px] font-mono text-neutral-500">
-                                            <span>VIRAL PROBABILITY: HIGH</span>
-                                            <span>SELECT TOPIC</span>
+                                            <span>VIRAL SCORE: HIGH</span>
+                                            <span>SELECT & CONFIGURE</span>
                                         </div>
                                     </div>
                                 ))}
@@ -1022,7 +1091,7 @@ Return only the corrected prompt text, nothing else.`;
                                                                     className="cursor-pointer hover:opacity-80 transition"
                                                                     onClick={() => setActivePreviewPrompt(scene.prompt)}
                                                                 >
-                                                                    <DoodlePreview prompt={scene.prompt} />
+                                                                    <DoodlePreview prompt={scene.prompt} characters={currentScript.characters || characters} />
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1046,45 +1115,51 @@ Return only the corrected prompt text, nothing else.`;
                     {activeTab === 'characters' && (
                         <div className="space-y-6 max-w-4xl">
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg">
-                                <h2 className="text-xl font-bold text-white mb-1">Character Visual Preset Registry</h2>
-                                <p className="text-sm text-neutral-400 mb-6">Manage global character visual DNA cards. These definitions are injected into visual prompt templates and stateless QC correction routines.</p>
+                                <h2 className="text-xl font-bold text-white mb-1">Custom Character DNA Registry</h2>
+                                <p className="text-sm text-neutral-400 mb-6">These are the visual characters generated autonomously by the AI for your current script. They are used in the visual previews and the stateless QC checking routines.</p>
                                 
                                 <div className="space-y-4">
-                                    {characters.map((char, index) => (
-                                        <div key={char.name} className="bg-neutral-950 border border-neutral-850 p-5 rounded-2xl space-y-3">
-                                            <div className="flex justify-between items-center">
-                                                <span className="font-extrabold text-sm text-blue-400 font-mono">Preset ID: {char.name}</span>
-                                                <span className="text-[10px] text-neutral-500 font-mono">Art Anchor Linked</span>
+                                    {characters.length > 0 ? (
+                                        characters.map((char, index) => (
+                                            <div key={char.name} className="bg-neutral-950 border border-neutral-850 p-5 rounded-2xl space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-extrabold text-sm text-blue-400 font-mono">Character ID: {char.name}</span>
+                                                    <span className="text-[10px] text-neutral-500 font-mono">AI Generated visual preset</span>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-1">Visual Prompt DNA Injector String</label>
+                                                    <textarea 
+                                                        rows="2"
+                                                        className="w-full bg-neutral-900 border border-neutral-800 focus:border-blue-500 p-3 rounded-xl text-xs text-neutral-200 outline-none resize-none font-mono"
+                                                        value={char.description}
+                                                        onChange={(e) => {
+                                                            const updated = [...characters];
+                                                            updated[index].description = e.target.value;
+                                                            setCharacters(updated);
+                                                            saveConfig({ characters: updated });
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label className="text-[10px] text-neutral-500 uppercase tracking-widest font-mono block mb-1">Visual Prompt DNA Injector String</label>
-                                                <textarea 
-                                                    rows="2"
-                                                    className="w-full bg-neutral-900 border border-neutral-800 focus:border-blue-500 p-3 rounded-xl text-xs text-neutral-200 outline-none resize-none font-mono"
-                                                    value={char.description}
-                                                    onChange={(e) => {
-                                                        const updated = [...characters];
-                                                        updated[index].description = e.target.value;
-                                                        setCharacters(updated);
-                                                        saveConfig({ characters: updated });
-                                                    }}
-                                                />
-                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center py-6 text-neutral-500 text-xs">
+                                            No characters generated yet. Compile a script to populate this list dynamically!
                                         </div>
-                                    ))}
+                                    )}
                                     
                                     <button 
                                         onClick={() => {
-                                            const name = prompt("Enter new Character name (e.g. SARA):")?.toUpperCase();
+                                            const name = prompt("Enter new Character name (e.g. HACKER):")?.toUpperCase();
                                             if (name) {
-                                                const updated = [...characters, { name, description: 'Hand-drawn stickman outline details here...' }];
+                                                const updated = [...characters, { name, description: 'Hand-drawn stickman visual preset details here...' }];
                                                 setCharacters(updated);
                                                 saveConfig({ characters: updated });
                                             }
                                         }}
-                                        className="w-full bg-neutral-900 hover:bg-neutral-855 text-neutral-350 font-bold p-4 border border-dashed border-neutral-800 rounded-2xl transition text-xs flex justify-center items-center gap-2"
+                                        className="w-full bg-neutral-900 hover:bg-neutral-850 text-neutral-355 font-bold p-4 border border-dashed border-neutral-800 rounded-2xl transition text-xs flex justify-center items-center gap-2"
                                     >
-                                        ➕ Register New Character Card
+                                        ➕ Register Manual Character Card Override
                                     </button>
                                 </div>
                             </div>
@@ -1117,7 +1192,7 @@ Return only the corrected prompt text, nothing else.`;
                                         <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Pipeline Orchestrator Model</label>
                                         <div className="flex gap-2">
                                             <select 
-                                                className="flex-1 bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
+                                                className="flex-1 bg-neutral-950 border border-neutral-855 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
                                                 value={model}
                                                 onChange={(e) => {
                                                     setModel(e.target.value);
@@ -1192,7 +1267,7 @@ Return only the corrected prompt text, nothing else.`;
                         </button>
                         <h4 className="text-xs uppercase font-mono font-bold tracking-widest text-neutral-500 mb-4">Stateless Sketch Preview</h4>
                         <div className="border border-neutral-250 rounded-2xl p-4 bg-neutral-50 mb-6">
-                            <DoodlePreview prompt={activePreviewPrompt} />
+                            <DoodlePreview prompt={activePreviewPrompt} characters={currentScript?.characters || characters} />
                         </div>
                         <div className="space-y-2">
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest font-mono block">Image Prompt String</span>
