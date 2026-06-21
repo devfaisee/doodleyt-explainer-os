@@ -5,8 +5,10 @@ run.bat
 
 # Generated outputs
 output/
-*.json
-*.csv
+dist/
+
+# Dependencies
+node_modules/
 
 # System / OS files
 .DS_Store
