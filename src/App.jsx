@@ -33,7 +33,6 @@ const validatePromptText = (promptText) => {
     };
 };
 
-// DoodlePreview component removed as requested.
 
 const FALLBACK_API_KEY = 'sk-or-v1-' + '8ddf4b104ce98919409c0b7df5fa4c15e7a34ed8325751f1d97d4e8e5b82ba07';
 
@@ -91,6 +90,11 @@ function App() {
         }
     }, [currentScript]);
 
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [synthesisStatus, setSynthesisStatus] = useState('idle');
+    const [compileStatus, setCompileStatus] = useState('idle');
+    const [serverStatus, setServerStatus] = useState('Checking...');
+
     // Debounced sync to server for sandbox script changes
     useEffect(() => {
         if (!currentScript || isGenerating) return;
@@ -115,11 +119,6 @@ function App() {
         
         return () => clearTimeout(delayDebounceFn);
     }, [currentScript, isGenerating, serverStatus]);
-
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [synthesisStatus, setSynthesisStatus] = useState('idle');
-    const [compileStatus, setCompileStatus] = useState('idle');
-    const [serverStatus, setServerStatus] = useState('Checking...');
     
     // Multi-Agent Pipeline Status Checklist (Dynamically built based on length)
     const buildDefaultStages = (type, duration) => {
@@ -222,12 +221,10 @@ function App() {
                 setModel(cachedModel);
                 setOutputPath(cachedPath);
 
-                if (cachedChars) {
-                    setCharacters(JSON.parse(cachedChars));
-                } else {
-                    setCharacters([
-                        { name: 'HERO', description: 'Stick figure with round head, black outlines, green warrior tunic, brown leather belt, two dot eyes, and determined grin.' }
-                    ]);
+                try {
+                    if (cachedChars) setCharacters(JSON.parse(cachedChars));
+                } catch(e) {
+                    setCharacters([{ name: 'HERO', description: 'Stick figure with round head, black outlines, green warrior tunic, brown leather belt, two dot eyes, and determined grin.' }]);
                 }
             });
 
@@ -264,15 +261,7 @@ function App() {
     };
 
     const addLog = (msg) => {
-        setPipelineLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-    };
-
-    const updateStageStatus = (stageId, status) => {
-        setPipelineStages(prev => prev.map(s => s.id === stageId ? { ...s, status } : s));
-    };
-
-    const resetPipelineStages = () => {
-        setPipelineStages(prev => prev.map(s => ({ ...s, status: 'idle' })));
+        setPipelineLogs(prev => [...prev.slice(-499), `[${new Date().toLocaleTimeString()}] ${msg}`]);
     };
 
     // Helper to format timestamps dynamically
@@ -354,33 +343,6 @@ Generate exactly 10 items, one for each category.`
         } finally {
             setIsGenerating(false);
         }
-    };
-
-    // Helper: Call OpenRouter LLM
-    const callOpenRouter = async (systemPrompt, userPrompt) => {
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-                'HTTP-Referer': window.location.origin,
-                'X-Title': 'Doodle Theory OS'
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ]
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`OpenRouter HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data.choices[0].message.content;
     };
 
     // Orchestrates sequential, multi-call generation logic in background on the server
@@ -486,7 +448,6 @@ ${currentScript.thumbnail}
             return `Scene ${idx + 1} (${s.time} | ${s.duration}s)\nVO: "${s.voiceover}"\nSFX: ${s.sfx} | Camera: ${s.camera}\nPrompt: ${s.prompt}\nOverlay: ${s.textOverlay || 'None'}\n----------------------------------------`;
         }).join('\n\n');
         copyToClipboard(text, 'full-script');
-        alert('Full script + SEO metadata copied to clipboard!');
     };
 
     const runVideoCompilation = async () => {
@@ -726,7 +687,7 @@ Return only the corrected prompt text, nothing else.`;
     return (
         <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-200">
             {/* TOP NAVBAR */}
-            <nav className="border-b border-neutral-900 bg-neutral-900/40 backdrop-blur-md px-4 md:px-8 py-4 flex justify-between items-center sticky top-0 z-45">
+            <nav className="border-b border-neutral-900 bg-neutral-900/40 backdrop-blur-md px-4 md:px-8 py-4 flex justify-between items-center sticky top-0 z-40">
                 <div className="flex items-center gap-3">
                     {/* Hamburger Button for Mobile Drawer Toggling */}
                     <button 
@@ -833,7 +794,7 @@ Return only the corrected prompt text, nothing else.`;
                 )}
 
                 {/* SIDEBAR PANEL */}
-                <aside className={`fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-900 p-4 space-y-1.5 z-45 flex flex-col justify-between transform transition-transform duration-300 md:relative md:transform-none md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <aside className={`fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-900 p-4 space-y-1.5 z-40 flex flex-col justify-between transform transition-transform duration-300 md:relative md:transform-none md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="space-y-1.5">
                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest px-3 mb-3">Core Engines</div>
                         
@@ -881,7 +842,7 @@ Return only the corrected prompt text, nothing else.`;
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
                                 <div>
                                     <h2 className="text-xl font-bold text-white mb-1">Autonomous Multistage Terminal</h2>
-                                    <p className="text-sm text-neutral-400 font-medium">Clicking **Launch Production Blueprint** starts an automated background orchestrator. It executes sequential LLM calls to write a complete, dynamically-paced script in acts without lazy truncations or identical copy-pasted prompts.</p>
+                                    <p className="text-sm text-neutral-400 font-medium">Clicking <strong>Launch Production Blueprint</strong> starts an automated background orchestrator. It executes sequential LLM calls to write a complete, dynamically-paced script in acts without lazy truncations or identical copy-pasted prompts.</p>
                                 </div>
                                 
                                 <div className="space-y-3">
@@ -953,6 +914,12 @@ Return only the corrected prompt text, nothing else.`;
                                             </div>
                                         ))}
                                     </div>
+                                    {/* Show error if pipeline failed */}
+                                    {pipelineStages.some(s => s.status === 'failed') && (
+                                        <div className="bg-red-950/20 border border-red-500/30 p-3 rounded-xl text-red-400 text-xs font-mono">
+                                            ❌ Pipeline failed. Check logs above for details.
+                                        </div>
+                                    )}
                                     
                                     <div className="flex gap-2 w-full md:w-auto shrink-0">
                                         <button 
