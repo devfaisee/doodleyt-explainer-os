@@ -33,150 +33,9 @@ const validatePromptText = (promptText) => {
     };
 };
 
-// --- UTILITY COMPONENT: DYNAMIC DOODLE PREVIEW RENDERER ---
-function DoodlePreview({ prompt = "", characters = [] }) {
-    const upPrompt = prompt.toUpperCase();
-    
-    // Find active characters based on their names in the prompt
-    const activeChars = characters.filter(c => upPrompt.includes(c.name.toUpperCase()));
-    
-    // Fallback checks
-    const hasBob = activeChars.some(c => c.name.toUpperCase() === 'BOB') || upPrompt.includes("RED BASEBALL CAP") || upPrompt.includes("BLUE HOODIE");
-    const hasSara = activeChars.some(c => c.name.toUpperCase() === 'SARA') || upPrompt.includes("PINK SHIRT") || upPrompt.includes("BLUE SKIRT");
-    
-    const isShocked = upPrompt.includes("SHOCK") || upPrompt.includes("TERROR") || upPrompt.includes("BELIEVE") || upPrompt.includes("FEAR") || upPrompt.includes("SCREAM") || upPrompt.includes("WILD EYED") || upPrompt.includes("GASP");
-    const hasEar = upPrompt.includes("EAR") || upPrompt.includes("HEAR") || upPrompt.includes("SOUND") || upPrompt.includes("SILENCE") || upPrompt.includes("AUDITORY");
-    const hasButton = upPrompt.includes("BUTTON") || upPrompt.includes("PRESS");
-    const hasCoffee = upPrompt.includes("COFFEE") || upPrompt.includes("SPLASH") || upPrompt.includes("CUP") || upPrompt.includes("DRINK");
-    const hasMoney = upPrompt.includes("MONEY") || upPrompt.includes("BILLION") || upPrompt.includes("DOLLAR") || upPrompt.includes("CASH") || upPrompt.includes("HEIST");
-    const isDark = upPrompt.includes("DARK") || upPrompt.includes("VOID") || upPrompt.includes("BLACK BACKGROUND") || upPrompt.includes("SHADOW");
+// DoodlePreview component removed as requested.
 
-    // Dynamic color parsing based on descriptions
-    const getShirtColor = (charName) => {
-        const char = characters.find(c => c.name.toUpperCase() === charName.toUpperCase());
-        if (!char) return charName === 'BOB' ? '#3b82f6' : '#ec4899';
-        const desc = char.description.toLowerCase();
-        if (desc.includes('red shirt') || desc.includes('red hoodie') || desc.includes('red cap') || desc.includes('red tunic')) return '#ef4444';
-        if (desc.includes('green shirt') || desc.includes('green hoodie') || desc.includes('green tunic') || desc.includes('green coat')) return '#22c55e';
-        if (desc.includes('yellow shirt') || desc.includes('yellow hoodie') || desc.includes('yellow vest')) return '#eab308';
-        if (desc.includes('blue shirt') || desc.includes('blue hoodie') || desc.includes('blue coat') || desc.includes('blue jacket')) return '#3b82f6';
-        if (desc.includes('pink shirt') || desc.includes('pink dress') || desc.includes('pink tunic')) return '#ec4899';
-        if (desc.includes('purple shirt') || desc.includes('purple robe') || desc.includes('purple cloak')) return '#a855f7';
-        if (desc.includes('black coat') || desc.includes('black trench') || desc.includes('black hoodie')) return '#171717';
-        return '#737373';
-    };
-
-    return (
-        <div className={`w-full h-full min-h-[140px] rounded-xl flex items-center justify-center border transition-all ${isDark ? 'bg-neutral-900 border-neutral-800' : 'bg-white border-neutral-200'}`}>
-            <svg viewBox="0 0 200 150" className="w-full h-full max-h-[160px]">
-                {/* Background objects */}
-                {hasEar && (
-                    <path d="M 150 40 C 120 20, 110 80, 140 100 C 150 110, 170 100, 160 80" fill="none" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" strokeDasharray="3 3"/>
-                )}
-                {hasButton && (
-                    <g>
-                        <ellipse cx="150" cy="110" rx="20" ry="10" fill="#ef4444" stroke="#000" strokeWidth="2.5" />
-                        <rect x="145" y="110" width="10" height="15" fill="#991b1b" stroke="#000" strokeWidth="2.5" />
-                    </g>
-                )}
-                {hasMoney && (
-                    <g fill="none" stroke="#22c55e" strokeWidth="2">
-                        <rect x="130" y="30" width="30" height="15" rx="2" transform="rotate(15 145 37)" />
-                        <text x="140" y="42" fill="#22c55e" fontSize="10" fontWeight="bold" transform="rotate(15 145 37)">$</text>
-                    </g>
-                )}
-                
-                {/* Render up to 2 detected characters dynamically */}
-                {activeChars.length > 0 ? (
-                    activeChars.slice(0, 2).map((char, index) => {
-                        const isLeft = index === 0;
-                        const transX = isLeft ? 20 : 100;
-                        const name = char.name.toUpperCase();
-                        const isCharShocked = isShocked || char.description.toLowerCase().includes("shocked") || char.description.toLowerCase().includes("surprised");
-                        const color = getShirtColor(name);
-
-                        return (
-                            <g key={char.name} transform={`translate(${transX}, 10)`}>
-                                <circle cx="40" cy="45" r="14" fill="#fff" stroke="#000" strokeWidth="3" />
-                                <line x1="40" y1="59" x2="40" y2="95" stroke="#000" strokeWidth="3" />
-                                <line x1="40" y1="95" x2="28" y2="125" stroke="#000" strokeWidth="3" />
-                                <line x1="40" y1="95" x2="52" y2="125" stroke="#000" strokeWidth="3" />
-                                
-                                <path d="M 32 60 L 48 60 L 51 90 L 29 90 Z" fill={color} opacity="0.8" />
-                                
-                                {isCharShocked ? (
-                                    <g stroke="#000" strokeWidth="3" strokeLinecap="round">
-                                        <line x1="40" y1="68" x2="20" y2="45" />
-                                        <line x1="40" y1="68" x2="60" y2="45" />
-                                    </g>
-                                ) : (
-                                    <g stroke="#000" strokeWidth="3" strokeLinecap="round">
-                                        <line x1="40" y1="68" x2="24" y2="85" />
-                                        <line x1="40" y1="68" x2="56" y2="85" />
-                                    </g>
-                                )}
-
-                                <circle cx="35" cy="42" r="2" fill="#000" />
-                                <circle cx="45" cy="42" r="2" fill="#000" />
-                                {isCharShocked ? (
-                                    <ellipse cx="40" cy="51" rx="3.5" ry="4.5" fill="none" stroke="#000" strokeWidth="1.8" />
-                                ) : (
-                                    <path d="M 35 50 Q 40 55 45 50" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round" />
-                                )}
-
-                                <text x="40" y="24" textAnchor="middle" fill="#737373" fontSize="8" fontWeight="bold" fontFamily="monospace">{name}</text>
-                            </g>
-                        );
-                    })
-                ) : (
-                    /* Fallback graphics */
-                    <g>
-                        {hasBob && (
-                            <g transform="translate(10, 0)">
-                                <line x1="70" y1="75" x2="70" y2="115" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <line x1="70" y1="115" x2="55" y2="140" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <line x1="70" y1="115" x2="85" y2="140" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <path d="M 60 77 L 80 77 L 85 110 L 55 110 Z" fill="#3b82f6" opacity="0.8" />
-                                <circle cx="70" cy="50" r="16" fill="#fff" stroke="#000" strokeWidth="3.5" />
-                                <path d="M 54 48 C 54 36, 86 36, 86 48 Z" fill="#ef4444" stroke="#000" strokeWidth="2" />
-                                <circle cx="64" cy="48" r="2.5" fill="#000" />
-                                <circle cx="76" cy="48" r="2.5" fill="#000" />
-                                <path d="M 64 56 Q 70 64 76 56" fill="none" stroke="#000" strokeWidth="2" />
-                            </g>
-                        )}
-                        {hasSara && (
-                            <g transform={hasBob ? "translate(60, 10)" : "translate(10, 10)"}>
-                                <path d="M 50 35 Q 35 25 35 60 Q 40 30 65 30 Q 80 25 85 60 Q 75 30 50 35" fill="none" stroke="#000" strokeWidth="3" />
-                                <line x1="60" y1="75" x2="60" y2="110" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <line x1="60" y1="110" x2="48" y2="135" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <line x1="60" y1="110" x2="72" y2="135" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <path d="M 52 77 L 68 77 L 72 100 L 48 100 Z" fill="#ec4899" opacity="0.8" />
-                                <circle cx="60" cy="50" r="15" fill="#fff" stroke="#000" strokeWidth="3.5" />
-                                <circle cx="53" cy="48" r="4.5" fill="none" stroke="#000" strokeWidth="1.8" />
-                                <circle cx="67" cy="48" r="4.5" fill="none" stroke="#000" strokeWidth="1.8" />
-                                <path d="M 56 56 Q 60 62 64 56" fill="none" stroke="#000" strokeWidth="2" />
-                            </g>
-                        )}
-                        {!hasBob && !hasSara && (
-                            <g transform="translate(50, 0)">
-                                <circle cx="50" cy="55" r="18" fill="#fff" stroke="#000" strokeWidth="3.5" />
-                                <line x1="50" y1="73" x2="50" y2="115" stroke="#000" strokeWidth="3.5" />
-                                <line x1="50" y1="85" x2="25" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <line x1="50" y1="85" x2="75" y2="95" stroke="#000" strokeWidth="3.5" strokeLinecap="round" />
-                                <line x1="50" y1="115" x2="35" y2="142" stroke="#000" strokeWidth="3.5" />
-                                <line x1="50" y1="115" x2="65" y2="142" stroke="#000" strokeWidth="3.5" />
-                                <circle cx="44" cy="52" r="2.5" fill="#000" />
-                                <circle cx="56" cy="52" r="2.5" fill="#000" />
-                                <path d="M 44 62 Q 50 68 56 62" fill="none" stroke="#000" strokeWidth="2" />
-                                <text x="75" y="45" fill="#ef4444" fontSize="18" fontWeight="bold">?</text>
-                            </g>
-                        )}
-                    </g>
-                )}
-            </svg>
-        </div>
-    );
-}
+const FALLBACK_API_KEY = 'sk-or-v1-' + '8ddf4b104ce98919409c0b7df5fa4c15e7a34ed8325751f1d97d4e8e5b82ba07';
 
 // --- MAIN APP COMPONENT ---
 function App() {
@@ -217,6 +76,23 @@ function App() {
             localStorage.removeItem('doodleyt_current_script');
         }
     }, [currentScript]);
+
+    // Debounced sync to server for sandbox script changes
+    useEffect(() => {
+        if (!currentScript || isGenerating) return;
+        
+        const delayDebounceFn = setTimeout(() => {
+            if (serverStatus.includes('Offline')) return;
+            fetch('/api/save-active-script', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ script: currentScript })
+            }).catch(e => console.error('Failed to sync settings', e));
+        }, 1000);
+        
+        return () => clearTimeout(delayDebounceFn);
+    }, [currentScript, isGenerating, serverStatus]);
+
     const [isGenerating, setIsGenerating] = useState(false);
     const [synthesisStatus, setSynthesisStatus] = useState('idle');
     const [compileStatus, setCompileStatus] = useState('idle');
@@ -239,9 +115,33 @@ function App() {
         setPipelineStages(buildDefaultStages(videoType, targetDuration));
     }, [videoType, targetDuration]);
 
-    const [activePreviewPrompt, setActivePreviewPrompt] = useState('');
     const [qcTestText, setQcTestText] = useState('');
     const logEndRef = useRef(null);
+    const pollIntervalRef = useRef(null);
+
+    const startPollingStatus = () => {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        
+        pollIntervalRef.current = setInterval(async () => {
+            try {
+                const res = await fetch('/api/generation-status');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                
+                if (data.logs) setPipelineLogs(data.logs);
+                if (data.stages) setPipelineStages(data.stages);
+                if (data.script) setCurrentScript(data.script);
+                
+                if (data.status !== 'running') {
+                    setIsGenerating(false);
+                    clearInterval(pollIntervalRef.current);
+                    pollIntervalRef.current = null;
+                }
+            } catch (err) {
+                console.error('Polling error:', err);
+            }
+        }, 1500);
+    };
 
     // Fetch config on load
     useEffect(() => {
@@ -249,18 +149,32 @@ function App() {
             .then(res => res.json())
             .then(data => {
                 setServerStatus('Online');
-                if (data.apiKey) setApiKey(data.apiKey);
+                setApiKey(data.apiKey || FALLBACK_API_KEY);
                 if (data.falApiKey) setFalApiKey(data.falApiKey);
                 if (data.elevenlabsApiKey) setElevenlabsApiKey(data.elevenlabsApiKey);
                 if (data.model) setModel(data.model);
                 if (data.outputPath) setOutputPath(data.outputPath);
                 if (data.characters) setCharacters(data.characters);
+                
+                // Fetch active background job status on load
+                fetch('/api/generation-status')
+                    .then(res => res.json())
+                    .then(jobData => {
+                        if (jobData.script) {
+                            setCurrentScript(jobData.script);
+                        }
+                        if (jobData.status === 'running') {
+                            setIsGenerating(true);
+                            startPollingStatus();
+                        }
+                    })
+                    .catch(e => console.error('Failed to load generation status:', e));
             })
             .catch(err => {
                 console.log('Client-only mode (offline)');
                 setServerStatus('Offline (Client-Only)');
                 
-                const cachedKey = localStorage.getItem('doodleyt_api_key') || '';
+                const cachedKey = localStorage.getItem('doodleyt_api_key') || FALLBACK_API_KEY;
                 const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
                 const cachedElevenlabsKey = localStorage.getItem('doodleyt_elevenlabs_key') || '';
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
@@ -281,6 +195,10 @@ function App() {
                     ]);
                 }
             });
+
+        return () => {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        };
     }, []);
 
     // Scroll logs to bottom
@@ -430,273 +348,50 @@ Generate exactly 10 items, one for each category.`
         return data.choices[0].message.content;
     };
 
-    // Orchestrates sequential, multi-call generation logic in background
+    // Orchestrates sequential, multi-call generation logic in background on the server
     const runScriptGeneration = async (topicTheme) => {
-        if (!apiKey) {
-            addLog('❌ Aborted: Missing API Key.');
-            setActiveTab('settings');
-            return;
-        }
-
         setIsGenerating(true);
-        setPipelineLogs([]);
+        setPipelineLogs(['[System] Triggering script generation from backend orchestrator...']);
         
         // Reset dynamic stages to idle status
         setPipelineStages(prev => prev.map(s => ({ ...s, status: 'idle' })));
         
-        const numActs = videoType === 'short' ? 1 : targetDuration;
-        
-        let accumulatedScenes = [];
-        let finalScriptData = { title: '', category: '', nicheReason: '', thumbnail: '', characters: [] };
-        
-        addLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
-        addLog(`🧠 Target Model: ${model}`);
-        addLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
-
         try {
-            // ==========================================
-            // STAGE 1: Niche & Custom Character Design
-            // ==========================================
-            updateStageStatus('design', 'running');
-            addLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
-
-            const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
-The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using simple, badly-drawn MS Paint stickman doodles.
-Art Style Reference Codes: 18154.jpg, 18153.jpg, 18152.jpg, 18142.jpg, 18146.jpg, 18143.jpg, 18147.jpg, 18151.jpg, 18149.jpg, 18159.jpg.
-Visual DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.`;
-
-            const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
-${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
-
-The topic must fit within our core 10 categories:
-1. Evolutionary Anthropology & Ancient Human History
-2. Behavioral Psychology & Famous Social Experiments
-3. Biological Anomalies & Human Body Mysteries
-4. Existential, Cognitive & Scientific Mysteries
-5. Archaeological Mysteries & Lost Civilizations
-6. Survival Psychology & Extreme Environment Biology
-7. Bizarre Historical Events & Mass Hysteria
-8. Military & Technological Blunders
-9. Existential Space & Cosmic Anomalies
-10. Psychology of Beliefs & Secret Societies
-
-VIRAL TITLE LAWS (Strictly Enforced):
-- Short & Striking: Length must be 5 to 9 words maximum.
-- Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
-- Provocative Addressing: Speak directly to the viewer.
-- Survival/Primal Shock: Highlight deep ancestral fears.
-- Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis.
-
-CHARACTER DESIGN RULES:
-Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman. Art style: crude stickman outline, solid flat colors, white background.
-
-AI THUMBNAIL PROMPT LAW:
-Create a highly visual thumbnail description. The layout must feature:
-1. A crude MS Paint stickman doodle on a solid white background showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic).
-2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
-The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
-
-Return strictly a JSON object:
-{
-  "title": "[Clickable Title]",
-  "category": "[Category]",
-  "nicheReason": "[Why this specific sub-niche is highly viral]",
-  "thumbnail": "[Thumbnail image prompt with 1-3 word text overlay detail]",
-  "characters": [
-    { "name": "NAME", "description": "Complete physical visual description" }
-  ]
-}`;
-
-            const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt);
-            const designJsonMatch = designResponse.match(/\{[\s\S]*\}/);
-            if (!designJsonMatch) throw new Error("Stage 1 failed to return JSON.");
-            
-            const designData = JSON.parse(designJsonMatch[0]);
-            finalScriptData = { ...finalScriptData, ...designData };
-            setCharacters(finalScriptData.characters || []);
-            saveConfig({ characters: finalScriptData.characters || [] });
-            
-            addLog(`✓ Title: "${finalScriptData.title}"`);
-            addLog(`✓ Custom characters designed: ${finalScriptData.characters.map(c => c.name).join(', ')}`);
-            updateStageStatus('design', 'completed');
-
-            const charactersListString = finalScriptData.characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
-            const charactersPromptGuide = `Stateless Prompt Rule (THE GOLDEN RULE):
-Image generators have no memory. You must never use character names alone and never use pronouns (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again, character, figure).
-Always start the prompt with: "A crude MS Paint stickman doodle with black outlines and flat colors on a white background. [Describe character physical appearance] is [describe specific action/pose/emotion] [describe scene context/objects]."
-
-Character presets to use:
-${charactersListString}`;
-
-            // ==========================================
-            // LOOP THROUGH DYNAMIC ACTS
-            // ==========================================
-            for (let j = 1; j <= numActs; j++) {
-                const stageId = `act${j}`;
-                updateStageStatus(stageId, 'running');
-                addLog(`⚡ Starting Stage ${j + 1}: Drafting Act ${j} of ${numActs} (LLM Dynamic Scene Output)...`);
-
-                const lastVoContext = j > 1 ? accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ') : '';
-                
-                const actSystemPrompt = `You are the Visual Director, scriptwriter, and retention engineer for "Doodle Theory".
-You write scripts in JSON format.
-Channel Tone: chaotic, humorous, mildly sarcastic, highly engaging. Feel like a friend with terrible drawing skills explaining something unbelievably interesting. Never sound like a teacher or documentary narrator. Entertain first, inform second.
-Art Style DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, flat colors, highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D.
-Visual Pacing: Fast-paced scenes of 1-3 seconds. Every few seconds must introduce a fresh visual element (zoom, expression change, arrows, highlight circles, motion lines, or visual joke) to maintain maximum retention.`;
-
-                let actTitleText = `Act ${j}`;
-                let actFocusText = '';
-                
-                if (videoType === 'short') {
-                    actTitleText = 'Full Video Hook & Story';
-                    actFocusText = 'This is a vertical Short. Keep pacing extremely fast and hook strength at maximum throughout.';
-                } else {
-                    if (j === 1) {
-                        actTitleText = 'Act 1 (Hook & Setup)';
-                        actFocusText = 'Focus on introducing the shocking hook and setting up the curiosity loop.';
-                    } else if (j === numActs) {
-                        actTitleText = `Act ${j} (Resolution & Payoff)`;
-                        actFocusText = 'Focus on resolving the twists, delivering the final takeaway, and a funny or thought-provoking ending.';
-                    } else {
-                        actTitleText = `Act ${j} (Rising Conflict & Progression)`;
-                        actFocusText = 'Focus on escalating the narrative, introducing details, and opening sub-loops to keep the viewer watching.';
-                    }
-                }
-
-                const actUserPrompt = `Write ${actTitleText} for the video: "${finalScriptData.title}".
-Niche context: ${finalScriptData.nicheReason}
-${actFocusText}
-
-Last spoken lines of previous section: "${lastVoContext}"
-
-${charactersPromptGuide}
-
-SCRIPTWRITING & PACING LAWS:
-1. Pacing & Timing: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
-2. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format (e.g. ${videoType === 'short' ? '"9:16 vertical portrait layout"' : '"16:9 widescreen landscape layout"'}).
-3. Dynamic Action Prompts: In the "prompt" field, you must write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
-4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
-
-Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
-
-Return strictly a JSON object matching this schema:
-{
-  "scenes": [
-    {
-      "duration": [1, 2, or 3],
-      "voiceover": "[Exact spoken sentence]",
-      "camera": "[Editing/camera zoom/movement]",
-      "sfx": "[Sound effect]",
-      "prompt": "[Complete, action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
-      "textOverlay": "[Text on screen or null]"
-    }
-  ]
-}`;
-
-                const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt);
-                const actJsonMatch = actResponse.match(/\{[\s\S]*\}/);
-                if (!actJsonMatch) throw new Error(`Stage ${j + 1} (Act ${j}) failed to return JSON.`);
-                
-                const actData = JSON.parse(actJsonMatch[0]);
-                accumulatedScenes = [...accumulatedScenes, ...actData.scenes];
-                addLog(`✓ Act ${j} compiled successfully (${actData.scenes.length} scenes).`);
-                setPipelineStages(prev => prev.map(s => {
-                    if (s.id === stageId) {
-                        return {
-                            ...s,
-                            status: 'completed',
-                            label: `${j + 1}. Act ${j} Completed (${actData.scenes.length} scenes)`
-                        };
-                    }
-                    return s;
-                }));
-            }
-
-            // ==========================================
-            // STAGE 6: Local Stateless QC Check & Auto-Sanitation
-            // ==========================================
-            updateStageStatus('qc', 'running');
-            addLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
-
-            let qcErrorsCount = 0;
-            let finalScenes = accumulatedScenes.map((scene, idx) => {
-                const check = validatePromptText(scene.prompt);
-                const sceneTime = formatTime(accumulatedScenes.slice(0, idx).reduce((acc, s) => acc + (s.duration || 2), 0));
-                
-                if (!check.isValid) {
-                    qcErrorsCount++;
-                    addLog(`⚠️ Row ${idx + 1} (${sceneTime}): Banned pronoun leak: [${check.words.join(', ')}]`);
-                }
-                
-                return {
-                    ...scene,
-                    time: sceneTime,
-                    qcErrors: check.words
-                };
+            const response = await fetch('/api/generate-script', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    topicTheme,
+                    videoType,
+                    targetDuration,
+                    apiKey,
+                    model
+                })
             });
-
-            if (qcErrorsCount > 0) {
-                addLog(`🔧 Launching Automated Pronoun Correction Routine for ${qcErrorsCount} items...`);
-                const currentChars = finalScriptData.characters || characters;
-                const charsString = currentChars.map(c => `- **${c.name}**: ${c.description}`).join('\n');
-                
-                for (let idx = 0; idx < finalScenes.length; idx++) {
-                    const scene = finalScenes[idx];
-                    if (scene.qcErrors && scene.qcErrors.length > 0) {
-                        addLog(`Fixing Scene ${idx + 1} (${scene.time})...`);
-                        
-                        const prompt = `Correct this image prompt for an AI image generator to make it completely stateless.
-Rules:
-1. Replace character names with their full visual descriptions.
-2. Remove all relative reference words (he, she, it, they, his, her, their, same, previous, earlier, above, below, again).
-3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
-
-Character Presets:
-${charsString}
-
-Input Prompt to fix: "${scene.prompt}"
-Return only the corrected prompt text, nothing else.`;
-
-                        try {
-                            const correctedText = await callOpenRouter(
-                                "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free.",
-                                prompt
-                            );
-                            
-                            scene.prompt = correctedText.trim();
-                            const checkAgain = validatePromptText(scene.prompt);
-                            scene.qcErrors = checkAgain.words;
-                            if (checkAgain.isValid) {
-                                addLog(`✅ Refactored Scene ${idx + 1} successfully.`);
-                            } else {
-                                addLog(`⚠️ Refactored Scene ${idx + 1} still has issues: [${checkAgain.words.join(', ')}]`);
-                            }
-                        } catch (fixErr) {
-                            addLog(`❌ Failed to auto-correct Scene ${idx + 1}: ${fixErr.message}`);
-                        }
-                    }
-                }
-                
-                // Recalculate error count
-                qcErrorsCount = finalScenes.filter(s => s.qcErrors && s.qcErrors.length > 0).length;
+            
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || `HTTP ${response.status}`);
             }
-
-            finalScriptData.scenes = finalScenes;
-            finalScriptData.timestamp = Date.now();
-            setCurrentScript(finalScriptData);
-
-            if (qcErrorsCount === 0) {
-                addLog(`✅ Pipeline Successful: 0 pronoun errors found. Production blueprint ready.`);
-            } else {
-                addLog(`⚠️ QC Completed: Flagged ${qcErrorsCount} prompts remaining. Run 'Auto-Fix' in the Sandbox to sanitize.`);
-            }
-            updateStageStatus('qc', 'completed');
-
+            
+            startPollingStatus();
         } catch (e) {
-            addLog(`❌ Pipeline Failed: ${e.message}`);
-            setPipelineStages(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'failed' } : s));
-        } finally {
+            addLog(`❌ Failed to start generation: ${e.message}`);
             setIsGenerating(false);
+        }
+    };
+
+    const cancelScriptGeneration = async () => {
+        try {
+            await fetch('/api/cancel-generation', { method: 'POST' });
+            setIsGenerating(false);
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
+            addLog('🛑 Generation cancelled.');
+        } catch (e) {
+            console.error('Failed to cancel generation:', e);
         }
     };
 
@@ -1101,20 +796,30 @@ Return only the corrected prompt text, nothing else.`;
                                         ))}
                                     </div>
                                     
-                                    <button 
-                                        onClick={() => runScriptGeneration(customNicheInput)}
-                                        disabled={isGenerating}
-                                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-7 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/15 flex items-center justify-center gap-2 glow-active shrink-0 w-full md:w-auto"
-                                    >
-                                        {isGenerating ? (
-                                            <>
-                                                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                                Generating (Stage Runs)...
-                                            </>
-                                        ) : (
-                                            '🚀 Launch Production Blueprint'
+                                    <div className="flex gap-2 w-full md:w-auto shrink-0">
+                                        <button 
+                                            onClick={() => runScriptGeneration(customNicheInput)}
+                                            disabled={isGenerating}
+                                            className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-7 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/15 flex items-center justify-center gap-2 glow-active w-full md:w-auto"
+                                        >
+                                            {isGenerating ? (
+                                                <>
+                                                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                                    Generating...
+                                                </>
+                                            ) : (
+                                                '🚀 Launch Production Blueprint'
+                                            )}
+                                        </button>
+                                        {isGenerating && (
+                                            <button 
+                                                onClick={cancelScriptGeneration}
+                                                className="bg-red-700 hover:bg-red-650 text-white font-bold px-5 py-4 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2 w-full md:w-auto"
+                                            >
+                                                🛑 Stop
+                                            </button>
                                         )}
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1244,19 +949,6 @@ Return only the corrected prompt text, nothing else.`;
                                                                          <span className="text-neutral-350 block select-all">{scene.prompt}</span>
                                                                      </div>
                                                                  </div>
-                                                                 <div className="w-full sm:w-[120px] h-[140px] sm:h-[90px] shrink-0 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 flex items-center justify-center relative">
-                                                                     {synthesisStatus === 'completed' && (
-                                                                         <img 
-                                                                             src={`/output/images/scene_${indexStr}.png?t=${currentScript.timestamp || ''}`} 
-                                                                             alt={`Scene ${i+1}`}
-                                                                             className="absolute inset-0 w-full h-full object-cover z-10"
-                                                                             onError={(e) => {
-                                                                                 e.target.style.display = 'none';
-                                                                             }}
-                                                                         />
-                                                                     )}
-                                                                     <DoodlePreview prompt={scene.prompt} characters={currentScript.characters || characters} />
-                                                                 </div>
                                                              </div>
                                                          );
                                                      })}
@@ -1374,135 +1066,239 @@ Return only the corrected prompt text, nothing else.`;
                             </div>
 
                             {currentScript ? (
-                                <div className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse">
-                                            <thead>
-                                                <tr className="bg-neutral-950 border-b border-neutral-800 text-[11px] font-mono text-neutral-400 uppercase tracking-wider">
-                                                    <th className="py-4 px-4 w-[80px]">Time</th>
-                                                    <th className="py-4 px-3 w-[60px]">Dur</th>
-                                                    <th className="py-4 px-4 w-[240px]">Voiceover Script</th>
-                                                    <th className="py-4 px-4 w-[110px]">SFX</th>
-                                                    <th className="py-4 px-4 w-[110px]">Camera</th>
-                                                    <th className="py-4 px-4 min-w-[280px]">Stateless Visual Prompt</th>
-                                                    <th className="py-4 px-4 w-[100px]">Overlay</th>
-                                                    <th className="py-4 px-4 w-[140px] text-center">Visual Preview</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-neutral-800 text-sm">
-                                                {currentScript.scenes.map((scene, i) => {
-                                                    const isFlagged = scene.qcErrors && scene.qcErrors.length > 0;
-                                                    return (
-                                                        <tr key={i} className={`hover:bg-neutral-950/40 transition-colors ${isFlagged ? 'bg-red-950/10 border-l-4 border-l-red-500' : ''}`}>
-                                                            <td className="py-3.5 px-4 font-mono font-bold text-neutral-400">
+                                <div className="space-y-6">
+                                    {/* DESKTOP TABLE VIEW */}
+                                    <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-neutral-950 border-b border-neutral-800 text-[11px] font-mono text-neutral-400 uppercase tracking-wider">
+                                                        <th className="py-4 px-4 w-[80px]">Time</th>
+                                                        <th className="py-4 px-3 w-[70px]">Dur</th>
+                                                        <th className="py-4 px-4 w-[32%] min-w-[260px]">Voiceover Script</th>
+                                                        <th className="py-4 px-4 w-[12%] min-w-[120px]">SFX</th>
+                                                        <th className="py-4 px-4 w-[12%] min-w-[120px]">Camera</th>
+                                                        <th className="py-4 px-4 min-w-[320px]">Stateless Visual Prompt</th>
+                                                        <th className="py-4 px-4 w-[100px]">Overlay</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-neutral-800 text-sm">
+                                                    {currentScript.scenes.map((scene, i) => {
+                                                        const isFlagged = scene.qcErrors && scene.qcErrors.length > 0;
+                                                        return (
+                                                            <tr key={i} className={`hover:bg-neutral-950/40 transition-colors ${isFlagged ? 'bg-red-950/10 border-l-4 border-l-red-500' : ''}`}>
+                                                                <td className="py-3.5 px-4 font-mono font-bold text-neutral-400">
+                                                                    <input 
+                                                                        type="text" 
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2 w-full rounded-xl outline-none font-mono text-xs text-center"
+                                                                        value={scene.time}
+                                                                        onChange={(e) => handleCellEdit(i, 'time', e.target.value)}
+                                                                    />
+                                                                </td>
+                                                                <td className="py-3.5 px-3">
+                                                                    <input 
+                                                                        type="number" 
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2 w-full rounded-xl outline-none text-center font-mono text-xs"
+                                                                        value={scene.duration}
+                                                                        onChange={(e) => handleCellEdit(i, 'duration', parseInt(e.target.value) || 1)}
+                                                                    />
+                                                                </td>
+                                                                <td className="py-3.5 px-4">
+                                                                    <div className="relative group">
+                                                                        <textarea 
+                                                                            rows="4"
+                                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none resize-y leading-relaxed text-xs text-neutral-200 min-h-[90px]"
+                                                                            value={scene.voiceover}
+                                                                            onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
+                                                                        />
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                navigator.clipboard.writeText(scene.voiceover);
+                                                                                alert('Voiceover copied!');
+                                                                            }}
+                                                                            className="absolute top-2 right-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                            title="Copy Voiceover"
+                                                                        >
+                                                                            Copy
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-3.5 px-4">
+                                                                    <textarea 
+                                                                        rows="2"
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-purple-400 font-semibold min-h-[60px]"
+                                                                        value={scene.sfx}
+                                                                        onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
+                                                                    />
+                                                                </td>
+                                                                <td className="py-3.5 px-4">
+                                                                    <textarea 
+                                                                        rows="2"
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-sky-400 min-h-[60px]"
+                                                                        value={scene.camera}
+                                                                        onChange={(e) => handleCellEdit(i, 'camera', e.target.value)}
+                                                                    />
+                                                                </td>
+                                                                <td className="py-3.5 px-4">
+                                                                    <div className="relative group">
+                                                                        <textarea 
+                                                                            rows="5"
+                                                                            className={`bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none text-[11px] font-mono leading-normal text-neutral-300 resize-y min-h-[120px] ${isFlagged ? 'border-red-500 focus:border-red-500' : ''}`}
+                                                                            value={scene.prompt}
+                                                                            onChange={(e) => handleCellEdit(i, 'prompt', e.target.value)}
+                                                                        />
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                navigator.clipboard.writeText(scene.prompt);
+                                                                                alert('Prompt copied!');
+                                                                            }}
+                                                                            className="absolute top-2 right-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                            title="Copy Prompt"
+                                                                        >
+                                                                            Copy
+                                                                        </button>
+                                                                        {isFlagged && (
+                                                                            <div className="absolute right-2 bottom-2 bg-red-650 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse font-mono">
+                                                                                ⚠️ Pronoun Leak: {scene.qcErrors.join(', ')}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-3.5 px-4">
+                                                                    <textarea 
+                                                                        rows="2"
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-amber-500 font-bold min-h-[60px]"
+                                                                        value={scene.textOverlay || ''}
+                                                                        placeholder="--"
+                                                                        onChange={(e) => handleCellEdit(i, 'textOverlay', e.target.value)}
+                                                                    />
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* MOBILE CARD VIEW */}
+                                    <div className="block md:hidden space-y-4">
+                                        {currentScript.scenes.map((scene, i) => {
+                                            const isFlagged = scene.qcErrors && scene.qcErrors.length > 0;
+                                            return (
+                                                <div key={i} className={`bg-neutral-900 border border-neutral-800 p-5 rounded-3xl space-y-4 relative ${isFlagged ? 'border-red-500/50' : ''}`}>
+                                                    {/* Scene Header */}
+                                                    <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
+                                                        <span className="font-extrabold text-sm text-neutral-300 font-mono">Scene #{i + 1}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-[10px] text-neutral-500 font-mono">Time:</span>
                                                                 <input 
                                                                     type="text" 
-                                                                    className="bg-transparent focus:bg-neutral-950 border border-transparent focus:border-neutral-800 p-1 w-full rounded outline-none font-mono"
+                                                                    className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-1.5 w-16 rounded-xl outline-none font-mono text-xs text-center text-neutral-200"
                                                                     value={scene.time}
                                                                     onChange={(e) => handleCellEdit(i, 'time', e.target.value)}
                                                                 />
-                                                            </td>
-                                                            <td className="py-3.5 px-3">
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="text-[10px] text-neutral-500 font-mono">Dur:</span>
                                                                 <input 
                                                                     type="number" 
-                                                                    className="bg-transparent focus:bg-neutral-950 border border-transparent focus:border-neutral-800 p-1 w-full rounded outline-none text-center font-mono"
+                                                                    className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-1.5 w-12 rounded-xl outline-none text-center font-mono text-xs text-neutral-200"
                                                                     value={scene.duration}
                                                                     onChange={(e) => handleCellEdit(i, 'duration', parseInt(e.target.value) || 1)}
                                                                 />
-                                                            </td>
-                                                            <td className="py-3.5 px-4">
-                                                                <div className="relative group">
-                                                                    <textarea 
-                                                                        rows="2"
-                                                                        className="bg-transparent focus:bg-neutral-950 border border-neutral-800 focus:border-neutral-700 p-1.5 w-full rounded outline-none resize-none leading-relaxed text-xs text-neutral-200"
-                                                                        value={scene.voiceover}
-                                                                        onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
-                                                                    />
-                                                                    <button 
-                                                                        onClick={() => {
-                                                                            navigator.clipboard.writeText(scene.voiceover);
-                                                                            alert('Voiceover copied!');
-                                                                        }}
-                                                                        className="absolute top-1.5 right-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                        title="Copy Voiceover"
-                                                                    >
-                                                                        Copy
-                                                                    </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Voiceover Script */}
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between items-center">
+                                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Voiceover Script</label>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(scene.voiceover);
+                                                                    alert('Voiceover copied!');
+                                                                }}
+                                                                className="text-[9px] font-bold text-neutral-450 hover:text-white bg-neutral-950 px-2 py-0.5 rounded border border-neutral-850 transition-colors"
+                                                            >
+                                                                Copy
+                                                            </button>
+                                                        </div>
+                                                        <textarea 
+                                                            rows="4"
+                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none resize-y leading-relaxed text-xs text-neutral-200 min-h-[90px]"
+                                                            value={scene.voiceover}
+                                                            onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    
+                                                    {/* SFX & Camera */}
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">SFX</label>
+                                                            <textarea 
+                                                                rows="2"
+                                                                className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-purple-400 font-semibold min-h-[60px]"
+                                                                value={scene.sfx}
+                                                                onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Camera</label>
+                                                            <textarea 
+                                                                rows="2"
+                                                                className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-sky-400 min-h-[60px]"
+                                                                value={scene.camera}
+                                                                onChange={(e) => handleCellEdit(i, 'camera', e.target.value)}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Stateless Visual Prompt */}
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between items-center">
+                                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Stateless Visual Prompt</label>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(scene.prompt);
+                                                                    alert('Prompt copied!');
+                                                                }}
+                                                                className="text-[9px] font-bold text-neutral-400 hover:text-white bg-neutral-950 px-2 py-0.5 rounded border border-neutral-850 transition-colors"
+                                                            >
+                                                                Copy
+                                                            </button>
+                                                        </div>
+                                                        <div className="relative">
+                                                            <textarea 
+                                                                rows="5"
+                                                                className={`bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none text-[11px] font-mono leading-normal text-neutral-300 resize-y min-h-[120px] ${isFlagged ? 'border-red-500 focus:border-red-500' : ''}`}
+                                                                value={scene.prompt}
+                                                                onChange={(e) => handleCellEdit(i, 'prompt', e.target.value)}
+                                                            />
+                                                            {isFlagged && (
+                                                                <div className="absolute right-2 bottom-2 bg-red-650 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse font-mono">
+                                                                    ⚠️ Pronoun Leak: {scene.qcErrors.join(', ')}
                                                                 </div>
-                                                            </td>
-                                                            <td className="py-3.5 px-4 text-purple-400 font-semibold text-xs">
-                                                                <input 
-                                                                    type="text" 
-                                                                    className="bg-transparent focus:bg-neutral-950 border border-transparent focus:border-neutral-800 p-1 w-full rounded outline-none"
-                                                                    value={scene.sfx}
-                                                                    onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3.5 px-4 text-sky-400 text-xs">
-                                                                <input 
-                                                                    type="text" 
-                                                                    className="bg-transparent focus:bg-neutral-950 border border-transparent focus:border-neutral-800 p-1 w-full rounded outline-none"
-                                                                    value={scene.camera}
-                                                                    onChange={(e) => handleCellEdit(i, 'camera', e.target.value)}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3.5 px-4">
-                                                                <div className="relative group">
-                                                                    <textarea 
-                                                                        rows="3"
-                                                                        className={`bg-transparent focus:bg-neutral-950 border border-neutral-800 focus:border-neutral-700 p-1.5 w-full rounded outline-none text-[11px] font-mono leading-normal text-neutral-300 resize-none ${isFlagged ? 'border border-red-500 focus:border-red-500' : ''}`}
-                                                                        value={scene.prompt}
-                                                                        onChange={(e) => handleCellEdit(i, 'prompt', e.target.value)}
-                                                                    />
-                                                                    <button 
-                                                                        onClick={() => {
-                                                                            navigator.clipboard.writeText(scene.prompt);
-                                                                            alert('Prompt copied!');
-                                                                        }}
-                                                                        className="absolute top-1.5 right-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                        title="Copy Prompt"
-                                                                    >
-                                                                        Copy
-                                                                    </button>
-                                                                    {isFlagged && (
-                                                                        <div className="absolute right-2 bottom-2 bg-red-600 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse font-mono">
-                                                                            ⚠️ Pronoun Leak: {scene.qcErrors.join(', ')}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="py-3.5 px-4 text-amber-500 font-bold font-mono text-xs">
-                                                                <input 
-                                                                    type="text" 
-                                                                    className="bg-transparent focus:bg-neutral-950 border border-transparent focus:border-neutral-800 p-1 w-full rounded outline-none"
-                                                                    value={scene.textOverlay || ''}
-                                                                    placeholder="--"
-                                                                    onChange={(e) => handleCellEdit(i, 'textOverlay', e.target.value)}
-                                                                />
-                                                            </td>
-                                                            <td className="py-3.5 px-4">
-                                                                <div 
-                                                                    className="cursor-pointer hover:opacity-90 transition w-[120px] h-[90px] overflow-hidden rounded-xl border border-neutral-800/80 bg-neutral-900 flex items-center justify-center relative mx-auto"
-                                                                    onClick={() => setActivePreviewPrompt(scene.prompt)}
-                                                                >
-                                                                    {synthesisStatus === 'completed' && (
-                                                                        <img 
-                                                                            src={`/output/images/scene_${(i + 1).toString().padStart(3, '0')}.png?t=${currentScript.timestamp || ''}`} 
-                                                                            alt={`Scene ${i+1}`}
-                                                                            className="absolute inset-0 w-full h-full object-cover z-10"
-                                                                            onError={(e) => {
-                                                                                e.target.style.display = 'none';
-                                                                            }}
-                                                                        />
-                                                                    )}
-                                                                    <DoodlePreview prompt={scene.prompt} characters={currentScript?.characters || characters} />
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Overlay */}
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Overlay Text</label>
+                                                        <textarea 
+                                                            rows="2"
+                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-amber-500 font-bold min-h-[60px]"
+                                                            value={scene.textOverlay || ''}
+                                                            placeholder="--"
+                                                            onChange={(e) => handleCellEdit(i, 'textOverlay', e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ) : (
@@ -1759,22 +1555,6 @@ Return only the corrected prompt text, nothing else.`;
                                             </div>
                                         </div>
                                     </div>
-
-                                    <div className="bg-neutral-900 border border-neutral-850 p-6 rounded-3xl shadow-lg space-y-4">
-                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Active Scene Preview</h3>
-                                        <div className="bg-neutral-950 border border-neutral-850 p-4 rounded-2xl flex flex-col items-center justify-center text-center py-8">
-                                            <div className="w-16 h-16 rounded-full bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-2xl mb-3">
-                                                🎨
-                                            </div>
-                                            <p className="text-xs text-neutral-400 max-w-[200px] mb-4">Click "Script Sandbox" or "Execution Terminal" to see and edit dynamic preview drawings.</p>
-                                            <button 
-                                                onClick={() => setActiveTab('sandbox')}
-                                                className="bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-200 hover:text-white px-4 py-2 rounded-xl text-xs font-semibold transition"
-                                            >
-                                                Open Sandbox
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1878,51 +1658,7 @@ Return only the corrected prompt text, nothing else.`;
                 </main>
             </div>
 
-            {/* ENLARGED PREVIEW MODAL */}
-            {activePreviewPrompt && (
-                <div 
-                    className="fixed inset-0 bg-black/80 flex items-center justify-center p-6 z-50 transition-opacity"
-                    onClick={() => setActivePreviewPrompt('')}
-                >
-                    <div 
-                        className="bg-white text-black p-8 rounded-3xl w-full max-w-xl shadow-2xl relative"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <button 
-                            onClick={() => setActivePreviewPrompt('')}
-                            className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-600 text-xl font-bold font-mono"
-                        >
-                            ✕
-                        </button>
-                        <h4 className="text-xs uppercase font-mono font-bold tracking-widest text-neutral-500 mb-4">Stateless Sketch Preview</h4>
-                        <div className="border border-neutral-250 rounded-2xl p-4 bg-neutral-50 mb-6 flex items-center justify-center relative min-h-[200px] overflow-hidden">
-                            {(() => {
-                                const sceneIndex = currentScript?.scenes.findIndex(s => s.prompt === activePreviewPrompt);
-                                const indexStr = sceneIndex !== undefined && sceneIndex !== -1 ? (sceneIndex + 1).toString().padStart(3, '0') : null;
-                                return (
-                                    <>
-                                        {synthesisStatus === 'completed' && indexStr && (
-                                            <img 
-                                                src={`/output/images/scene_${indexStr}.png?t=${currentScript.timestamp || ''}`} 
-                                                alt="Enlarged Preview"
-                                                className="absolute inset-0 w-full h-full object-cover z-10"
-                                                onError={(e) => {
-                                                    e.target.style.display = 'none';
-                                                }}
-                                            />
-                                        )}
-                                        <DoodlePreview prompt={activePreviewPrompt} characters={currentScript?.characters || characters} />
-                                    </>
-                                );
-                            })()}
-                        </div>
-                        <div className="space-y-2">
-                            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest font-mono block">Image Prompt String</span>
-                            <p className="text-sm text-neutral-800 leading-relaxed font-mono bg-neutral-50 p-4 rounded-xl border border-neutral-200">{activePreviewPrompt}</p>
-                        </div>
-                    </div>
-                </div>
-            )}
+
         </div>
     );
 }

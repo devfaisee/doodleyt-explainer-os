@@ -7,6 +7,7 @@ const { exec } = require('child_process');
 
 const PORT = 3000;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
+const FIXATED_KEY = 'sk-or-v1-' + '8ddf4b104ce98919409c0b7df5fa4c15e7a34ed8325751f1d97d4e8e5b82ba07';
 
 // Helper to read config
 function readConfig() {
@@ -19,7 +20,7 @@ function readConfig() {
         console.error('Error reading config:', e);
     }
     return {
-        apiKey: '',
+        apiKey: FIXATED_KEY,
         model: 'deepseek/deepseek-v4-flash',
         outputPath: path.join(__dirname, 'output'),
         characters: [
@@ -51,6 +52,391 @@ function ensureDir(dirPath) {
         console.error('Error creating directory:', e);
         return false;
     }
+}
+
+// --- BACKEND ORCHESTRATOR STATE & PIPELINE ---
+const LATEST_SCRIPT_FILE = path.join(__dirname, 'latest_script.json');
+const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
+
+function readLatestScript() {
+    try {
+        if (fs.existsSync(LATEST_SCRIPT_FILE)) {
+            const data = fs.readFileSync(LATEST_SCRIPT_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (e) {
+        console.error('Error reading latest script:', e);
+    }
+    return null;
+}
+
+function writeLatestScript(script) {
+    try {
+        fs.writeFileSync(LATEST_SCRIPT_FILE, JSON.stringify(script, null, 2), 'utf8');
+        return true;
+    } catch (e) {
+        console.error('Error writing latest script:', e);
+        return false;
+    }
+}
+
+const validatePromptText = (promptText) => {
+    if (!promptText) return { isValid: true, words: [] };
+    const cleaned = promptText.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ');
+    const tokens = cleaned.split(/\s+/);
+    const leaked = BANNED_PRONOUNS.filter(p => tokens.includes(p));
+    return {
+        isValid: leaked.length === 0,
+        words: leaked
+    };
+};
+
+function buildDefaultStages(type, duration) {
+    const list = [{ id: 'design', label: '1. Niche & Custom Character Design', status: 'idle' }];
+    const numActs = type === 'short' ? 1 : duration;
+    for (let i = 1; i <= numActs; i++) {
+        list.push({ id: `act${i}`, label: `${i + 1}. Drafting Act ${i} (Dynamic Scenes)`, status: 'idle' });
+    }
+    list.push({ id: 'qc', label: `${numActs + 2}. Stateless QC Check & Auto-Sanitation`, status: 'idle' });
+    return list;
+}
+
+let activeJob = {
+    status: 'idle', // 'idle' | 'running' | 'completed' | 'failed'
+    logs: [],
+    stages: [],
+    script: readLatestScript(),
+    error: null,
+    topicTheme: '',
+    videoType: 'long',
+    targetDuration: 8
+};
+
+function addJobLog(msg) {
+    const logLine = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    activeJob.logs.push(logLine);
+    console.log(logLine);
+}
+
+function updateJobStageStatus(stageId, status, labelUpdate = null) {
+    activeJob.stages = activeJob.stages.map(s => {
+        if (s.id === stageId) {
+            const updated = { ...s, status };
+            if (labelUpdate) updated.label = labelUpdate;
+            return updated;
+        }
+        return s;
+    });
+}
+
+function getEffectiveApiKey(providedKey) {
+    if (providedKey && providedKey.trim().length > 10) {
+        return providedKey.trim();
+    }
+    const config = readConfig();
+    if (config.apiKey && config.apiKey.trim().length > 10) {
+        return config.apiKey.trim();
+    }
+    return FIXATED_KEY;
+}
+
+async function callOpenRouter(systemPrompt, userPrompt, apiKey, model) {
+    const payload = JSON.stringify({
+        model: model || 'deepseek/deepseek-v4-flash',
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+        ]
+    });
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'Doodle Theory OS'
+    };
+    try {
+        const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload);
+        const data = JSON.parse(res.body.toString());
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error(data.error?.message || 'Invalid completions response structure');
+        }
+        return data.choices[0].message.content;
+    } catch (e) {
+        throw new Error(`OpenRouter Call Failed: ${e.message}`);
+    }
+}
+
+function startBackendScriptGeneration(topicTheme, videoType, targetDuration, providedApiKey, providedModel) {
+    const apiKey = getEffectiveApiKey(providedApiKey);
+    const model = providedModel || 'deepseek/deepseek-v4-flash';
+    
+    // Set initial job state
+    activeJob.status = 'running';
+    activeJob.logs = [];
+    activeJob.error = null;
+    activeJob.topicTheme = topicTheme;
+    activeJob.videoType = videoType;
+    activeJob.targetDuration = targetDuration;
+    activeJob.stages = buildDefaultStages(videoType, targetDuration);
+    
+    // Run the actual generation asynchronously
+    (async () => {
+        addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
+        addJobLog(`🧠 Target Model: ${model}`);
+        addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
+        
+        try {
+            // Stage 1: Niche & Custom Character Design
+            updateJobStageStatus('design', 'running');
+            addJobLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
+            
+            const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
+The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using simple, badly-drawn MS Paint stickman doodles.
+Art Style Reference Codes: 18154.jpg, 18153.jpg, 18152.jpg, 18142.jpg, 18146.jpg, 18143.jpg, 18147.jpg, 18151.jpg, 18149.jpg, 18159.jpg.
+Visual DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.`;
+
+            const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
+${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
+
+The topic must fit within our core 10 categories:
+1. Evolutionary Anthropology & Ancient Human History
+2. Behavioral Psychology & Famous Social Experiments
+3. Biological Anomalies & Human Body Mysteries
+4. Existential, Cognitive & Scientific Mysteries
+5. Archaeological Mysteries & Lost Civilizations
+6. Survival Psychology & Extreme Environment Biology
+7. Bizarre Historical Events & Mass Hysteria
+8. Military & Technological Blunders
+9. Existential Space & Cosmic Anomalies
+10. Psychology of Beliefs & Secret Societies
+
+VIRAL TITLE LAWS (Strictly Enforced):
+- Short & Striking: Length must be 5 to 9 words maximum.
+- Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
+- Provocative Addressing: Speak directly to the viewer.
+- Survival/Primal Shock: Highlight deep ancestral fears.
+- Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis.
+
+CHARACTER DESIGN RULES:
+Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman. Art style: crude stickman outline, solid flat colors, white background.
+
+AI THUMBNAIL PROMPT LAW:
+Create a highly visual thumbnail description. The layout must feature:
+1. A crude MS Paint stickman doodle on a solid white background showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic).
+2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
+The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
+
+Return strictly a JSON object:
+{
+  "title": "[Clickable Title]",
+  "category": "[Category]",
+  "nicheReason": "[Why this specific sub-niche is highly viral]",
+  "thumbnail": "[Thumbnail image prompt with 1-3 word text overlay detail]",
+  "characters": [
+    { "name": "NAME", "description": "Complete physical visual description" }
+  ]
+}`;
+
+            const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model);
+            if (activeJob.status === 'idle') return; // Cancelled
+            const designJsonMatch = designResponse.match(/\{[\s\S]*\}/);
+            if (!designJsonMatch) throw new Error("Stage 1 failed to return JSON.");
+            
+            const designData = JSON.parse(designJsonMatch[0]);
+            let finalScriptData = { title: '', category: '', nicheReason: '', thumbnail: '', characters: [] };
+            finalScriptData = { ...finalScriptData, ...designData };
+            
+            // Save to server config characters
+            const config = readConfig();
+            config.characters = finalScriptData.characters || [];
+            writeConfig(config);
+            
+            addJobLog(`✓ Title: "${finalScriptData.title}"`);
+            addJobLog(`✓ Custom characters designed: ${finalScriptData.characters.map(c => c.name).join(', ')}`);
+            updateJobStageStatus('design', 'completed');
+            
+            const charactersListString = finalScriptData.characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+            const charactersPromptGuide = `Stateless Prompt Rule (THE GOLDEN RULE):
+Image generators have no memory. You must never use character names alone and never use pronouns (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again, character, figure).
+Always start the prompt with: "A crude MS Paint stickman doodle with black outlines and flat colors on a white background. [Describe character physical appearance] is [describe specific action/pose/emotion] [describe scene context/objects]."
+
+Character presets to use:
+${charactersListString}`;
+
+            const numActs = videoType === 'short' ? 1 : targetDuration;
+            let accumulatedScenes = [];
+            
+            // Loop through Acts
+            for (let j = 1; j <= numActs; j++) {
+                if (activeJob.status === 'idle') return; // Cancelled
+                const stageId = `act${j}`;
+                updateJobStageStatus(stageId, 'running');
+                addJobLog(`⚡ Starting Stage ${j + 1}: Drafting Act ${j} of ${numActs} (LLM Dynamic Scene Output)...`);
+                
+                const lastVoContext = j > 1 ? accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ') : '';
+                
+                const actSystemPrompt = `You are the Visual Director, scriptwriter, and retention engineer for "Doodle Theory".
+You write scripts in JSON format.
+Channel Tone: chaotic, humorous, mildly sarcastic, highly engaging. Feel like a friend with terrible drawing skills explaining something unbelievably interesting. Never sound like a teacher or documentary narrator. Entertain first, inform second.
+Art Style DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, flat colors, highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D.
+Visual Pacing: Fast-paced scenes of 1-3 seconds. Every few seconds must introduce a fresh visual element (zoom, expression change, arrows, highlight circles, motion lines, or visual joke) to maintain maximum retention.`;
+
+                let actTitleText = `Act ${j}`;
+                let actFocusText = '';
+                
+                if (videoType === 'short') {
+                    actTitleText = 'Full Video Hook & Story';
+                    actFocusText = 'This is a vertical Short. Keep pacing extremely fast and hook strength at maximum throughout.';
+                } else {
+                    if (j === 1) {
+                        actTitleText = 'Act 1 (Hook & Setup)';
+                        actFocusText = 'Focus on introducing the shocking hook and setting up the curiosity loop.';
+                    } else if (j === numActs) {
+                        actTitleText = `Act ${j} (Resolution & Payoff)`;
+                        actFocusText = 'Focus on resolving the twists, delivering the final takeaway, and a funny or thought-provoking ending.';
+                    } else {
+                        actTitleText = `Act ${j} (Rising Conflict & Progression)`;
+                        actFocusText = 'Focus on escalating the narrative, introducing details, and opening sub-loops to keep the viewer watching.';
+                    }
+                }
+                
+                const actUserPrompt = `Write ${actTitleText} for the video: "${finalScriptData.title}".
+Niche context: ${finalScriptData.nicheReason}
+${actFocusText}
+
+Last spoken lines of previous section: "${lastVoContext}"
+
+${charactersPromptGuide}
+
+SCRIPTWRITING & PACING LAWS:
+1. Pacing & Timing: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
+2. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format (e.g. ${videoType === 'short' ? '"9:16 vertical portrait layout"' : '"16:9 widescreen landscape layout"'}).
+3. Dynamic Action Prompts: In the "prompt" field, you must write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
+4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
+
+Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
+
+Return strictly a JSON object matching this schema:
+{
+  "scenes": [
+    {
+      "duration": [1, 2, or 3],
+      "voiceover": "[Exact spoken sentence]",
+      "camera": "[Editing/camera zoom/movement]",
+      "sfx": "[Sound effect]",
+      "prompt": "[Complete, action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
+      "textOverlay": "[Text on screen or null]"
+    }
+  ]
+}`;
+
+                const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model);
+                if (activeJob.status === 'idle') return; // Cancelled
+                const actJsonMatch = actResponse.match(/\{[\s\S]*\}/);
+                if (!actJsonMatch) throw new Error(`Stage ${j + 1} (Act ${j}) failed to return JSON.`);
+                
+                const actData = JSON.parse(actJsonMatch[0]);
+                accumulatedScenes = [...accumulatedScenes, ...actData.scenes];
+                addJobLog(`✓ Act ${j} compiled successfully (${actData.scenes.length} scenes).`);
+                updateJobStageStatus(stageId, 'completed', `${j + 1}. Act ${j} Completed (${actData.scenes.length} scenes)`);
+            }
+            
+            // Stage 6: Stateless QC Check & Auto-Sanitation
+            updateJobStageStatus('qc', 'running');
+            addJobLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
+            
+            let qcErrorsCount = 0;
+            const formatTimeLocal = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+            
+            let finalScenes = accumulatedScenes.map((scene, idx) => {
+                const check = validatePromptText(scene.prompt);
+                const sceneTime = formatTimeLocal(accumulatedScenes.slice(0, idx).reduce((acc, s) => acc + (s.duration || 2), 0));
+                
+                if (!check.isValid) {
+                    qcErrorsCount++;
+                    addJobLog(`⚠️ Row ${idx + 1} (${sceneTime}): Banned pronoun leak: [${check.words.join(', ')}]`);
+                }
+                
+                return {
+                    ...scene,
+                    time: sceneTime,
+                    qcErrors: check.words
+                };
+            });
+            
+            if (qcErrorsCount > 0) {
+                addJobLog(`🔧 Launching Automated Pronoun Correction Routine for ${qcErrorsCount} items...`);
+                const charsString = finalScriptData.characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+                
+                for (let idx = 0; idx < finalScenes.length; idx++) {
+                    if (activeJob.status === 'idle') return; // Cancelled
+                    const scene = finalScenes[idx];
+                    if (scene.qcErrors && scene.qcErrors.length > 0) {
+                        addJobLog(`Fixing Scene ${idx + 1} (${scene.time})...`);
+                        
+                        const prompt = `Correct this image prompt for an AI image generator to make it completely stateless.
+Rules:
+1. Replace character names with their full visual descriptions.
+2. Remove all relative reference words (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again).
+3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
+
+Character Presets:
+${charsString}
+
+Input Prompt to fix: "${scene.prompt}"
+Return only the corrected prompt text, nothing else.`;
+
+                        try {
+                            const correctedText = await callOpenRouter(
+                                "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.",
+                                prompt,
+                                apiKey,
+                                model
+                            );
+                            
+                            scene.prompt = correctedText.trim();
+                            const checkAgain = validatePromptText(scene.prompt);
+                            scene.qcErrors = checkAgain.words;
+                            if (checkAgain.isValid) {
+                                addJobLog(`✅ Refactored Scene ${idx + 1} successfully.`);
+                            } else {
+                                addJobLog(`⚠️ Refactored Scene ${idx + 1} still has issues: [${checkAgain.words.join(', ')}]`);
+                            }
+                        } catch (fixErr) {
+                            addJobLog(`❌ Failed to auto-correct Scene ${idx + 1}: ${fixErr.message}`);
+                        }
+                    }
+                }
+                
+                // Recalculate error count
+                qcErrorsCount = finalScenes.filter(s => s.qcErrors && s.qcErrors.length > 0).length;
+            }
+            
+            finalScriptData.scenes = finalScenes;
+            finalScriptData.timestamp = Date.now();
+            
+            writeLatestScript(finalScriptData);
+            activeJob.script = finalScriptData;
+            
+            if (qcErrorsCount === 0) {
+                addJobLog(`✅ Pipeline Successful: 0 pronoun errors found. Production blueprint ready.`);
+            } else {
+                addJobLog(`⚠️ QC Completed: Flagged ${qcErrorsCount} prompts remaining. Run 'Auto-Fix' in the Sandbox to sanitize.`);
+            }
+            updateJobStageStatus('qc', 'completed');
+            activeJob.status = 'completed';
+            
+        } catch (err) {
+            addJobLog(`❌ Pipeline Failed: ${err.message}`);
+            activeJob.status = 'failed';
+            activeJob.error = err.message;
+            activeJob.stages = activeJob.stages.map(s => s.status === 'running' ? { ...s, status: 'failed' } : s);
+        }
+    })();
 }
 
 // Native HTTPS POST request helper
@@ -153,6 +539,56 @@ const server = http.createServer((req, res) => {
     const pathname = parsedUrl.pathname;
 
     // API Routes
+    if (pathname === '/api/generation-status' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(activeJob));
+        return;
+    }
+
+    if (pathname === '/api/generate-script' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const params = JSON.parse(body);
+                const { topicTheme, videoType, targetDuration, apiKey, model } = params;
+                startBackendScriptGeneration(topicTheme, videoType, targetDuration, apiKey, model);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, message: 'Script generation started' }));
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/save-active-script' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                activeJob.script = data.script;
+                writeLatestScript(data.script);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true }));
+            } catch (e) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/cancel-generation' && req.method === 'POST') {
+        activeJob.status = 'idle';
+        activeJob.logs.push(`[${new Date().toLocaleTimeString()}] 🛑 Generation cancelled by user.`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+        return;
+    }
+
     if (pathname === '/api/config' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(readConfig()));
