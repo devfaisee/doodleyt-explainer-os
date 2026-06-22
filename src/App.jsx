@@ -200,7 +200,23 @@ function App() {
     const [selectedTopic, setSelectedTopic] = useState(DEFAULT_TOPICS[0]);
     
     const [pipelineLogs, setPipelineLogs] = useState([]);
-    const [currentScript, setCurrentScript] = useState(null);
+    const [currentScript, setCurrentScript] = useState(() => {
+        try {
+            const cached = localStorage.getItem('doodleyt_current_script');
+            return cached ? JSON.parse(cached) : null;
+        } catch (e) {
+            console.error('Failed to parse cached script', e);
+            return null;
+        }
+    });
+
+    useEffect(() => {
+        if (currentScript) {
+            localStorage.setItem('doodleyt_current_script', JSON.stringify(currentScript));
+        } else {
+            localStorage.removeItem('doodleyt_current_script');
+        }
+    }, [currentScript]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [synthesisStatus, setSynthesisStatus] = useState('idle');
     const [compileStatus, setCompileStatus] = useState('idle');
@@ -666,6 +682,7 @@ Return only the corrected prompt text, nothing else.`;
             }
 
             finalScriptData.scenes = finalScenes;
+            finalScriptData.timestamp = Date.now();
             setCurrentScript(finalScriptData);
 
             if (qcErrorsCount === 0) {
@@ -711,10 +728,20 @@ Return only the corrected prompt text, nothing else.`;
             addLog(`📁 Images written to: ${data.imagesDir}`);
             addLog(`📁 Audio written to: ${data.audioDir}`);
             setSynthesisStatus('completed');
+            setCurrentScript(prev => prev ? { ...prev, timestamp: Date.now() } : null);
         } catch (e) {
             addLog(`❌ Synthesis pipeline failed: ${e.message}`);
             setSynthesisStatus('failed');
         }
+    };
+
+    const copyEntireScriptToClipboard = () => {
+        if (!currentScript) return;
+        const text = currentScript.scenes.map((s, idx) => {
+            return `Scene ${idx + 1} (${s.time} | ${s.duration}s)\nVO: "${s.voiceover}"\nSFX: ${s.sfx} | Camera: ${s.camera}\nPrompt: ${s.prompt}\nOverlay: ${s.textOverlay || 'None'}\n----------------------------------------`;
+        }).join('\n\n');
+        navigator.clipboard.writeText(text);
+        alert('Entire script blueprint copied to clipboard!');
     };
 
     const runVideoCompilation = async () => {
@@ -1113,12 +1140,20 @@ Return only the corrected prompt text, nothing else.`;
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-500">Fast Preview Sandbox</h3>
                                         {currentScript && (
-                                            <button 
-                                                onClick={() => setActiveTab('sandbox')}
-                                                className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1"
-                                            >
-                                                Open Full Screen View ➔
-                                            </button>
+                                            <div className="flex items-center gap-3">
+                                                <button 
+                                                    onClick={copyEntireScriptToClipboard}
+                                                    className="text-xs text-neutral-450 hover:text-white font-semibold flex items-center gap-1 transition-colors"
+                                                >
+                                                    📋 Copy Script
+                                                </button>
+                                                <button 
+                                                    onClick={() => setActiveTab('sandbox')}
+                                                    className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition-colors"
+                                                >
+                                                    Open Full Screen View ➔
+                                                </button>
+                                            </div>
                                         )}
                                     </div>
                                     
@@ -1183,24 +1218,48 @@ Return only the corrected prompt text, nothing else.`;
                                                 </div>
 
                                                 <div className="space-y-3">
-                                                    {currentScript.scenes.slice(0, 4).map((scene, i) => (
-                                                        <div key={i} className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col sm:flex-row gap-4">
-                                                            <div className="flex-1 space-y-2">
-                                                                <div className="flex justify-between items-center text-xs">
-                                                                    <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded font-mono font-bold">{scene.time} ({scene.duration}s)</span>
-                                                                    <span className="text-purple-400 font-mono font-medium">SFX: {scene.sfx}</span>
-                                                                </div>
-                                                                <p className="text-sm text-neutral-200">"{scene.voiceover}"</p>
-                                                                <div className="text-[10px] font-mono text-neutral-500 leading-relaxed bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-800">
-                                                                    <span className="text-neutral-400 block mb-0.5 font-bold">Image Prompt:</span>
-                                                                    {scene.prompt}
-                                                                </div>
-                                                            </div>
-                                                            <div className="w-full sm:w-[120px] h-[140px] sm:h-[90px] shrink-0">
-                                                                <DoodlePreview prompt={scene.prompt} characters={currentScript.characters || characters} />
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                    {currentScript.scenes.slice(0, 4).map((scene, i) => {
+                                                         const indexStr = (i + 1).toString().padStart(3, '0');
+                                                         return (
+                                                             <div key={i} className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col sm:flex-row gap-4 animate-fadeIn">
+                                                                 <div className="flex-1 space-y-2">
+                                                                     <div className="flex justify-between items-center text-xs">
+                                                                         <span className="bg-neutral-850 text-neutral-300 px-2 py-0.5 rounded font-mono font-bold">{scene.time} ({scene.duration}s)</span>
+                                                                         <span className="text-purple-400 font-mono font-medium">SFX: {scene.sfx}</span>
+                                                                     </div>
+                                                                     <p className="text-sm text-neutral-200">"{scene.voiceover}"</p>
+                                                                     <div className="text-[10px] font-mono text-neutral-500 leading-relaxed bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-800 relative">
+                                                                         <div className="flex justify-between items-center mb-1">
+                                                                             <span className="text-neutral-450 block font-bold">Image Prompt:</span>
+                                                                             <button 
+                                                                                 onClick={() => {
+                                                                                     navigator.clipboard.writeText(scene.prompt);
+                                                                                     alert('Prompt copied!');
+                                                                                 }}
+                                                                                 className="text-[10px] font-bold text-neutral-400 hover:text-white bg-neutral-950 px-2 py-0.5 rounded border border-neutral-850 transition-colors"
+                                                                             >
+                                                                                 📋 Copy
+                                                                             </button>
+                                                                         </div>
+                                                                         <span className="text-neutral-350 block select-all">{scene.prompt}</span>
+                                                                     </div>
+                                                                 </div>
+                                                                 <div className="w-full sm:w-[120px] h-[140px] sm:h-[90px] shrink-0 overflow-hidden rounded-xl border border-neutral-800 bg-neutral-900 flex items-center justify-center relative">
+                                                                     {synthesisStatus === 'completed' && (
+                                                                         <img 
+                                                                             src={`/output/images/scene_${indexStr}.png?t=${currentScript.timestamp || ''}`} 
+                                                                             alt={`Scene ${i+1}`}
+                                                                             className="absolute inset-0 w-full h-full object-cover z-10"
+                                                                             onError={(e) => {
+                                                                                 e.target.style.display = 'none';
+                                                                             }}
+                                                                         />
+                                                                     )}
+                                                                     <DoodlePreview prompt={scene.prompt} characters={currentScript.characters || characters} />
+                                                                 </div>
+                                                             </div>
+                                                         );
+                                                     })}
                                                     {currentScript.scenes.length > 4 && (
                                                         <div className="text-center py-4">
                                                             <button 
@@ -1286,6 +1345,12 @@ Return only the corrected prompt text, nothing else.`;
                                 {currentScript && (
                                     <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                                         <button 
+                                            onClick={copyEntireScriptToClipboard}
+                                            className="bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-neutral-200 hover:text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5"
+                                        >
+                                            📋 Copy Full Script
+                                        </button>
+                                        <button 
                                             onClick={autoFixFlaggedPromptsLocally}
                                             disabled={isGenerating}
                                             className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5"
@@ -1300,7 +1365,7 @@ Return only the corrected prompt text, nothing else.`;
                                         </button>
                                         <button 
                                             onClick={() => saveScriptToDisk('csv')}
-                                            className="bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                                            className="bg-neutral-850 hover:bg-neutral-800 border border-neutral-750 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition"
                                         >
                                             Export CSV
                                         </button>
@@ -1346,12 +1411,24 @@ Return only the corrected prompt text, nothing else.`;
                                                                 />
                                                             </td>
                                                             <td className="py-3.5 px-4">
-                                                                <textarea 
-                                                                    rows="2"
-                                                                    className="bg-transparent focus:bg-neutral-950 border border-transparent focus:border-neutral-800 p-1.5 w-full rounded outline-none resize-none leading-relaxed text-xs text-neutral-200"
-                                                                    value={scene.voiceover}
-                                                                    onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
-                                                                />
+                                                                <div className="relative group">
+                                                                    <textarea 
+                                                                        rows="2"
+                                                                        className="bg-transparent focus:bg-neutral-950 border border-neutral-800 focus:border-neutral-700 p-1.5 w-full rounded outline-none resize-none leading-relaxed text-xs text-neutral-200"
+                                                                        value={scene.voiceover}
+                                                                        onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
+                                                                    />
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            navigator.clipboard.writeText(scene.voiceover);
+                                                                            alert('Voiceover copied!');
+                                                                        }}
+                                                                        className="absolute top-1.5 right-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                        title="Copy Voiceover"
+                                                                    >
+                                                                        Copy
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                             <td className="py-3.5 px-4 text-purple-400 font-semibold text-xs">
                                                                 <input 
@@ -1370,13 +1447,23 @@ Return only the corrected prompt text, nothing else.`;
                                                                 />
                                                             </td>
                                                             <td className="py-3.5 px-4">
-                                                                <div className="relative">
+                                                                <div className="relative group">
                                                                     <textarea 
                                                                         rows="3"
-                                                                        className={`bg-transparent focus:bg-neutral-950 border border-transparent focus:border-neutral-800 p-1.5 w-full rounded outline-none text-[11px] font-mono leading-normal text-neutral-300 resize-none ${isFlagged ? 'border border-red-500 focus:border-red-500' : ''}`}
+                                                                        className={`bg-transparent focus:bg-neutral-950 border border-neutral-800 focus:border-neutral-700 p-1.5 w-full rounded outline-none text-[11px] font-mono leading-normal text-neutral-300 resize-none ${isFlagged ? 'border border-red-500 focus:border-red-500' : ''}`}
                                                                         value={scene.prompt}
                                                                         onChange={(e) => handleCellEdit(i, 'prompt', e.target.value)}
                                                                     />
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            navigator.clipboard.writeText(scene.prompt);
+                                                                            alert('Prompt copied!');
+                                                                        }}
+                                                                        className="absolute top-1.5 right-1.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                        title="Copy Prompt"
+                                                                    >
+                                                                        Copy
+                                                                    </button>
                                                                     {isFlagged && (
                                                                         <div className="absolute right-2 bottom-2 bg-red-600 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse font-mono">
                                                                             ⚠️ Pronoun Leak: {scene.qcErrors.join(', ')}
@@ -1395,9 +1482,19 @@ Return only the corrected prompt text, nothing else.`;
                                                             </td>
                                                             <td className="py-3.5 px-4">
                                                                 <div 
-                                                                    className="cursor-pointer hover:opacity-80 transition"
+                                                                    className="cursor-pointer hover:opacity-90 transition w-[120px] h-[90px] overflow-hidden rounded-xl border border-neutral-800/80 bg-neutral-900 flex items-center justify-center relative mx-auto"
                                                                     onClick={() => setActivePreviewPrompt(scene.prompt)}
                                                                 >
+                                                                    {synthesisStatus === 'completed' && (
+                                                                        <img 
+                                                                            src={`/output/images/scene_${(i + 1).toString().padStart(3, '0')}.png?t=${currentScript.timestamp || ''}`} 
+                                                                            alt={`Scene ${i+1}`}
+                                                                            className="absolute inset-0 w-full h-full object-cover z-10"
+                                                                            onError={(e) => {
+                                                                                e.target.style.display = 'none';
+                                                                            }}
+                                                                        />
+                                                                    )}
                                                                     <DoodlePreview prompt={scene.prompt} characters={currentScript?.characters || characters} />
                                                                 </div>
                                                             </td>
@@ -1798,8 +1895,26 @@ Return only the corrected prompt text, nothing else.`;
                             ✕
                         </button>
                         <h4 className="text-xs uppercase font-mono font-bold tracking-widest text-neutral-500 mb-4">Stateless Sketch Preview</h4>
-                        <div className="border border-neutral-250 rounded-2xl p-4 bg-neutral-50 mb-6">
-                            <DoodlePreview prompt={activePreviewPrompt} characters={currentScript?.characters || characters} />
+                        <div className="border border-neutral-250 rounded-2xl p-4 bg-neutral-50 mb-6 flex items-center justify-center relative min-h-[200px] overflow-hidden">
+                            {(() => {
+                                const sceneIndex = currentScript?.scenes.findIndex(s => s.prompt === activePreviewPrompt);
+                                const indexStr = sceneIndex !== undefined && sceneIndex !== -1 ? (sceneIndex + 1).toString().padStart(3, '0') : null;
+                                return (
+                                    <>
+                                        {synthesisStatus === 'completed' && indexStr && (
+                                            <img 
+                                                src={`/output/images/scene_${indexStr}.png?t=${currentScript.timestamp || ''}`} 
+                                                alt="Enlarged Preview"
+                                                className="absolute inset-0 w-full h-full object-cover z-10"
+                                                onError={(e) => {
+                                                    e.target.style.display = 'none';
+                                                }}
+                                            />
+                                        )}
+                                        <DoodlePreview prompt={activePreviewPrompt} characters={currentScript?.characters || characters} />
+                                    </>
+                                );
+                            })()}
                         </div>
                         <div className="space-y-2">
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest font-mono block">Image Prompt String</span>
