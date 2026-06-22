@@ -186,6 +186,8 @@ function App() {
     
     // Core parameters
     const [apiKey, setApiKey] = useState('');
+    const [falApiKey, setFalApiKey] = useState('');
+    const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
     const [characters, setCharacters] = useState([]);
@@ -197,6 +199,8 @@ function App() {
     const [pipelineLogs, setPipelineLogs] = useState([]);
     const [currentScript, setCurrentScript] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [synthesisStatus, setSynthesisStatus] = useState('idle');
+    const [compileStatus, setCompileStatus] = useState('idle');
     const [serverStatus, setServerStatus] = useState('Checking...');
     
     // Multi-Agent Pipeline Status Checklist
@@ -220,6 +224,8 @@ function App() {
             .then(data => {
                 setServerStatus('Online');
                 if (data.apiKey) setApiKey(data.apiKey);
+                if (data.falApiKey) setFalApiKey(data.falApiKey);
+                if (data.elevenlabsApiKey) setElevenlabsApiKey(data.elevenlabsApiKey);
                 if (data.model) setModel(data.model);
                 if (data.outputPath) setOutputPath(data.outputPath);
                 if (data.characters) setCharacters(data.characters);
@@ -229,11 +235,15 @@ function App() {
                 setServerStatus('Offline (Client-Only)');
                 
                 const cachedKey = localStorage.getItem('doodleyt_api_key') || '';
+                const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
+                const cachedElevenlabsKey = localStorage.getItem('doodleyt_elevenlabs_key') || '';
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || 'E:/doodleyt/output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
 
                 setApiKey(cachedKey);
+                setFalApiKey(cachedFalKey);
+                setElevenlabsApiKey(cachedElevenlabsKey);
                 setModel(cachedModel);
                 setOutputPath(cachedPath);
 
@@ -256,6 +266,8 @@ function App() {
 
     const saveConfig = async (updatedFields) => {
         if (updatedFields.apiKey !== undefined) localStorage.setItem('doodleyt_api_key', updatedFields.apiKey);
+        if (updatedFields.falApiKey !== undefined) localStorage.setItem('doodleyt_fal_key', updatedFields.falApiKey);
+        if (updatedFields.elevenlabsApiKey !== undefined) localStorage.setItem('doodleyt_elevenlabs_key', updatedFields.elevenlabsApiKey);
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
         if (updatedFields.characters !== undefined) localStorage.setItem('doodleyt_characters', JSON.stringify(updatedFields.characters));
@@ -712,6 +724,70 @@ Return strictly a JSON object:
         }
     };
 
+    const runAssetSynthesis = async () => {
+        if (!currentScript) return;
+        setSynthesisStatus('running');
+        addLog('⚡ Launching media asset synthesis pipeline (images & audio)...');
+        addLog(`🔑 Using configuration: Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), ElevenLabs (${elevenlabsApiKey ? 'Provided' : 'Mock Fallback'})`);
+        
+        try {
+            const response = await fetch('/api/synthesize-assets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scenes: currentScript.scenes,
+                    falApiKey,
+                    elevenlabsApiKey,
+                    outputPath
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            addLog(`✅ Asset synthesis completed successfully!`);
+            addLog(`📁 Images written to: ${data.imagesDir}`);
+            addLog(`📁 Audio written to: ${data.audioDir}`);
+            setSynthesisStatus('completed');
+        } catch (e) {
+            addLog(`❌ Synthesis pipeline failed: ${e.message}`);
+            setSynthesisStatus('failed');
+        }
+    };
+
+    const runVideoCompilation = async () => {
+        if (!currentScript) return;
+        setCompileStatus('running');
+        addLog('🎬 Launching FFmpeg compiler stitching routine...');
+        
+        try {
+            const response = await fetch('/api/assemble-video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scenes: currentScript.scenes,
+                    outputPath
+                })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            addLog(`🎉 Video render completed! Final MP4 size: ${data.fileSize} bytes.`);
+            addLog(`💾 Saved final video file to: ${data.filePath}`);
+            setCompileStatus('completed');
+        } catch (e) {
+            addLog(`❌ Video compilation failed: ${e.message}`);
+            setCompileStatus('failed');
+        }
+    };
+
     const autoFixFlaggedPromptsLocally = async () => {
         if (!currentScript) return;
         const flaggedIndices = currentScript.scenes
@@ -1045,6 +1121,43 @@ Return only the corrected prompt text, nothing else.`;
                                                         ⚡ {currentScript.scenes.length} Scenes
                                                     </div>
                                                 </div>
+
+                                                {/* ASSET SYNTHESIS & RENDERING CONTROLS */}
+                                                <div className="bg-neutral-950 border border-neutral-850 p-5 rounded-2xl mb-4 space-y-4 shadow-inner">
+                                                    <div className="flex justify-between items-center">
+                                                        <div>
+                                                            <h4 className="text-xs font-bold font-mono text-neutral-350 uppercase tracking-wide">Autonomous Production Control</h4>
+                                                            <p className="text-[10px] text-neutral-500 mt-0.5">Synthesize script media assets, then stitch them into an MP4 video.</p>
+                                                        </div>
+                                                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${synthesisStatus === 'idle' ? 'bg-neutral-905 text-neutral-500' : synthesisStatus === 'running' ? 'bg-blue-900/30 text-blue-400 border border-blue-800/30 animate-pulse' : synthesisStatus === 'completed' ? 'bg-green-950/20 text-green-400 border border-green-900/30' : 'bg-red-950/20 text-red-400 border border-red-900/30'}`}>
+                                                            {synthesisStatus === 'idle' ? 'Ready' : synthesisStatus === 'running' ? 'Synthesizing...' : synthesisStatus === 'completed' ? 'Assets Ready' : 'Synthesis Failed'}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex flex-col sm:flex-row gap-3">
+                                                        <button
+                                                            onClick={runAssetSynthesis}
+                                                            disabled={isGenerating || synthesisStatus === 'running'}
+                                                            className="flex-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 disabled:opacity-50 text-neutral-200 hover:text-white font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2"
+                                                        >
+                                                            <span>🎨</span> Synthesize Media Assets (Fal.ai & ElevenLabs)
+                                                        </button>
+
+                                                        <button
+                                                            onClick={runVideoCompilation}
+                                                            disabled={isGenerating || synthesisStatus !== 'completed' || compileStatus === 'running'}
+                                                            className="flex-1 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
+                                                        >
+                                                            <span>🎬</span> Assemble Final Video (FFmpeg Compiler)
+                                                        </button>
+                                                    </div>
+
+                                                    {compileStatus === 'completed' && (
+                                                        <div className="bg-green-950/10 border border-green-500/20 text-green-400 p-3 rounded-xl text-[10px] font-mono flex items-center justify-between">
+                                                            <span>🎉 MP4 Render successful! Saved in Safe Output Directory.</span>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 
                                                 <div className="bg-amber-500/5 px-4 py-3 rounded-2xl border border-amber-500/20 mb-4 text-xs">
                                                     <strong className="text-amber-500 block mb-1">AI Thumbnail Prompt:</strong>
@@ -1345,6 +1458,34 @@ Return only the corrected prompt text, nothing else.`;
                                             onChange={(e) => {
                                                 setApiKey(e.target.value);
                                                 saveConfig({ apiKey: e.target.value });
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Fal.ai API Key (Image Generation)</label>
+                                        <input 
+                                            type="password" 
+                                            placeholder="fal-..."
+                                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
+                                            value={falApiKey}
+                                            onChange={(e) => {
+                                                setFalApiKey(e.target.value);
+                                                saveConfig({ falApiKey: e.target.value });
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">ElevenLabs API Key (Voiceover TTS)</label>
+                                        <input 
+                                            type="password" 
+                                            placeholder="eleven-labs-key..."
+                                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
+                                            value={elevenlabsApiKey}
+                                            onChange={(e) => {
+                                                setElevenlabsApiKey(e.target.value);
+                                                saveConfig({ elevenlabsApiKey: e.target.value });
                                             }}
                                         />
                                     </div>
