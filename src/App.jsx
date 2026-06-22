@@ -597,13 +597,13 @@ Return strictly a JSON object matching this schema:
             }
 
             // ==========================================
-            // STAGE 6: Local Stateless QC Check
+            // STAGE 6: Local Stateless QC Check & Auto-Sanitation
             // ==========================================
             updateStageStatus('qc', 'running');
             addLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
 
             let qcErrorsCount = 0;
-            const finalScenes = accumulatedScenes.map((scene, idx) => {
+            let finalScenes = accumulatedScenes.map((scene, idx) => {
                 const check = validatePromptText(scene.prompt);
                 const sceneTime = formatTime(accumulatedScenes.slice(0, idx).reduce((acc, s) => acc + (s.duration || 2), 0));
                 
@@ -619,13 +619,59 @@ Return strictly a JSON object matching this schema:
                 };
             });
 
+            if (qcErrorsCount > 0) {
+                addLog(`🔧 Launching Automated Pronoun Correction Routine for ${qcErrorsCount} items...`);
+                const currentChars = finalScriptData.characters || characters;
+                const charsString = currentChars.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+                
+                for (let idx = 0; idx < finalScenes.length; idx++) {
+                    const scene = finalScenes[idx];
+                    if (scene.qcErrors && scene.qcErrors.length > 0) {
+                        addLog(`Fixing Scene ${idx + 1} (${scene.time})...`);
+                        
+                        const prompt = `Correct this image prompt for an AI image generator to make it completely stateless.
+Rules:
+1. Replace character names with their full visual descriptions.
+2. Remove all relative reference words (he, she, it, they, his, her, their, same, previous, earlier, above, below, again).
+3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
+
+Character Presets:
+${charsString}
+
+Input Prompt to fix: "${scene.prompt}"
+Return only the corrected prompt text, nothing else.`;
+
+                        try {
+                            const correctedText = await callOpenRouter(
+                                "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free.",
+                                prompt
+                            );
+                            
+                            scene.prompt = correctedText.trim();
+                            const checkAgain = validatePromptText(scene.prompt);
+                            scene.qcErrors = checkAgain.words;
+                            if (checkAgain.isValid) {
+                                addLog(`✅ Refactored Scene ${idx + 1} successfully.`);
+                            } else {
+                                addLog(`⚠️ Refactored Scene ${idx + 1} still has issues: [${checkAgain.words.join(', ')}]`);
+                            }
+                        } catch (fixErr) {
+                            addLog(`❌ Failed to auto-correct Scene ${idx + 1}: ${fixErr.message}`);
+                        }
+                    }
+                }
+                
+                // Recalculate error count
+                qcErrorsCount = finalScenes.filter(s => s.qcErrors && s.qcErrors.length > 0).length;
+            }
+
             finalScriptData.scenes = finalScenes;
             setCurrentScript(finalScriptData);
 
             if (qcErrorsCount === 0) {
                 addLog(`✅ Pipeline Successful: 0 pronoun errors found. Production blueprint ready.`);
             } else {
-                addLog(`⚠️ QC Completed: Flagged ${qcErrorsCount} prompts. Run 'Auto-Fix' in the Sandbox to sanitize.`);
+                addLog(`⚠️ QC Completed: Flagged ${qcErrorsCount} prompts remaining. Run 'Auto-Fix' in the Sandbox to sanitize.`);
             }
             updateStageStatus('qc', 'completed');
 
