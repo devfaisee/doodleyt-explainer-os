@@ -16,6 +16,12 @@ const DEFAULT_TOPICS = [
 
 const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
 
+const CONSTITUTION = {
+    visualDNA: "Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.",
+    styleReferences: ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg']
+};
+
+
 const validatePromptText = (promptText) => {
     if (!promptText) return { isValid: true, words: [] };
     const cleaned = promptText.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ');
@@ -204,6 +210,7 @@ function App() {
     ]);
 
     const [activePreviewPrompt, setActivePreviewPrompt] = useState('');
+    const [qcTestText, setQcTestText] = useState('');
     const logEndRef = useRef(null);
 
     // Fetch config on load
@@ -914,6 +921,12 @@ Return only the corrected prompt text, nothing else.`;
                         <button onClick={() => setActiveTab('settings')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'settings' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>⚙️</span> Settings & Models
                         </button>
+                        <button onClick={() => setActiveTab('visual')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'visual' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                            <span>🎨</span> Visual DNA Registry
+                        </button>
+                        <button onClick={() => setActiveTab('qc')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'qc' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                            <span>🛡️</span> QC & Stateless Guardrails
+                        </button>
                     </div>
                     <div className="bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800 text-[10px] text-neutral-500 leading-relaxed font-mono">
                         🔒 Secured Pipeline Vault<br/>
@@ -1391,6 +1404,217 @@ Return only the corrected prompt text, nothing else.`;
                                     >
                                         Save Config Properties
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* VISUAL DNA REGISTRY TAB */}
+                    {activeTab === 'visual' && (
+                        <div className="space-y-6 max-w-5xl animate-fadeIn">
+                            {/* Header Banner */}
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                                <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                                    <span>🎨</span> Visual DNA Registry
+                                </h2>
+                                <p className="text-sm text-neutral-400 font-medium">Global visual parameters and style reference guides locked into the generative core system by the Doodle Theory Constitution.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Left Side: Style Anchor DNA */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Style DNA Anchor String</h3>
+                                            <span className="bg-blue-900/30 text-blue-400 border border-blue-800/30 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">Locked</span>
+                                        </div>
+                                        <p className="text-xs text-neutral-400">This prefix string is appended to every single visual scene prompt prior to image synthesis, forcing Stable Diffusion / Midjourney seeds to stay strictly on-brand.</p>
+                                        <div className="bg-neutral-950 p-5 rounded-2xl border border-neutral-800 text-sm font-mono text-neutral-300 leading-relaxed relative group">
+                                            {CONSTITUTION.visualDNA}
+                                            <button 
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(CONSTITUTION.visualDNA);
+                                                    alert('Visual DNA copied to clipboard!');
+                                                }}
+                                                className="absolute bottom-3 right-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-white px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5"
+                                            >
+                                                📋 Copy
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Linked System Assets */}
+                                    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">System Seed Reference Images</h3>
+                                        <p className="text-xs text-neutral-400">These asset identifier files are referenced in prompt embeddings to trigger specific MS Paint stickman style checkpoints.</p>
+                                        
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {CONSTITUTION.styleReferences.map((ref, idx) => (
+                                                <div key={ref} className="bg-neutral-950 border border-neutral-850 p-4 rounded-2xl flex items-center justify-between hover:border-blue-500/30 transition-all group">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-lg font-bold group-hover:scale-105 transition-transform">
+                                                            🖼️
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-mono font-bold text-white">{ref}</div>
+                                                            <div className="text-[10px] text-neutral-500 font-mono">Index Reference: #{idx + 1}</div>
+                                                        </div>
+                                                    </div>
+                                                    <span className="bg-green-950/20 text-green-400 border border-green-900/30 text-[9px] font-mono px-2 py-0.5 rounded uppercase">Active</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Visual Constraints Overview */}
+                                <div className="space-y-6">
+                                    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Style Rule Checks</h3>
+                                        <div className="space-y-3.5">
+                                            <div className="flex gap-3">
+                                                <span className="text-green-400 mt-0.5">✓</span>
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-neutral-200 font-mono">Solid White Backgrounds</h4>
+                                                    <p className="text-[11px] text-neutral-400 mt-0.5">Ensures crisp rendering and high contrast against black outlines.</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <span className="text-green-400 mt-0.5">✓</span>
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-neutral-200 font-mono">Thin Black Outlines</h4>
+                                                    <p className="text-[11px] text-neutral-400 mt-0.5">Mimics the classic MS Paint default pencil/brush tool aesthetic.</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <span className="text-green-400 mt-0.5">✓</span>
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-neutral-200 font-mono">Flat Colors Only</h4>
+                                                    <p className="text-[11px] text-neutral-400 mt-0.5">Strictly prohibits gradients, shadows, lighting, or 3D textures.</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <span className="text-green-400 mt-0.5">✓</span>
+                                                <div>
+                                                    <h4 className="text-xs font-bold text-neutral-200 font-mono">Extreme Cartoon Expressions</h4>
+                                                    <p className="text-[11px] text-neutral-400 mt-0.5">Exaggerated mouths, sweat drops, and popping eyes represent the core humor.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-neutral-900 border border-neutral-850 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Active Scene Preview</h3>
+                                        <div className="bg-neutral-950 border border-neutral-850 p-4 rounded-2xl flex flex-col items-center justify-center text-center py-8">
+                                            <div className="w-16 h-16 rounded-full bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-2xl mb-3">
+                                                🎨
+                                            </div>
+                                            <p className="text-xs text-neutral-400 max-w-[200px] mb-4">Click "Script Sandbox" or "Execution Terminal" to see and edit dynamic preview drawings.</p>
+                                            <button 
+                                                onClick={() => setActiveTab('sandbox')}
+                                                className="bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-200 hover:text-white px-4 py-2 rounded-xl text-xs font-semibold transition"
+                                            >
+                                                Open Sandbox
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STATELESS QC GUARDRAILS TAB */}
+                    {activeTab === 'qc' && (
+                        <div className="space-y-6 max-w-5xl animate-fadeIn">
+                            {/* Header Banner */}
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-red-500/5 rounded-full blur-3xl pointer-events-none"></div>
+                                <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                                    <span>🛡️</span> QC & Stateless Guardrails
+                                </h2>
+                                <p className="text-sm text-neutral-400 font-medium">Dynamically shields image prompts from context memory failure by banning and stripping relative reference words.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Left Side: Absolute Ban List */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Absolute Banned Word Signatures</h3>
+                                            <span className="bg-red-900/30 text-red-400 border border-red-800/30 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">Enforced</span>
+                                        </div>
+                                        <p className="text-xs text-neutral-400">If any of these pronouns or relative references leak into a visual prompt, the image generator will fail to compile the character correctly. Our guardrail system catches and flags them immediately.</p>
+                                        
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                            {BANNED_PRONOUNS.map((word) => (
+                                                <div key={word} className="bg-neutral-950 border border-neutral-850/80 p-3 rounded-xl flex flex-col justify-between hover:border-red-500/20 transition-all font-mono">
+                                                    <span className="text-red-400 text-xs font-bold font-mono">"{word}"</span>
+                                                    <span className="text-[9px] text-neutral-600 uppercase mt-1">Blocked Pattern</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Live QC Playground */}
+                                    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Interactive Playground: Prompt Sanitizer</h3>
+                                        <p className="text-xs text-neutral-400">Type or paste a draft visual prompt below to test if it violates the stateless design rule.</p>
+                                        
+                                        <div className="space-y-4">
+                                            <textarea 
+                                                value={qcTestText}
+                                                onChange={(e) => setQcTestText(e.target.value)}
+                                                placeholder="e.g. A crude stickman doodle of Bob holding a pen. He is smiling while he looks at the camera again..."
+                                                rows="3"
+                                                className="w-full bg-neutral-950 border border-neutral-800 focus:border-red-500 focus:ring-1 focus:ring-red-500/20 p-4 rounded-2xl text-sm text-neutral-200 outline-none font-mono resize-none transition-all"
+                                            />
+                                            
+                                            {qcTestText && (
+                                                <div className={`p-4 rounded-2xl border ${validatePromptText(qcTestText).isValid ? 'bg-green-950/10 border-green-500/20 text-green-400' : 'bg-red-950/10 border-red-500/20 text-red-400'} font-mono text-xs space-y-2`}>
+                                                    <div className="flex items-center gap-2 font-bold uppercase tracking-wider">
+                                                        <span>{validatePromptText(qcTestText).isValid ? '✓ Shield Intact' : '⚠ Violation Caught'}</span>
+                                                    </div>
+                                                    <p className="text-neutral-400 font-sans">
+                                                        {validatePromptText(qcTestText).isValid 
+                                                            ? 'This prompt does not contain any relative pronouns or memory state words. It is safe for stateless generation!'
+                                                            : `Banned terms detected: ${validatePromptText(qcTestText).words.map(w => `"${w}"`).join(', ')}. Please replace them with absolute descriptions.`
+                                                        }
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Technical Specs */}
+                                <div className="space-y-6">
+                                    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Why is this critical?</h3>
+                                        <div className="text-xs text-neutral-400 space-y-3 leading-relaxed">
+                                            <p><strong>Memoryless Generators:</strong> Image generators process each image in total isolation. They do not know what was generated in previous scenes.</p>
+                                            <p><strong>The Pronoun Trap:</strong> Saying <em>"He is walking"</em> makes the generator hallucinate a random new character. The name <em>"Bob"</em> alone is not enough either, as "Bob" means nothing to the base model.</p>
+                                            <p><strong>The Solution:</strong> The orchestrator automatically parses every character's description card and injects it in place of pronouns. The word <em>"He"</em> is forbidden; instead, we must say: <em>"A crude stickman with red baseball cap and blue hoodie"</em>.</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
+                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Guardrail Metrics</h3>
+                                        <div className="space-y-3 font-mono text-xs">
+                                            <div className="flex justify-between py-1 border-b border-neutral-800/60">
+                                                <span className="text-neutral-500">Scan Level:</span>
+                                                <span className="text-white font-bold">Regex Token Match</span>
+                                            </div>
+                                            <div className="flex justify-between py-1 border-b border-neutral-800/60">
+                                                <span className="text-neutral-500">Failure Action:</span>
+                                                <span className="text-red-400 font-bold">Block & Regenerate</span>
+                                            </div>
+                                            <div className="flex justify-between py-1">
+                                                <span className="text-neutral-500">Active Ruleset:</span>
+                                                <span className="text-blue-400 font-bold">Doodle Theory v1.2</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
