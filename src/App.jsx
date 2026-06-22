@@ -410,8 +410,10 @@ Generate exactly 10 items, one for each category.`
             updateStageStatus('design', 'running');
             addLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
 
-            const designSystemPrompt = `You are an elite YouTube strategist and character designer for the channel "Doodle Theory".
-The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using simple MS Paint stickman doodles.`;
+            const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
+The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using simple, badly-drawn MS Paint stickman doodles.
+Art Style Reference Codes: 18154.jpg, 18153.jpg, 18152.jpg, 18142.jpg, 18146.jpg, 18143.jpg, 18147.jpg, 18151.jpg, 18149.jpg, 18159.jpg.
+Visual DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.`;
 
             const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
 ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
@@ -484,10 +486,11 @@ ${charactersListString}`;
             updateStageStatus('act1', 'running');
             addLog(`⚡ Starting Stage 2: Drafting Act 1 (Hook & Setup, scenes 1-20)...`);
 
-            const act1SystemPrompt = `You are the Visual Director and Scriptwriter for "Doodle Theory".
+            const act1SystemPrompt = `You are the Visual Director, scriptwriter, and retention engineer for "Doodle Theory".
 You write scripts in JSON format.
-Channel style: chaotic, humorous, mildly sarcastic. Art: hand-drawn stick figure doodles, black outlines, flat colors, white background.
-Visual pacing: Fast-paced scenes of 1-3 seconds.`;
+Channel Tone: chaotic, humorous, mildly sarcastic, highly engaging. Feel like a friend with terrible drawing skills explaining something unbelievably interesting. Never sound like a teacher or documentary narrator. Entertain first, inform second.
+Art Style DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, flat colors, highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D.
+Visual Pacing: Fast-paced scenes of 1-3 seconds. Every few seconds must introduce a fresh visual element (zoom, expression change, arrows, highlight circles, motion lines, or visual joke) to maintain maximum retention.`;
 
             const act1UserPrompt = `Write Act 1 (Hook & Setup, scenes 1-20) for the video: "${finalScriptData.title}".
 Niche context: ${finalScriptData.nicheReason}

@@ -1,6 +1,7 @@
 # Local server files
 config.json
 server.js
+server.cjs
 run.bat
 
 # Generated outputs
