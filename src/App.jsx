@@ -210,7 +210,7 @@ function App() {
         const list = [{ id: 'design', label: '1. Niche & Custom Character Design', status: 'idle' }];
         const numActs = type === 'short' ? 1 : duration;
         for (let i = 1; i <= numActs; i++) {
-            list.push({ id: `act${i}`, label: `${i + 1}. Drafting Act ${i} (Scenes ${(i-1)*20 + 1}-${i*20})`, status: 'idle' });
+            list.push({ id: `act${i}`, label: `${i + 1}. Drafting Act ${i} (Dynamic Scenes)`, status: 'idle' });
         }
         list.push({ id: 'qc', label: `${numActs + 2}. Stateless QC Check & Auto-Sanitation`, status: 'idle' });
         return list;
@@ -434,7 +434,7 @@ Generate exactly 10 items, one for each category.`
         
         addLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
         addLog(`🧠 Target Model: ${model}`);
-        addLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min (${numActs * 20} scenes)`}`);
+        addLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
 
         try {
             // ==========================================
@@ -517,7 +517,7 @@ ${charactersListString}`;
             for (let j = 1; j <= numActs; j++) {
                 const stageId = `act${j}`;
                 updateStageStatus(stageId, 'running');
-                addLog(`⚡ Starting Stage ${j + 1}: Drafting Act ${j} of ${numActs} (scenes ${(j-1)*20 + 1}-${j*20})...`);
+                addLog(`⚡ Starting Stage ${j + 1}: Drafting Act ${j} of ${numActs} (LLM Dynamic Scene Output)...`);
 
                 const lastVoContext = j > 1 ? accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ') : '';
                 
@@ -546,7 +546,7 @@ Visual Pacing: Fast-paced scenes of 1-3 seconds. Every few seconds must introduc
                     }
                 }
 
-                const actUserPrompt = `Write ${actTitleText} (scenes ${(j-1)*20 + 1}-${j*20}) for the video: "${finalScriptData.title}".
+                const actUserPrompt = `Write ${actTitleText} for the video: "${finalScriptData.title}".
 Niche context: ${finalScriptData.nicheReason}
 ${actFocusText}
 
@@ -560,7 +560,7 @@ SCRIPTWRITING & PACING LAWS:
 3. Dynamic Action Prompts: In the "prompt" field, you must write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
 4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
 
-Generate exactly 20 consecutive scenes starting from scene number ${(j-1)*20 + 1}.
+Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
 
 Return strictly a JSON object matching this schema:
 {
@@ -583,7 +583,16 @@ Return strictly a JSON object matching this schema:
                 const actData = JSON.parse(actJsonMatch[0]);
                 accumulatedScenes = [...accumulatedScenes, ...actData.scenes];
                 addLog(`✓ Act ${j} compiled successfully (${actData.scenes.length} scenes).`);
-                updateStageStatus(stageId, 'completed');
+                setPipelineStages(prev => prev.map(s => {
+                    if (s.id === stageId) {
+                        return {
+                            ...s,
+                            status: 'completed',
+                            label: `${j + 1}. Act ${j} Completed (${actData.scenes.length} scenes)`
+                        };
+                    }
+                    return s;
+                }));
             }
 
             // ==========================================
@@ -625,6 +634,10 @@ Return strictly a JSON object matching this schema:
         } finally {
             setIsGenerating(false);
         }
+    };
+
+    const runAssetSynthesis = async () => {
+        if (!currentScript) return;
         setSynthesisStatus('running');
         addLog('⚡ Launching media asset synthesis pipeline (images & audio)...');
         addLog(`🔑 Using configuration: Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), ElevenLabs (${elevenlabsApiKey ? 'Provided' : 'Mock Fallback'})`);
@@ -906,7 +919,7 @@ Return only the corrected prompt text, nothing else.`;
                     <div className="bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800 text-[10px] text-neutral-500 leading-relaxed font-mono">
                         🔒 Secured Pipeline Vault<br/>
                         Mode: Multistage Auto-Run<br/>
-                        Script Target: {videoType === 'short' ? 20 : targetDuration * 20} Scenes
+                        Script Target: {videoType === 'short' ? 'Dynamic (~15-25)' : `Dynamic (~${targetDuration * 15}-${targetDuration * 30})`} Scenes
                     </div>
                 </aside>
 
@@ -919,7 +932,7 @@ Return only the corrected prompt text, nothing else.`;
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
                                 <div>
                                     <h2 className="text-xl font-bold text-white mb-1">Autonomous Multistage Terminal</h2>
-                                    <p className="text-sm text-neutral-400 font-medium">Clicking **Launch Production Blueprint** starts an automated background orchestrator. It executes sequential LLM calls to write a full 80-scene script in acts without lazy truncations or identical copy-pasted prompts.</p>
+                                    <p className="text-sm text-neutral-400 font-medium">Clicking **Launch Production Blueprint** starts an automated background orchestrator. It executes sequential LLM calls to write a complete, dynamically-paced script in acts without lazy truncations or identical copy-pasted prompts.</p>
                                 </div>
                                 
                                 <div className="space-y-3">
@@ -971,11 +984,11 @@ Return only the corrected prompt text, nothing else.`;
                                                 onChange={(e) => setTargetDuration(parseInt(e.target.value))}
                                                 className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-3.5 rounded-xl text-xs text-neutral-200 outline-none font-mono"
                                             >
-                                                <option value={2}>2 Minutes (~40 scenes)</option>
-                                                <option value={5}>5 Minutes (~100 scenes)</option>
-                                                <option value={8}>8 Minutes (~160 scenes)</option>
-                                                <option value={10}>10 Minutes (~200 scenes)</option>
-                                                <option value={12}>12 Minutes (~240 scenes)</option>
+                                                <option value={2}>2 Minutes (Dynamic Scene Count)</option>
+                                                <option value={5}>5 Minutes (Dynamic Scene Count)</option>
+                                                <option value={8}>8 Minutes (Dynamic Scene Count)</option>
+                                                <option value={10}>10 Minutes (Dynamic Scene Count)</option>
+                                                <option value={12}>12 Minutes (Dynamic Scene Count)</option>
                                             </select>
                                         </div>
                                     )}
