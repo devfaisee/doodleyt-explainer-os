@@ -2,10 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 
 // --- PRESETS & HARDCODED BLUEPRINTS ---
 const DEFAULT_TOPICS = [
-    { id: 1, title: "The Bizarre Secret Niche: The Wallpaper That Poisoned A King", cat: "Strange History", curiosity: 9.9, novelty: 9.8, relatability: 9.0, hook: "In the 1800s, a vibrant green dye containing arsenic was used in royal wallpapers, slowly poisoning King Napoleon." },
-    { id: 2, title: "Why The World's Quietest Room Causes Auditory Hallucinations", cat: "Psychology", curiosity: 9.8, novelty: 9.5, relatability: 9.2, hook: "Inside Microsoft's anechoic chamber, the silence is so absolute that you can hear your own heartbeat and lungs grinding." },
-    { id: 3, title: "The 45-Second Error That Drained A Crypto Exchange", cat: "Tech History", curiosity: 9.7, novelty: 9.4, relatability: 9.1, hook: "A single missing check in a smart contract allowed an automated recursive function to withdraw all assets in seconds." },
-    { id: 4, title: "The Evolutionary Reason Why Humans Lack Fur", cat: "Evolution", curiosity: 9.5, novelty: 9.2, relatability: 9.7, hook: "Losing our fur allowed us to sweat and run for hours in the midday heat, chasing prey until it collapsed from heatstroke." }
+    { id: 1, title: "The Wallpaper That Slowly Poisoned A King", cat: "Strange History", curiosity: 9.9, novelty: 9.8, relatability: 9.0, hook: "In the 1800s, a vibrant green dye containing arsenic was used in royal wallpapers, slowly poisoning Napoleon." },
+    { id: 2, title: "Why The World's Quietest Room Causes Hallucinations", cat: "Psychology", curiosity: 9.8, novelty: 9.5, relatability: 9.2, hook: "Inside an anechoic chamber, the silence is so absolute that you can hear your own organs grinding." },
+    { id: 3, title: "The Coding Error That Wiped Out $500M in 45 Seconds", cat: "Tech History", curiosity: 9.7, novelty: 9.4, relatability: 9.1, hook: "A junior dev forgot a reentrancy guard in a smart contract, draining the treasury in less than a minute." }
 ];
 
 const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
@@ -21,25 +20,26 @@ function DoodlePreview({ prompt = "", characters = [] }) {
     const hasBob = activeChars.some(c => c.name.toUpperCase() === 'BOB') || upPrompt.includes("RED BASEBALL CAP") || upPrompt.includes("BLUE HOODIE");
     const hasSara = activeChars.some(c => c.name.toUpperCase() === 'SARA') || upPrompt.includes("PINK SHIRT") || upPrompt.includes("BLUE SKIRT");
     
-    const isShocked = upPrompt.includes("SHOCK") || upPrompt.includes("TERROR") || upPrompt.includes("BELIEVE") || upPrompt.includes("FEAR") || upPrompt.includes("SCREAM") || upPrompt.includes("WILD EYED");
-    const hasEar = upPrompt.includes("EAR") || upPrompt.includes("HEAR") || upPrompt.includes("SOUND") || upPrompt.includes("SILENCE");
-    const hasButton = upPrompt.includes("BUTTON");
-    const hasCoffee = upPrompt.includes("COFFEE") || upPrompt.includes("SPLASH") || upPrompt.includes("CUP");
-    const hasMoney = upPrompt.includes("MONEY") || upPrompt.includes("BILLION") || upPrompt.includes("DOLLAR") || upPrompt.includes("CASH");
-    const isDark = upPrompt.includes("DARK") || upPrompt.includes("VOID") || upPrompt.includes("BLACK BACKGROUND");
+    const isShocked = upPrompt.includes("SHOCK") || upPrompt.includes("TERROR") || upPrompt.includes("BELIEVE") || upPrompt.includes("FEAR") || upPrompt.includes("SCREAM") || upPrompt.includes("WILD EYED") || upPrompt.includes("GASP");
+    const hasEar = upPrompt.includes("EAR") || upPrompt.includes("HEAR") || upPrompt.includes("SOUND") || upPrompt.includes("SILENCE") || upPrompt.includes("AUDITORY");
+    const hasButton = upPrompt.includes("BUTTON") || upPrompt.includes("PRESS");
+    const hasCoffee = upPrompt.includes("COFFEE") || upPrompt.includes("SPLASH") || upPrompt.includes("CUP") || upPrompt.includes("DRINK");
+    const hasMoney = upPrompt.includes("MONEY") || upPrompt.includes("BILLION") || upPrompt.includes("DOLLAR") || upPrompt.includes("CASH") || upPrompt.includes("HEIST");
+    const isDark = upPrompt.includes("DARK") || upPrompt.includes("VOID") || upPrompt.includes("BLACK BACKGROUND") || upPrompt.includes("SHADOW");
 
     // Dynamic color parsing based on descriptions
     const getShirtColor = (charName) => {
         const char = characters.find(c => c.name.toUpperCase() === charName.toUpperCase());
         if (!char) return charName === 'BOB' ? '#3b82f6' : '#ec4899';
         const desc = char.description.toLowerCase();
-        if (desc.includes('red shirt') || desc.includes('red hoodie') || desc.includes('red cap')) return '#ef4444';
-        if (desc.includes('green shirt') || desc.includes('green hoodie') || desc.includes('green tunic')) return '#22c55e';
-        if (desc.includes('yellow shirt') || desc.includes('yellow hoodie')) return '#eab308';
-        if (desc.includes('blue shirt') || desc.includes('blue hoodie') || desc.includes('blue coat')) return '#3b82f6';
-        if (desc.includes('pink shirt') || desc.includes('pink dress')) return '#ec4899';
-        if (desc.includes('purple shirt') || desc.includes('purple robe')) return '#a855f7';
-        return '#737373'; // Default neutral
+        if (desc.includes('red shirt') || desc.includes('red hoodie') || desc.includes('red cap') || desc.includes('red tunic')) return '#ef4444';
+        if (desc.includes('green shirt') || desc.includes('green hoodie') || desc.includes('green tunic') || desc.includes('green coat')) return '#22c55e';
+        if (desc.includes('yellow shirt') || desc.includes('yellow hoodie') || desc.includes('yellow vest')) return '#eab308';
+        if (desc.includes('blue shirt') || desc.includes('blue hoodie') || desc.includes('blue coat') || desc.includes('blue jacket')) return '#3b82f6';
+        if (desc.includes('pink shirt') || desc.includes('pink dress') || desc.includes('pink tunic')) return '#ec4899';
+        if (desc.includes('purple shirt') || desc.includes('purple robe') || desc.includes('purple cloak')) return '#a855f7';
+        if (desc.includes('black coat') || desc.includes('black trench') || desc.includes('black hoodie')) return '#171717';
+        return '#737373';
     };
 
     return (
@@ -73,18 +73,13 @@ function DoodlePreview({ prompt = "", characters = [] }) {
 
                         return (
                             <g key={char.name} transform={`translate(${transX}, 10)`}>
-                                {/* Head */}
                                 <circle cx="40" cy="45" r="14" fill="#fff" stroke="#000" strokeWidth="3" />
-                                {/* Spine */}
                                 <line x1="40" y1="59" x2="40" y2="95" stroke="#000" strokeWidth="3" />
-                                {/* Legs */}
                                 <line x1="40" y1="95" x2="28" y2="125" stroke="#000" strokeWidth="3" />
                                 <line x1="40" y1="95" x2="52" y2="125" stroke="#000" strokeWidth="3" />
                                 
-                                {/* Shirt Fill */}
                                 <path d="M 32 60 L 48 60 L 51 90 L 29 90 Z" fill={color} opacity="0.8" />
                                 
-                                {/* Arms */}
                                 {isCharShocked ? (
                                     <g stroke="#000" strokeWidth="3" strokeLinecap="round">
                                         <line x1="40" y1="68" x2="20" y2="45" />
@@ -97,7 +92,6 @@ function DoodlePreview({ prompt = "", characters = [] }) {
                                     </g>
                                 )}
 
-                                {/* Eyes / Expression */}
                                 <circle cx="35" cy="42" r="2" fill="#000" />
                                 <circle cx="45" cy="42" r="2" fill="#000" />
                                 {isCharShocked ? (
@@ -106,13 +100,12 @@ function DoodlePreview({ prompt = "", characters = [] }) {
                                     <path d="M 35 50 Q 40 55 45 50" fill="none" stroke="#000" strokeWidth="1.8" strokeLinecap="round" />
                                 )}
 
-                                {/* Simple Label */}
                                 <text x="40" y="24" textAnchor="middle" fill="#737373" fontSize="8" fontWeight="bold" fontFamily="monospace">{name}</text>
                             </g>
                         );
                     })
                 ) : (
-                    /* Default Fallback characters (Bob and Sara style) if no characters detected */
+                    /* Fallback graphics */
                     <g>
                         {hasBob && (
                             <g transform="translate(10, 0)">
@@ -167,7 +160,7 @@ function App() {
     const [passKey, setPassKey] = useState('');
     const [activeTab, setActiveTab] = useState('terminal');
     
-    // App configuration variables
+    // Core parameters
     const [apiKey, setApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-chat');
     const [outputPath, setOutputPath] = useState('');
@@ -182,11 +175,20 @@ function App() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [serverStatus, setServerStatus] = useState('Checking...');
     
+    // Multi-Agent Pipeline Status Checklist
+    const [pipelineStages, setPipelineStages] = useState([
+        { id: 'design', label: '1. Niche & Custom Character Design', status: 'idle' },
+        { id: 'act1', label: '2. Drafting Act 1 (Hook & Introduction)', status: 'idle' },
+        { id: 'act2', label: '3. Drafting Act 2 (Rising Conflict)', status: 'idle' },
+        { id: 'act3', label: '4. Drafting Act 3 (Climax & Twists)', status: 'idle' },
+        { id: 'act4', label: '5. Drafting Act 4 (Resolution & Payoff)', status: 'idle' },
+        { id: 'qc', label: '6. Stateless QC Check & Auto-Sanitation', status: 'idle' }
+    ]);
+
     const [activePreviewPrompt, setActivePreviewPrompt] = useState('');
-    
     const logEndRef = useRef(null);
 
-    // Fetch server configuration on load
+    // Fetch config on load
     useEffect(() => {
         fetch('/api/config')
             .then(res => res.json())
@@ -198,10 +200,9 @@ function App() {
                 if (data.characters) setCharacters(data.characters);
             })
             .catch(err => {
-                console.log('Running client-only mode (server offline)');
+                console.log('Client-only mode (offline)');
                 setServerStatus('Offline (Client-Only)');
                 
-                // Load config from local storage if online hosting
                 const cachedKey = localStorage.getItem('doodleyt_api_key') || '';
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-chat';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || 'E:/doodleyt/output';
@@ -234,9 +235,7 @@ function App() {
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
         if (updatedFields.characters !== undefined) localStorage.setItem('doodleyt_characters', JSON.stringify(updatedFields.characters));
 
-        if (serverStatus.includes('Offline')) {
-            return;
-        }
+        if (serverStatus.includes('Offline')) return;
         try {
             await fetch('/api/config', {
                 method: 'POST',
@@ -244,7 +243,7 @@ function App() {
                 body: JSON.stringify(updatedFields)
             });
         } catch (e) {
-            console.error('Failed to sync settings to server', e);
+            console.error('Failed to sync settings', e);
         }
     };
 
@@ -252,29 +251,28 @@ function App() {
         setPipelineLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
     };
 
-    // Stateless guardrail verification function
-    const validatePromptText = (prompt) => {
-        const clean = prompt.toLowerCase();
-        const matchedWords = [];
-        BANNED_PRONOUNS.forEach(word => {
-            const regex = new RegExp(`\\b${word}\\b`, 'i');
-            if (regex.test(clean)) {
-                matchedWords.push(word);
-            }
-        });
-        return {
-            isValid: matchedWords.length === 0,
-            words: matchedWords
-        };
+    const updateStageStatus = (stageId, status) => {
+        setPipelineStages(prev => prev.map(s => s.id === stageId ? { ...s, status } : s));
     };
 
-    // Dynamic Niche Topic AI Generation (Generates 5 true bizarre niches)
+    const resetPipelineStages = () => {
+        setPipelineStages(prev => prev.map(s => ({ ...s, status: 'idle' })));
+    };
+
+    // Helper to format timestamps dynamically
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Brainstorms 5 viral ideas
     const generateTopicsViaAI = async () => {
         if (!apiKey) {
-            alert('Please set your OpenRouter API Key in the Settings tab first!');
+            alert('Please set your OpenRouter API Key in settings first!');
             return;
         }
-        addLog('Inquiring OpenRouter for extremely weird, viral niche topics...');
+        addLog('Inquiring OpenRouter for extremely niche, viral brainstorm matrices...');
         setIsGenerating(true);
         try {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -297,7 +295,7 @@ Also write a brief 1-sentence hook statement for each.
 
 Output strictly as a JSON array inside a code block, formatted like this:
 [
-  {"id": 201, "title": "Specific Bizarre Niche Title", "cat": "Strange History", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
+  {"id": 301, "title": "Bizarre Niche Title", "cat": "Strange History", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
 ]`
                         }
                     ]
@@ -312,238 +310,318 @@ Output strictly as a JSON array inside a code block, formatted like this:
                 const parsed = JSON.parse(jsonMatch[0]);
                 setTopicBank(parsed);
                 setSelectedTopic(parsed[0]);
-                addLog(`Successfully parsed ${parsed.length} new AI niche topics.`);
+                addLog(`Successfully parsed ${parsed.length} new brainstorm topics.`);
             } else {
-                throw new Error("Could not extract JSON format from completion.");
+                throw new Error("Could not extract JSON array.");
             }
         } catch (e) {
-            addLog(`Error generating topics: ${e.message}`);
-            alert(`Failed to generate topics: ${e.message}`);
+            addLog(`Error generating niches: ${e.message}`);
         } finally {
             setIsGenerating(false);
         }
     };
 
-    // Main Orchestrated Script & Visual Prompt Generation Run
-    // Autonomously designs topic and custom characters, writing stateless prompts.
+    // Helper: Call OpenRouter LLM
+    const callOpenRouter = async (systemPrompt, userPrompt) => {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'Doodle Theory OS'
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ]
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`OpenRouter HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    };
+
+    // Orchestrates sequential, multi-call generation logic in background
     const runScriptGeneration = async (topicTheme) => {
         if (!apiKey) {
-            addLog('❌ Generation Aborted: Missing OpenRouter API Key. Please insert key in Settings.');
+            addLog('❌ Aborted: Missing API Key.');
             setActiveTab('settings');
             return;
         }
 
         setIsGenerating(true);
         setPipelineLogs([]);
-        addLog(`⚙️ Booting Explainer OS Autonomous Core...`);
-        if (topicTheme) {
-            addLog(`🎯 Target Theme: "${topicTheme}"`);
-        } else {
-            addLog(`🎯 Running in 100% Autonomous Niche Discovery Mode...`);
-        }
-        addLog(`🧠 Selected LLM: ${model}`);
+        resetPipelineStages();
+        
+        let accumulatedScenes = [];
+        let finalScriptData = { title: '', category: '', nicheReason: '', thumbnail: '', characters: [] };
+        
+        addLog(`⚙️ Booting Multistage Pipeline Orchestrator...`);
+        addLog(`🧠 Target Model: ${model}`);
 
         try {
-            addLog(`⚡ Constructing Master Prompt with Stateless Character design guidelines...`);
-            
-            const prompt = `You are the visual director and scriptwriter for the YouTube channel "Doodle Theory".
-The channel explains fascinating, bizarre, mysterious, or shocking niche topics using simple, funny, badly-drawn stick figures and doodles on a white background.
+            // ==========================================
+            // STAGE 1: Niche & Custom Character Design
+            // ==========================================
+            updateStageStatus('design', 'running');
+            addLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
 
-Task: Autonomously select and write a complete, high-retention video script.
-${topicTheme ? `Focus on this theme/topic: "${topicTheme}". Make it an extremely specific, bizarre, or mysterious niche sub-topic.` : `Autonomously choose a highly specific, bizarre, or mysterious niche topic (e.g. strange history, weird psychology, evolutionary mysteries, tech anomalies).`}
+            const designSystemPrompt = `You are an elite YouTube strategist and character designer for the channel "Doodle Theory".
+The channel explains bizarre, shocking, or mysterious topics using simple MS Paint stickman doodles.`;
 
-Instructions:
-1. INVENT CHARACTERS: Design 1-3 custom characters needed for this topic. For each character, write a complete physical description as a hand-drawn MS Paint stickman (e.g. hat, shirt color, expression, pants, sneakers). Keep the art style: crude stickman doodle, black outlines, flat colors, white background.
-2. WRITE SCRIPT: Generate Act 1 of the script (at least 30 scenes, 1-3 seconds per scene).
-3. STATELESS PROMPTS (THE GOLDEN RULE): AI image generators have no memory. You must never use character names alone (like "Bob is shocked") and never use pronouns (he, she, it, they, his, her, same, previous, earlier). Instead, you must copy and paste the character's full visual description (which you designed in Step 1) every single time they appear in an image prompt.
+            const designUserPrompt = `Autonomously select a highly specific, bizarre, curiosity-driven niche video topic.
+${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
 
-Output format: You MUST return a single, valid JSON object. Do not include markdown wraps or text outside the JSON block.
+Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman (e.g. shirt color, hat, accessories, pants, sneakers). Keep the art style: crude stickman outline, solid flat colors, white background.
 
-Expected JSON schema:
+Return strictly a JSON object:
 {
-  "title": "[Niche click-through title]",
-  "category": "[Niche category]",
-  "nicheReason": "[Why this topic is an extremely high-click niche]",
-  "thumbnail": "[Stateless prompt for the thumbnail doodle]",
+  "title": "[Clickable Title]",
+  "category": "[Category]",
+  "nicheReason": "[Why this specific sub-niche is highly viral]",
+  "thumbnail": "[Stateless prompt describing the thumbnail doodle]",
   "characters": [
     { "name": "NAME", "description": "Complete physical visual description" }
-  ],
+  ]
+}`;
+
+            const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt);
+            const designJsonMatch = designResponse.match(/\{[\s\S]*\}/);
+            if (!designJsonMatch) throw new Error("Stage 1 failed to return JSON.");
+            
+            const designData = JSON.parse(designJsonMatch[0]);
+            finalScriptData = { ...finalScriptData, ...designData };
+            setCharacters(finalScriptData.characters || []);
+            saveConfig({ characters: finalScriptData.characters || [] });
+            
+            addLog(`✓ Title: "${finalScriptData.title}"`);
+            addLog(`✓ Custom characters designed: ${finalScriptData.characters.map(c => c.name).join(', ')}`);
+            updateStageStatus('design', 'completed');
+
+            // Constructing variables for script generation
+            const charactersListString = finalScriptData.characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+            const charactersPromptGuide = `Stateless Prompt Rule (THE GOLDEN RULE):
+Image generators have no memory. You must never use character names alone (like "Hero is shocked") and never use pronouns (he, she, it, they, his, her, same, previous).
+Instead, you MUST combine the character's full physical description (from the preset below) with the SPECIFIC action, pose, facial expression, and setting of this scene!
+Preserve details: shirt colors, caps, accessories. Make every prompt unique and action-oriented!
+
+Character presets to use:
+${charactersListString}`;
+
+            // ==========================================
+            // STAGE 2: Act 1 (Hook & Setup)
+            // ==========================================
+            updateStageStatus('act1', 'running');
+            addLog(`⚡ Starting Stage 2: Drafting Act 1 (Hook & Setup, scenes 1-20)...`);
+
+            const act1SystemPrompt = `You are the Visual Director and Scriptwriter for "Doodle Theory".
+You write scripts in JSON format.
+Channel style: chaotic, humorous, mildly sarcastic. Art: hand-drawn stick figure doodles, black outlines, flat colors, white background.
+Visual pacing: Fast-paced scenes of 1-3 seconds.`;
+
+            const act1UserPrompt = `Write Act 1 (Hook & Setup) for the video: "${finalScriptData.title}".
+Niche context: ${finalScriptData.nicheReason}
+
+${charactersPromptGuide}
+
+Generate exactly 20 consecutive scenes. Start with a shocking, mysterious hook (0-15s) with NO introductions or welcomes.
+For every scene, write the [prompt] combining the character description with the specific scene action/expression. Never write the exact same prompt for different scenes.
+
+Return strictly a JSON object matching this schema:
+{
   "scenes": [
     {
-      "time": "MM:SS",
       "duration": [1, 2, or 3],
       "voiceover": "[Exact spoken sentence]",
-      "camera": "[Camera/Editing instruction]",
+      "camera": "[Editing/camera zoom/movement]",
       "sfx": "[Sound effect]",
-      "prompt": "[Complete, stateless visual prompt. Must inject the full character description of any character appearing, with no pronouns or name-only references. Art style: crude MS Paint stickman doodle, black outlines, flat colors, white background]",
-      "textOverlay": "[Text overlay or null]"
+      "prompt": "[Complete, action-specific stateless visual prompt. MUST combine the character card details with this scene's action/pose/emotion. No pronouns or names alone. White background]",
+      "textOverlay": "[Text on screen or null]"
     }
   ]
 }`;
 
-            addLog(`⚡ Dispatching stream request to OpenRouter API (this may take up to 45 seconds)...`);
+            const act1Response = await callOpenRouter(act1SystemPrompt, act1UserPrompt);
+            const act1JsonMatch = act1Response.match(/\{[\s\S]*\}/);
+            if (!act1JsonMatch) throw new Error("Stage 2 failed to return JSON.");
             
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'Doodle Theory OS'
-                },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [
-                        { role: 'user', content: prompt }
-                    ]
-                })
-            });
+            const act1Data = JSON.parse(act1JsonMatch[0]);
+            accumulatedScenes = [...act1Data.scenes];
+            addLog(`✓ Act 1 compiled successfully (${accumulatedScenes.length} scenes).`);
+            updateStageStatus('act1', 'completed');
 
-            if (!response.ok) {
-                throw new Error(`OpenRouter HTTP ${response.status}`);
-            }
+            // ==========================================
+            // STAGE 3: Act 2 (Rising Conflict)
+            // ==========================================
+            updateStageStatus('act2', 'running');
+            addLog(`⚡ Starting Stage 3: Drafting Act 2 (Rising Conflict, scenes 21-40)...`);
 
-            const result = await response.json();
-            const content = result.choices[0].message.content;
-            
-            addLog(`📥 Content received. Parsing autonomous JSON package...`);
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            
-            if (!jsonMatch) {
-                throw new Error("Failed to parse JSON blocks from AI response.");
-            }
+            const lastVoAct1 = accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ');
+            const act2UserPrompt = `Write Act 2 (Rising Conflict, next 20 consecutive scenes) for the video: "${finalScriptData.title}".
+This act must escalate the mystery, introduce new details, or build the conflict.
 
-            const scriptData = JSON.parse(jsonMatch[0]);
-            
-            addLog(`👥 Found ${scriptData.characters ? scriptData.characters.length : 0} custom characters designed for this script.`);
-            if (scriptData.characters) {
-                setCharacters(scriptData.characters);
-                saveConfig({ characters: scriptData.characters });
-            }
+Last spoken lines of Act 1: "${lastVoAct1}"
 
-            // Run QC checks on prompts using the dynamically generated characters!
-            addLog(`🛡️ Triggering Stateless Quality Control check sweeps...`);
-            let qcErrorsCount = 0;
-            
-            const checkedScenes = scriptData.scenes.map((scene, idx) => {
-                const check = validatePromptText(scene.prompt);
-                if (!check.isValid) {
-                    qcErrorsCount++;
-                    addLog(`⚠️ QC Alert: Row ${idx+1} (${scene.time}) contains memory references: [${check.words.join(', ')}]`);
-                }
-                return {
-                    ...scene,
-                    qcErrors: check.words
-                };
-            });
+${charactersPromptGuide}
 
-            const finalScript = {
-                ...scriptData,
-                scenes: checkedScenes
-            };
+Write exactly 20 scenes continuing from the end of Act 1.
+For every scene, combine the character card details with unique actions/emotions.
 
-            setCurrentScript(finalScript);
-            
-            if (qcErrorsCount === 0) {
-                addLog(`✅ Pipeline Successful: 0 pronoun errors found. Production blueprint ready.`);
-            } else {
-                addLog(`⚠️ QC Scan Finished: Flagged ${qcErrorsCount} prompts for containing relative pronouns. Use 'Auto-Fix' in the Sandbox to clean.`);
-            }
-
-        } catch (e) {
-            addLog(`❌ Pipeline Failed: ${e.message}`);
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-    // Append Act 2 / Extend Script
-    const extendScript = async () => {
-        if (!currentScript) return;
-        
-        setIsGenerating(true);
-        addLog(`🔄 Initiating Script Extension sequence (Act 2)...`);
-        
-        try {
-            const currentChars = currentScript.characters || characters;
-            const charsString = currentChars.map(c => `- **${c.name}**: ${c.description}`).join('\n');
-            const lastScene = currentScript.scenes[currentScript.scenes.length - 1];
-            
-            const prompt = `You are continuing the Doodle Theory script: "${currentScript.title}".
-Here is the summary of the script so far:
-- Total scenes: ${currentScript.scenes.length}
-- Last Scene Time: ${lastScene.time}
-- Last Scene Voiceover: "${lastScene.voiceover}"
-
-Character Presets (You MUST use these exact visual descriptions in your scene prompts, with no names alone or pronouns):
-${charsString}
-
-Write Act 2 (the next 1.5 - 2 minutes of the video, at least 30 additional scenes).
-Start the 'time' index from ${lastScene.time}.
-Return strictly valid JSON format matching the schema:
+Return strictly a JSON object:
 {
   "scenes": [
-     {
-       "time": "...",
-       "duration": 3,
-       "voiceover": "...",
-       "camera": "...",
-       "sfx": "...",
-       "prompt": "...",
-       "textOverlay": "..."
-     }
+    {
+      "duration": [1, 2, or 3],
+      "voiceover": "[Spoken sentence]",
+      "camera": "[Camera]",
+      "sfx": "[SFX]",
+      "prompt": "[Action-specific stateless visual prompt. Inject character visual details + scene action. No pronouns. White background]",
+      "textOverlay": "[Text or null]"
+    }
   ]
 }`;
 
-            addLog(`⚡ Dispatching extension request to OpenRouter...`);
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'Doodle Theory OS'
-                },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [
-                        { role: 'user', content: prompt }
-                    ]
-                })
-            });
+            const act2Response = await callOpenRouter(act1SystemPrompt, act2UserPrompt);
+            const act2JsonMatch = act2Response.match(/\{[\s\S]*\}/);
+            if (!act2JsonMatch) throw new Error("Stage 3 failed to return JSON.");
+            
+            const act2Data = JSON.parse(act2JsonMatch[0]);
+            accumulatedScenes = [...accumulatedScenes, ...act2Data.scenes];
+            addLog(`✓ Act 2 compiled successfully (Total: ${accumulatedScenes.length} scenes).`);
+            updateStageStatus('act2', 'completed');
 
-            const result = await response.json();
-            const content = result.choices[0].message.content;
+            // ==========================================
+            // STAGE 4: Act 3 (Climax & Twists)
+            // ==========================================
+            updateStageStatus('act3', 'running');
+            addLog(`⚡ Starting Stage 4: Drafting Act 3 (Climax & Twists, scenes 41-60)...`);
+
+            const lastVoAct2 = accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ');
+            const act3UserPrompt = `Write Act 3 (Climax & Twists, next 20 consecutive scenes) for the video: "${finalScriptData.title}".
+This act must build toward the climax, reveal a major plot twist, or deliver a shocking revelation.
+
+Last spoken lines of Act 2: "${lastVoAct2}"
+
+${charactersPromptGuide}
+
+Write exactly 20 scenes. Keep prompts stateless, unique, and action-oriented.
+
+Return strictly a JSON object:
+{
+  "scenes": [
+    {
+      "duration": [1, 2, or 3],
+      "voiceover": "[Spoken sentence]",
+      "camera": "[Camera]",
+      "sfx": "[SFX]",
+      "prompt": "[Action-specific stateless visual prompt. Inject character visual details + scene action. No pronouns. White background]",
+      "textOverlay": "[Text or null]"
+    }
+  ]
+}`;
+
+            const act3Response = await callOpenRouter(act1SystemPrompt, act3UserPrompt);
+            const act3JsonMatch = act3Response.match(/\{[\s\S]*\}/);
+            if (!act3JsonMatch) throw new Error("Stage 4 failed to return JSON.");
             
-            const jsonMatch = content.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error("JSON parse error during extension sweep.");
+            const act3Data = JSON.parse(act3JsonMatch[0]);
+            accumulatedScenes = [...accumulatedScenes, ...act3Data.scenes];
+            addLog(`✓ Act 3 compiled successfully (Total: ${accumulatedScenes.length} scenes).`);
+            updateStageStatus('act3', 'completed');
+
+            // ==========================================
+            // STAGE 5: Act 4 (Resolution & Payoff)
+            // ==========================================
+            updateStageStatus('act4', 'running');
+            addLog(`⚡ Starting Stage 5: Drafting Act 4 (Resolution & Payoff, scenes 61-80)...`);
+
+            const lastVoAct3 = accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ');
+            const act4UserPrompt = `Write Act 4 (Resolution & Payoff, final 20 consecutive scenes) for the video: "${finalScriptData.title}".
+This act must resolve the twist, deliver the final takeaway, and leave the viewer with a funny or thought-provoking ending.
+
+Last spoken lines of Act 3: "${lastVoAct3}"
+
+${charactersPromptGuide}
+
+Write exactly 20 scenes. Ensure prompts are stateless, action-oriented, and do not repeat.
+
+Return strictly a JSON object:
+{
+  "scenes": [
+    {
+      "duration": [1, 2, or 3],
+      "voiceover": "[Spoken sentence]",
+      "camera": "[Camera]",
+      "sfx": "[SFX]",
+      "prompt": "[Action-specific stateless visual prompt. Inject character visual details + scene action. No pronouns. White background]",
+      "textOverlay": "[Text or null]"
+    }
+  ]
+}`;
+
+            const act4Response = await callOpenRouter(act1SystemPrompt, act4UserPrompt);
+            const act4JsonMatch = act4Response.match(/\{[\s\S]*\}/);
+            if (!act4JsonMatch) throw new Error("Stage 5 failed to return JSON.");
             
-            const extensionData = JSON.parse(jsonMatch[0]);
-            
-            addLog(`🛡️ Scanning extended scenes for stateless compliance...`);
-            const checkedExtended = extensionData.scenes.map((scene, idx) => {
+            const act4Data = JSON.parse(act4JsonMatch[0]);
+            accumulatedScenes = [...accumulatedScenes, ...act4Data.scenes];
+            addLog(`✓ Act 4 compiled successfully (Total: ${accumulatedScenes.length} scenes).`);
+            updateStageStatus('act4', 'completed');
+
+            // ==========================================
+            // STAGE 6: Stateless QC Check & Auto-Sanitation
+            // ==========================================
+            updateStageStatus('qc', 'running');
+            addLog(`⚡ Starting Stage 6: Running Stateless QC Check sweeps...`);
+
+            // Dynamically calculate timeline timestamps in JS
+            let currentAccumulatedTime = 0;
+            let qcErrorsCount = 0;
+
+            const finalScenes = accumulatedScenes.map((scene, idx) => {
                 const check = validatePromptText(scene.prompt);
+                const sceneTime = formatTime(currentAccumulatedTime);
+                currentAccumulatedTime += scene.duration;
+                
+                if (!check.isValid) {
+                    qcErrorsCount++;
+                    addLog(`⚠️ Row ${idx + 1} (${sceneTime}): Banned pronoun leak: [${check.words.join(', ')}]`);
+                }
+                
                 return {
                     ...scene,
+                    time: sceneTime,
                     qcErrors: check.words
                 };
             });
 
-            setCurrentScript(prev => ({
-                ...prev,
-                scenes: [...prev.scenes, ...checkedExtended]
-            }));
+            finalScriptData.scenes = finalScenes;
+            setCurrentScript(finalScriptData);
 
-            addLog(`✅ Extension appended. Added ${checkedExtended.length} new scenes.`);
+            if (qcErrorsCount === 0) {
+                addLog(`✅ Pipeline Successful: 0 pronoun errors found. Production blueprint ready.`);
+            } else {
+                addLog(`⚠️ QC Completed: Flagged ${qcErrorsCount} prompts. Run 'Auto-Fix' in the Sandbox to sanitize.`);
+            }
+            updateStageStatus('qc', 'completed');
+
         } catch (e) {
-            addLog(`❌ Extension failed: ${e.message}`);
+            addLog(`❌ Pipeline Failed: ${e.message}`);
+            // Mark any running stage as failed
+            setPipelineStages(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'failed' } : s));
         } finally {
             setIsGenerating(false);
         }
     };
 
-    // Auto-Fix prompts locally by replacing pronouns using LLM call
-    const autoFixFlaggedPrompts = async () => {
+    const autoFixFlaggedPromptsLocally = async () => {
         if (!currentScript) return;
         const flaggedIndices = currentScript.scenes
             .map((s, i) => s.qcErrors && s.qcErrors.length > 0 ? i : -1)
@@ -563,9 +641,9 @@ Return strictly valid JSON format matching the schema:
             
             for (const index of flaggedIndices) {
                 const scene = currentScript.scenes[index];
-                addLog(`Fixing Scene ${index + 1} (${scene.time}): "${scene.prompt.substring(0, 40)}..."`);
+                addLog(`Fixing Scene ${index + 1} (${scene.time})...`);
                 
-                const prompt = `Correct this image prompt for an AI image generator to make it completely stateless (independent of previous scenes).
+                const prompt = `Correct this image prompt for an AI image generator to make it completely stateless.
 Rules:
 1. Replace character names with their full visual descriptions.
 2. Remove all relative reference words (he, she, it, they, his, her, their, same, previous, earlier, above, below, again).
@@ -592,7 +670,6 @@ Return only the corrected prompt text, nothing else.`;
                 const result = await response.json();
                 const correctedText = result.choices[0].message.content.trim();
                 
-                // Update scene state
                 setCurrentScript(prev => {
                     const newScenes = [...prev.scenes];
                     newScenes[index] = {
@@ -611,106 +688,6 @@ Return only the corrected prompt text, nothing else.`;
             setIsGenerating(false);
         }
     };
-
-    // Save script locally (CSV/JSON download fallback or server direct save)
-    const saveScriptToDisk = async (format = 'json') => {
-        if (!currentScript) return;
-        
-        const cleanTitle = currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const filename = `doodleyt_${cleanTitle}.${format}`;
-        let contentString = '';
-
-        if (format === 'json') {
-            contentString = JSON.stringify(currentScript, null, 2);
-        } else {
-            const headers = ['Time', 'Duration', 'Voiceover', 'Camera/Editing', 'SFX', 'Image Prompt', 'Text Overlay'];
-            const rows = currentScript.scenes.map(s => [
-                s.time,
-                s.duration,
-                `"${s.voiceover.replace(/"/g, '""')}"`,
-                `"${s.camera.replace(/"/g, '""')}"`,
-                `"${s.sfx.replace(/"/g, '""')}"`,
-                `"${s.prompt.replace(/"/g, '""')}"`,
-                `"${(s.textOverlay || '').replace(/"/g, '""')}"`
-            ]);
-            contentString = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        }
-
-        // Try saving via server API
-        if (serverStatus !== 'Offline (Client-Only)') {
-            try {
-                const response = await fetch('/api/save', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ filename, content: contentString })
-                });
-                const data = await response.ok ? await response.json() : null;
-                if (data && data.success) {
-                    addLog(`💾 Saved directly to server folder: ${data.filePath}`);
-                    alert(`File successfully saved to: ${data.filePath}`);
-                    return;
-                }
-            } catch (e) {
-                console.error('Server save error, falling back to download', e);
-            }
-        }
-
-        // Browser fallback download
-        addLog(`💾 Triggering local browser file download wrapper...`);
-        const blob = new Blob([contentString], { type: format === 'json' ? 'application/json' : 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
-    const handleCellEdit = (sceneIndex, field, value) => {
-        setCurrentScript(prev => {
-            const newScenes = [...prev.scenes];
-            newScenes[sceneIndex] = {
-                ...newScenes[sceneIndex],
-                [field]: value
-            };
-            if (field === 'prompt') {
-                const check = validatePromptText(value);
-                newScenes[sceneIndex].qcErrors = check.words;
-            }
-            return { ...prev, scenes: newScenes };
-        });
-    };
-
-    if (!authenticated) {
-        return (
-            <div className="min-h-screen bg-neutral-950 flex flex-col items-center justify-center p-6">
-                <div className="bg-neutral-900 border border-neutral-800 p-8 rounded-3xl w-full max-w-md shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"></div>
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-3 h-3 bg-blue-500 rounded-full animate-ping"></div>
-                        <h1 className="text-xl font-black tracking-widest text-white uppercase">Doodle OS Vault</h1>
-                    </div>
-                    <p className="text-sm text-neutral-400 mb-6 font-medium">Authentication required. Unlock script orchestration pipeline.</p>
-                    <input 
-                        type="password" 
-                        placeholder="Security Key" 
-                        className="w-full bg-neutral-950 border border-neutral-800 p-4 rounded-2xl text-white outline-none focus:border-blue-500 mb-5 font-mono text-center tracking-widest"
-                        value={passKey}
-                        onChange={(e) => setPassKey(e.target.value)}
-                        onKeyDown={(e) => { if(e.key === 'Enter') { if(passKey === 'GOD-TIER-2026') setAuthenticated(true); else alert('Invalid Access Code'); } }}
-                    />
-                    <button 
-                        onClick={() => { if(passKey === 'GOD-TIER-2026') setAuthenticated(true); else alert('Invalid Access Code'); }}
-                        className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold p-4 rounded-2xl transition-all shadow-lg shadow-blue-600/10 hover:shadow-blue-500/20 active:scale-95"
-                    >
-                        Boot Pipeline Core
-                    </button>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-200">
@@ -743,7 +720,7 @@ Return only the corrected prompt text, nothing else.`;
                             <span>💻</span> Execution Terminal
                         </button>
                         <button onClick={() => setActiveTab('topics')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'topics' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
-                            <span>🧠</span> Topic Brainstormer
+                            <span>🧠</span> Niche Brainstormer
                         </button>
                         <button onClick={() => setActiveTab('sandbox')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'sandbox' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>📝</span> Script Sandbox
@@ -757,8 +734,8 @@ Return only the corrected prompt text, nothing else.`;
                     </div>
                     <div className="bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800 text-[10px] text-neutral-500 leading-relaxed font-mono">
                         🔒 Secured Pipeline Vault<br/>
-                        Art Presets: Dynamic Stickman<br/>
-                        Mode: 100% AI Autonomous
+                        Mode: Multistage Auto-Run<br/>
+                        Script Target: 80 Scenes
                     </div>
                 </aside>
 
@@ -770,21 +747,21 @@ Return only the corrected prompt text, nothing else.`;
                         <div className="space-y-6 max-w-5xl">
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
                                 <div>
-                                    <h2 className="text-xl font-bold text-white mb-1">Autonomous Execution Terminal</h2>
-                                    <p className="text-sm text-neutral-400">Deploy your autonomous script generator. If you leave the theme field empty, the AI will search out and compile its own highly unique niche viral topic and custom characters.</p>
+                                    <h2 className="text-xl font-bold text-white mb-1">Autonomous Multistage Terminal</h2>
+                                    <p className="text-sm text-neutral-400 font-medium">Clicking **Launch Production Blueprint** starts an automated background orchestrator. It executes sequential LLM calls to write a full 80-scene script in acts without lazy truncations or identical copy-pasted prompts.</p>
                                 </div>
                                 
                                 <div className="space-y-3">
-                                    <label className="text-xs font-semibold text-neutral-400 block font-mono">Custom Niche Theme or Topic Keyword (Optional)</label>
+                                    <label className="text-xs font-semibold text-neutral-400 block font-mono">Niche Theme or Topic Keyword (Optional)</label>
                                     <input 
                                         type="text"
-                                        placeholder="e.g. The wallpaper that poisoned a king, weird medieval trials, or leave blank for autonomous niche..."
+                                        placeholder="e.g. Banned left handed spies, weird medieval trials, or leave blank for autonomous niche..."
                                         className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-4 rounded-xl text-sm text-neutral-200 outline-none font-mono"
                                         value={customNicheInput}
                                         onChange={(e) => setCustomNicheInput(e.target.value)}
                                     />
                                     {selectedTopic && !customNicheInput && (
-                                        <div className="text-xs text-neutral-500 flex items-center gap-1">
+                                        <div className="text-xs text-neutral-500 flex items-center gap-1 font-mono">
                                             <span>💡 Suggestion from brainstormer:</span>
                                             <button 
                                                 onClick={() => setCustomNicheInput(selectedTopic.title)}
@@ -796,16 +773,26 @@ Return only the corrected prompt text, nothing else.`;
                                     )}
                                 </div>
 
-                                <div className="flex justify-end pt-2">
+                                <div className="flex justify-between items-center pt-2">
+                                    {/* PIPELINE STAGES CHECKLIST */}
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-mono max-w-xl">
+                                        {pipelineStages.map(s => (
+                                            <div key={s.id} className="flex items-center gap-1.5">
+                                                <span className={`w-2.5 h-2.5 rounded-full ${s.status === 'completed' ? 'bg-green-500' : s.status === 'running' ? 'bg-blue-500 animate-pulse' : s.status === 'failed' ? 'bg-red-500' : 'bg-neutral-700'}`}></span>
+                                                <span className={`${s.status === 'running' ? 'text-blue-400 font-bold' : s.status === 'completed' ? 'text-neutral-350' : 'text-neutral-500'}`}>{s.label}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    
                                     <button 
                                         onClick={() => runScriptGeneration(customNicheInput)}
                                         disabled={isGenerating}
-                                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-7 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/15 flex items-center gap-2 glow-active"
+                                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-7 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/15 flex items-center gap-2 glow-active shrink-0"
                                     >
                                         {isGenerating ? (
                                             <>
                                                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                                Compiling pipeline...
+                                                Generating (Stage Runs)...
                                             </>
                                         ) : (
                                             '🚀 Launch Production Blueprint'
@@ -818,7 +805,7 @@ Return only the corrected prompt text, nothing else.`;
                                 {/* LOG STREAM */}
                                 <div className="lg:col-span-1 bg-neutral-900 border border-neutral-800 rounded-3xl p-5 flex flex-col h-[480px]">
                                     <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-500 mb-3 flex justify-between">
-                                        <span>Live Terminal Log</span>
+                                        <span>Background Log Stream</span>
                                         <span className="text-green-500 animate-pulse">● Active</span>
                                     </h3>
                                     <div className="flex-1 bg-neutral-950 rounded-2xl p-4 font-mono-code text-[11px] text-green-400 space-y-2.5 overflow-y-auto border border-neutral-800/80 shadow-inner">
@@ -911,7 +898,7 @@ Return only the corrected prompt text, nothing else.`;
                         </div>
                     )}
 
-                    {/* TOPIC MATRIX TAB */}
+                    {/* TOPIC BRAINSTORMER TAB */}
                     {activeTab === 'topics' && (
                         <div className="space-y-6 max-w-4xl">
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl flex justify-between items-center shadow-lg">
@@ -942,7 +929,7 @@ Return only the corrected prompt text, nothing else.`;
                                     >
                                         <div>
                                             <div className="flex justify-between items-center mb-3">
-                                                <span className="text-[10px] font-mono bg-neutral-800 px-2 py-1 rounded-md text-neutral-300 font-bold uppercase tracking-wider">{t.cat}</span>
+                                                <span className="text-[10px] font-mono bg-neutral-800 text-neutral-350 px-2 py-1 rounded-md font-bold uppercase tracking-wider">{t.cat}</span>
                                                 <div className="flex gap-2">
                                                     <span className="text-[11px] font-bold font-mono text-blue-400">C: {t.curiosity}</span>
                                                     <span className="text-[11px] font-bold font-mono text-emerald-400">N: {t.novelty}</span>
@@ -972,18 +959,11 @@ Return only the corrected prompt text, nothing else.`;
                                 {currentScript && (
                                     <div className="flex items-center gap-3">
                                         <button 
-                                            onClick={autoFixFlaggedPrompts}
+                                            onClick={autoFixFlaggedPromptsLocally}
                                             disabled={isGenerating}
                                             className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5"
                                         >
                                             🛡️ Auto-Fix QC Errors
-                                        </button>
-                                        <button 
-                                            onClick={extendScript}
-                                            disabled={isGenerating}
-                                            className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5"
-                                        >
-                                            ➕ Extend Script (Act 2)
                                         </button>
                                         <button 
                                             onClick={() => saveScriptToDisk('json')}
@@ -1071,7 +1051,7 @@ Return only the corrected prompt text, nothing else.`;
                                                                         onChange={(e) => handleCellEdit(i, 'prompt', e.target.value)}
                                                                     />
                                                                     {isFlagged && (
-                                                                        <div className="absolute right-2 bottom-2 bg-red-600 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse">
+                                                                        <div className="absolute right-2 bottom-2 bg-red-600 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse font-mono">
                                                                             ⚠️ Pronoun Leak: {scene.qcErrors.join(', ')}
                                                                         </div>
                                                                     )}
@@ -1091,7 +1071,7 @@ Return only the corrected prompt text, nothing else.`;
                                                                     className="cursor-pointer hover:opacity-80 transition"
                                                                     onClick={() => setActivePreviewPrompt(scene.prompt)}
                                                                 >
-                                                                    <DoodlePreview prompt={scene.prompt} characters={currentScript.characters || characters} />
+                                                                    <DoodlePreview prompt={scene.prompt} characters={currentScript?.characters || characters} />
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1105,7 +1085,7 @@ Return only the corrected prompt text, nothing else.`;
                                 <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-16 text-center text-neutral-600">
                                     <span className="text-5xl block mb-4">📋</span>
                                     <h3 className="text-lg font-bold text-neutral-400 mb-2">Sandbox Empty</h3>
-                                    <p className="text-sm max-w-md mx-auto">No script has been generated yet. Go to the Terminal or select a topic to compile a script production sheet.</p>
+                                    <p className="text-sm max-w-md mx-auto">No script has been generated yet. Input a theme or run autonomously to generate a complete script.</p>
                                 </div>
                             )}
                         </div>
@@ -1116,7 +1096,7 @@ Return only the corrected prompt text, nothing else.`;
                         <div className="space-y-6 max-w-4xl">
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg">
                                 <h2 className="text-xl font-bold text-white mb-1">Custom Character DNA Registry</h2>
-                                <p className="text-sm text-neutral-400 mb-6">These are the visual characters generated autonomously by the AI for your current script. They are used in the visual previews and the stateless QC checking routines.</p>
+                                <p className="text-sm text-neutral-400 mb-6 font-medium">These are the visual characters generated autonomously by the AI for your current script. They are dynamically populated after each pipeline run.</p>
                                 
                                 <div className="space-y-4">
                                     {characters.length > 0 ? (
@@ -1147,20 +1127,6 @@ Return only the corrected prompt text, nothing else.`;
                                             No characters generated yet. Compile a script to populate this list dynamically!
                                         </div>
                                     )}
-                                    
-                                    <button 
-                                        onClick={() => {
-                                            const name = prompt("Enter new Character name (e.g. HACKER):")?.toUpperCase();
-                                            if (name) {
-                                                const updated = [...characters, { name, description: 'Hand-drawn stickman visual preset details here...' }];
-                                                setCharacters(updated);
-                                                saveConfig({ characters: updated });
-                                            }
-                                        }}
-                                        className="w-full bg-neutral-900 hover:bg-neutral-850 text-neutral-355 font-bold p-4 border border-dashed border-neutral-800 rounded-2xl transition text-xs flex justify-center items-center gap-2"
-                                    >
-                                        ➕ Register Manual Character Card Override
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1174,7 +1140,7 @@ Return only the corrected prompt text, nothing else.`;
                                 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">OpenRouter API Key (Kept Private)</label>
+                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">OpenRouter API Key</label>
                                         <input 
                                             type="password" 
                                             placeholder="sk-or-v1-..."
@@ -1185,7 +1151,6 @@ Return only the corrected prompt text, nothing else.`;
                                                 saveConfig({ apiKey: e.target.value });
                                             }}
                                         />
-                                        <p className="text-[10px] text-neutral-500 font-mono mt-1">Saves to local configuration files and local-storage variables.</p>
                                     </div>
 
                                     <div>
@@ -1206,7 +1171,7 @@ Return only the corrected prompt text, nothing else.`;
                                             </select>
                                             <input 
                                                 type="text" 
-                                                placeholder="Custom model path..."
+                                                placeholder="Custom model..."
                                                 className="bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm w-1/3"
                                                 value={model}
                                                 onChange={(e) => {
@@ -1236,7 +1201,7 @@ Return only the corrected prompt text, nothing else.`;
                                     <button 
                                         onClick={() => {
                                             saveConfig({ apiKey, model, outputPath, characters });
-                                            alert('Settings successfully locked and saved to local storage!');
+                                            alert('Settings locked successfully!');
                                         }}
                                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition"
                                     >
