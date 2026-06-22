@@ -191,6 +191,8 @@ function App() {
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
     const [characters, setCharacters] = useState([]);
+    const [videoType, setVideoType] = useState('long');
+    const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12)
     
     const [topicBank, setTopicBank] = useState(DEFAULT_TOPICS);
     const [customNicheInput, setCustomNicheInput] = useState('');
@@ -203,15 +205,22 @@ function App() {
     const [compileStatus, setCompileStatus] = useState('idle');
     const [serverStatus, setServerStatus] = useState('Checking...');
     
-    // Multi-Agent Pipeline Status Checklist
-    const [pipelineStages, setPipelineStages] = useState([
-        { id: 'design', label: '1. Niche & Custom Character Design', status: 'idle' },
-        { id: 'act1', label: '2. Drafting Act 1 (Hook & Introduction)', status: 'idle' },
-        { id: 'act2', label: '3. Drafting Act 2 (Rising Conflict)', status: 'idle' },
-        { id: 'act3', label: '4. Drafting Act 3 (Climax & Twists)', status: 'idle' },
-        { id: 'act4', label: '5. Drafting Act 4 (Resolution & Payoff)', status: 'idle' },
-        { id: 'qc', label: '6. Stateless QC Check & Auto-Sanitation', status: 'idle' }
-    ]);
+    // Multi-Agent Pipeline Status Checklist (Dynamically built based on length)
+    const buildDefaultStages = (type, duration) => {
+        const list = [{ id: 'design', label: '1. Niche & Custom Character Design', status: 'idle' }];
+        const numActs = type === 'short' ? 1 : duration;
+        for (let i = 1; i <= numActs; i++) {
+            list.push({ id: `act${i}`, label: `${i + 1}. Drafting Act ${i} (Scenes ${(i-1)*20 + 1}-${i*20})`, status: 'idle' });
+        }
+        list.push({ id: 'qc', label: `${numActs + 2}. Stateless QC Check & Auto-Sanitation`, status: 'idle' });
+        return list;
+    };
+
+    const [pipelineStages, setPipelineStages] = useState([]);
+
+    useEffect(() => {
+        setPipelineStages(buildDefaultStages(videoType, targetDuration));
+    }, [videoType, targetDuration]);
 
     const [activePreviewPrompt, setActivePreviewPrompt] = useState('');
     const [qcTestText, setQcTestText] = useState('');
@@ -414,13 +423,18 @@ Generate exactly 10 items, one for each category.`
 
         setIsGenerating(true);
         setPipelineLogs([]);
-        resetPipelineStages();
+        
+        // Reset dynamic stages to idle status
+        setPipelineStages(prev => prev.map(s => ({ ...s, status: 'idle' })));
+        
+        const numActs = videoType === 'short' ? 1 : targetDuration;
         
         let accumulatedScenes = [];
         let finalScriptData = { title: '', category: '', nicheReason: '', thumbnail: '', characters: [] };
         
-        addLog(`⚙️ Booting Multistage Pipeline Orchestrator...`);
+        addLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
         addLog(`🧠 Target Model: ${model}`);
+        addLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min (${numActs * 20} scenes)`}`);
 
         try {
             // ==========================================
@@ -438,31 +452,32 @@ Visual DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlin
 ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
 
 The topic must fit within our core 10 categories:
-1. Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why wild predators feared us).
-2. Behavioral Psychology & Famous Social Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
-3. Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
-4. Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
-5. Archaeological Mysteries & Lost Civilizations (e.g. Gobekli Tepe anomalies, why the Bronze Age collapsed, unexplained ancient monuments).
-6. Survival Psychology & Extreme Environment Biology (e.g. reacting to freezing isolation, Neanderthal Ice Age survival, the psychology of getting lost).
-7. Bizarre Historical Events & Mass Hysteria (e.g. the Dancing Plague of 1518, the Dyatlov Pass incident, weird historical coincidences).
-8. Military & Technological Blunders (e.g. the code typo that sank a submarine, how a nation lost a war to emus/birds, history's most expensive engineering mistakes).
-9. Existential Space & Cosmic Anomalies (e.g. the Wow! Signal, the Fermi Paradox, falling into a black hole).
-10. Psychology of Beliefs & Secret Societies (e.g. mass hysteria/witch trials, how ancient secret orders functioned).
+1. Evolutionary Anthropology & Ancient Human History
+2. Behavioral Psychology & Famous Social Experiments
+3. Biological Anomalies & Human Body Mysteries
+4. Existential, Cognitive & Scientific Mysteries
+5. Archaeological Mysteries & Lost Civilizations
+6. Survival Psychology & Extreme Environment Biology
+7. Bizarre Historical Events & Mass Hysteria
+8. Military & Technological Blunders
+9. Existential Space & Cosmic Anomalies
+10. Psychology of Beliefs & Secret Societies
 
 VIRAL TITLE LAWS (Strictly Enforced):
 - Short & Striking: Length must be 5 to 9 words maximum.
-- Curiosity Gap Formula: Withhold the core secret, answer, or resolution. (e.g. "Why Complete Silence Terrifies the Human Brain", "The Hidden Trait That Made Humans Feared by Animals").
-- Provocative Addressing: Speak directly to the viewer. (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For Modern Food").
-- Survival/Primal Shock: Highlight deep ancestral fears. (e.g. "Before Fire, Every Night Was a Nightmare").
-- Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis. Keep it short, mysterious, and highly clickable.
+- Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
+- Provocative Addressing: Speak directly to the viewer.
+- Survival/Primal Shock: Highlight deep ancestral fears.
+- Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis.
 
 CHARACTER DESIGN RULES:
-Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman (e.g., "BOB: Stick figure, round head, thin black outlines, red baseball cap forward, blue hoodie, black pants, white sneakers, goofy smile"). Art style: crude stickman outline, solid flat colors, white background.
+Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman. Art style: crude stickman outline, solid flat colors, white background.
 
 AI THUMBNAIL PROMPT LAW:
 Create a highly visual thumbnail description. The layout must feature:
 1. A crude MS Paint stickman doodle on a solid white background showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic).
 2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
+The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
 
 Return strictly a JSON object:
 {
@@ -488,42 +503,64 @@ Return strictly a JSON object:
             addLog(`✓ Custom characters designed: ${finalScriptData.characters.map(c => c.name).join(', ')}`);
             updateStageStatus('design', 'completed');
 
-            // Constructing variables for script generation
             const charactersListString = finalScriptData.characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
             const charactersPromptGuide = `Stateless Prompt Rule (THE GOLDEN RULE):
-Image generators have no memory. You must never use character names alone (like "Hero is shocked") and never use pronouns (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again, character, figure).
-Instead, you MUST combine the character's full physical description (from the presets below) with the SPECIFIC action, pose, facial expression, and setting of this scene!
-Preserve details: shirt colors, caps, accessories. Make every prompt unique and action-oriented!
+Image generators have no memory. You must never use character names alone and never use pronouns (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again, character, figure).
 Always start the prompt with: "A crude MS Paint stickman doodle with black outlines and flat colors on a white background. [Describe character physical appearance] is [describe specific action/pose/emotion] [describe scene context/objects]."
 
 Character presets to use:
 ${charactersListString}`;
 
             // ==========================================
-            // STAGE 2: Act 1 (Hook & Setup)
+            // LOOP THROUGH DYNAMIC ACTS
             // ==========================================
-            updateStageStatus('act1', 'running');
-            addLog(`⚡ Starting Stage 2: Drafting Act 1 (Hook & Setup, scenes 1-20)...`);
+            for (let j = 1; j <= numActs; j++) {
+                const stageId = `act${j}`;
+                updateStageStatus(stageId, 'running');
+                addLog(`⚡ Starting Stage ${j + 1}: Drafting Act ${j} of ${numActs} (scenes ${(j-1)*20 + 1}-${j*20})...`);
 
-            const act1SystemPrompt = `You are the Visual Director, scriptwriter, and retention engineer for "Doodle Theory".
+                const lastVoContext = j > 1 ? accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ') : '';
+                
+                const actSystemPrompt = `You are the Visual Director, scriptwriter, and retention engineer for "Doodle Theory".
 You write scripts in JSON format.
 Channel Tone: chaotic, humorous, mildly sarcastic, highly engaging. Feel like a friend with terrible drawing skills explaining something unbelievably interesting. Never sound like a teacher or documentary narrator. Entertain first, inform second.
 Art Style DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, flat colors, highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D.
 Visual Pacing: Fast-paced scenes of 1-3 seconds. Every few seconds must introduce a fresh visual element (zoom, expression change, arrows, highlight circles, motion lines, or visual joke) to maintain maximum retention.`;
 
-            const act1UserPrompt = `Write Act 1 (Hook & Setup, scenes 1-20) for the video: "${finalScriptData.title}".
+                let actTitleText = `Act ${j}`;
+                let actFocusText = '';
+                
+                if (videoType === 'short') {
+                    actTitleText = 'Full Video Hook & Story';
+                    actFocusText = 'This is a vertical Short. Keep pacing extremely fast and hook strength at maximum throughout.';
+                } else {
+                    if (j === 1) {
+                        actTitleText = 'Act 1 (Hook & Setup)';
+                        actFocusText = 'Focus on introducing the shocking hook and setting up the curiosity loop.';
+                    } else if (j === numActs) {
+                        actTitleText = `Act ${j} (Resolution & Payoff)`;
+                        actFocusText = 'Focus on resolving the twists, delivering the final takeaway, and a funny or thought-provoking ending.';
+                    } else {
+                        actTitleText = `Act ${j} (Rising Conflict & Progression)`;
+                        actFocusText = 'Focus on escalating the narrative, introducing details, and opening sub-loops to keep the viewer watching.';
+                    }
+                }
+
+                const actUserPrompt = `Write ${actTitleText} (scenes ${(j-1)*20 + 1}-${j*20}) for the video: "${finalScriptData.title}".
 Niche context: ${finalScriptData.nicheReason}
+${actFocusText}
+
+Last spoken lines of previous section: "${lastVoContext}"
 
 ${charactersPromptGuide}
 
 SCRIPTWRITING & PACING LAWS:
-1. No-Greeting Rule: Start at 0:00 instantly with a mind-blowing, shocking hook statement. Never say "hello", "welcome", "in this video we talk about", etc. Start with the hook immediately.
-2. Open Loops: Hook the audience by introducing a mystery or question in the first 15 seconds that they *must* wait until the end of the video to resolve.
-3. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
-4. Dynamic Action Prompts: In the "prompt" field, you must write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
-5. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field (e.g. "BIG MISTAKE", "TOO QUIET...", "-58°F?", "PLOT TWIST!", "WHAT?"). Leave null for other scenes.
+1. Pacing & Timing: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
+2. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format (e.g. ${videoType === 'short' ? '"9:16 vertical portrait layout"' : '"16:9 widescreen landscape layout"'}).
+3. Dynamic Action Prompts: In the "prompt" field, you must write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
+4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
 
-Generate exactly 20 consecutive scenes starting from 0:00.
+Generate exactly 20 consecutive scenes starting from scene number ${(j-1)*20 + 1}.
 
 Return strictly a JSON object matching this schema:
 {
@@ -539,159 +576,26 @@ Return strictly a JSON object matching this schema:
   ]
 }`;
 
-            const act1Response = await callOpenRouter(act1SystemPrompt, act1UserPrompt);
-            const act1JsonMatch = act1Response.match(/\{[\s\S]*\}/);
-            if (!act1JsonMatch) throw new Error("Stage 2 failed to return JSON.");
-            
-            const act1Data = JSON.parse(act1JsonMatch[0]);
-            accumulatedScenes = [...act1Data.scenes];
-            addLog(`✓ Act 1 compiled successfully (${accumulatedScenes.length} scenes).`);
-            updateStageStatus('act1', 'completed');
+                const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt);
+                const actJsonMatch = actResponse.match(/\{[\s\S]*\}/);
+                if (!actJsonMatch) throw new Error(`Stage ${j + 1} (Act ${j}) failed to return JSON.`);
+                
+                const actData = JSON.parse(actJsonMatch[0]);
+                accumulatedScenes = [...accumulatedScenes, ...actData.scenes];
+                addLog(`✓ Act ${j} compiled successfully (${actData.scenes.length} scenes).`);
+                updateStageStatus(stageId, 'completed');
+            }
 
             // ==========================================
-            // STAGE 3: Act 2 (Rising Conflict)
+            // STAGE 6: Local Stateless QC Check
             // ==========================================
-            updateStageStatus('act2', 'running');
-            addLog(`⚡ Starting Stage 3: Drafting Act 2 (Rising Conflict, scenes 21-40)...`);
+            updateStageStatus('qc', 'running');
+            addLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
 
-            const lastVoAct1 = accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ');
-            const act2UserPrompt = `Write Act 2 (Rising Conflict, next 20 consecutive scenes) for the video: "${finalScriptData.title}".
-This act must escalate the mystery, introduce new details, or build the conflict.
-
-Last spoken lines of Act 1: "${lastVoAct1}"
-
-${charactersPromptGuide}
-
-SCRIPTWRITING & PACING LAWS:
-1. Open Loops: Escalate the narrative by opening new sub-mysteries. Ensure the viewer feels compelled to keep watching to find out what happens next.
-2. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
-3. Dynamic Action Prompts: In the "prompt" field, write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
-4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
-
-Write exactly 20 scenes continuing from the end of Act 1.
-
-Return strictly a JSON object:
-{
-  "scenes": [
-    {
-      "duration": [1, 2, or 3],
-      "voiceover": "[Spoken sentence]",
-      "camera": "[Camera]",
-      "sfx": "[SFX]",
-      "prompt": "[Action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
-      "textOverlay": "[Text or null]"
-    }
-  ]
-}`;
-
-            const act2Response = await callOpenRouter(act1SystemPrompt, act2UserPrompt);
-            const act2JsonMatch = act2Response.match(/\{[\s\S]*\}/);
-            if (!act2JsonMatch) throw new Error("Stage 3 failed to return JSON.");
-            
-            const act2Data = JSON.parse(act2JsonMatch[0]);
-            accumulatedScenes = [...accumulatedScenes, ...act2Data.scenes];
-            addLog(`✓ Act 2 compiled successfully (Total: ${accumulatedScenes.length} scenes).`);
-            updateStageStatus('act2', 'completed');
-
-            // ==========================================
-            // STAGE 4: Act 3 (Climax & Twists)
-            // ==========================================
-            updateStageStatus('act3', 'running');
-            addLog(`⚡ Starting Stage 4: Drafting Act 3 (Climax & Twists, scenes 41-60)...`);
-
-            const lastVoAct2 = accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ');
-            const act3UserPrompt = `Write Act 3 (Climax & Twists, next 20 consecutive scenes) for the video: "${finalScriptData.title}".
-This act must build toward the climax, reveal a major plot twist, or deliver a shocking revelation.
-
-Last spoken lines of Act 2: "${lastVoAct2}"
-
-${charactersPromptGuide}
-
-SCRIPTWRITING & PACING LAWS:
-1. The Twist: Introduce a major revelation or twist that completely shifts the viewer's understanding of the topic.
-2. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
-3. Dynamic Action Prompts: In the "prompt" field, write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
-4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
-
-Write exactly 20 scenes. Keep prompts stateless, unique, and action-oriented.
-
-Return strictly a JSON object:
-{
-  "scenes": [
-    {
-      "duration": [1, 2, or 3],
-      "voiceover": "[Spoken sentence]",
-      "camera": "[Camera]",
-      "sfx": "[SFX]",
-      "prompt": "[Action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
-      "textOverlay": "[Text or null]"
-    }
-  ]
-}`;
-
-            const act3Response = await callOpenRouter(act1SystemPrompt, act3UserPrompt);
-            const act3JsonMatch = act3Response.match(/\{[\s\S]*\}/);
-            if (!act3JsonMatch) throw new Error("Stage 4 failed to return JSON.");
-            
-            const act3Data = JSON.parse(act3JsonMatch[0]);
-            accumulatedScenes = [...accumulatedScenes, ...act3Data.scenes];
-            addLog(`✓ Act 3 compiled successfully (Total: ${accumulatedScenes.length} scenes).`);
-            updateStageStatus('act3', 'completed');
-
-            // ==========================================
-            // STAGE 5: Act 4 (Resolution & Payoff)
-            // ==========================================
-            updateStageStatus('act4', 'running');
-            addLog(`⚡ Starting Stage 5: Drafting Act 4 (Resolution & Payoff, scenes 61-80)...`);
-
-            const lastVoAct3 = accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ');
-            const act4UserPrompt = `Write Act 4 (Resolution & Payoff, final 20 consecutive scenes) for the video: "${finalScriptData.title}".
-This act must resolve the twist, deliver the final takeaway, and leave the viewer with a funny or thought-provoking ending.
-
-Last spoken lines of Act 3: "${lastVoAct3}"
-
-${charactersPromptGuide}
-
-SCRIPTWRITING & PACING LAWS:
-1. Payoff & Outro: Resolve all open loops. Conclude with a thought-provoking final sentence that lingers with the viewer. Avoid generic "like and subscribe" outros—keep the immersion until the final frame.
-2. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
-3. Dynamic Action Prompts: In the "prompt" field, write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
-4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
-
-Write exactly 20 scenes. Ensure prompts are stateless, action-oriented, and do not repeat.
-
-Return strictly a JSON object:
-{
-  "scenes": [
-    {
-      "duration": [1, 2, or 3],
-      "voiceover": "[Spoken sentence]",
-      "camera": "[Camera]",
-      "sfx": "[SFX]",
-      "prompt": "[Action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
-      "textOverlay": "[Text or null]"
-    }
-  ]
-}`;
-
-            const act4Response = await callOpenRouter(act1SystemPrompt, act4UserPrompt);
-            const act4JsonMatch = act4Response.match(/\{[\s\S]*\}/);
-            if (!act4JsonMatch) throw new Error("Stage 5 failed to return JSON.");
-            
-            const act4Data = JSON.parse(act4JsonMatch[0]);
-            accumulatedScenes = [...accumulatedScenes, ...act4Data.scenes];
-            addLog(`✓ Act 4 compiled successfully (Total: ${accumulatedScenes.length} scenes).`);
-            updateStageStatus('act4', 'completed');
-            addLog(`⚡ Starting Stage 6: Running Stateless QC Check sweeps...`);
-
-            // Dynamically calculate timeline timestamps in JS
-            let currentAccumulatedTime = 0;
             let qcErrorsCount = 0;
-
             const finalScenes = accumulatedScenes.map((scene, idx) => {
                 const check = validatePromptText(scene.prompt);
-                const sceneTime = formatTime(currentAccumulatedTime);
-                currentAccumulatedTime += scene.duration;
+                const sceneTime = formatTime(accumulatedScenes.slice(0, idx).reduce((acc, s) => acc + (s.duration || 2), 0));
                 
                 if (!check.isValid) {
                     qcErrorsCount++;
@@ -717,15 +621,10 @@ Return strictly a JSON object:
 
         } catch (e) {
             addLog(`❌ Pipeline Failed: ${e.message}`);
-            // Mark any running stage as failed
             setPipelineStages(prev => prev.map(s => s.status === 'running' ? { ...s, status: 'failed' } : s));
         } finally {
             setIsGenerating(false);
         }
-    };
-
-    const runAssetSynthesis = async () => {
-        if (!currentScript) return;
         setSynthesisStatus('running');
         addLog('⚡ Launching media asset synthesis pipeline (images & audio)...');
         addLog(`🔑 Using configuration: Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), ElevenLabs (${elevenlabsApiKey ? 'Provided' : 'Mock Fallback'})`);
@@ -1041,6 +940,43 @@ Return only the corrected prompt text, nothing else.`;
                                             >
                                                 "{selectedTopic.title}"
                                             </button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                    <div>
+                                        <label className="text-xs font-semibold text-neutral-400 block font-mono mb-2">Video Format / Type</label>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={() => setVideoType('long')}
+                                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2 ${videoType === 'long' ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 font-bold' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'}`}
+                                            >
+                                                <span>🎥</span> Long Form (16:9)
+                                            </button>
+                                            <button 
+                                                onClick={() => setVideoType('short')}
+                                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2 ${videoType === 'short' ? 'bg-blue-600/10 border-blue-500/30 text-blue-400 font-bold' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'}`}
+                                            >
+                                                <span>📱</span> Shorts/Reels (9:16)
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {videoType === 'long' && (
+                                        <div>
+                                            <label className="text-xs font-semibold text-neutral-400 block font-mono mb-2">Target Duration (Minutes)</label>
+                                            <select
+                                                value={targetDuration}
+                                                onChange={(e) => setTargetDuration(parseInt(e.target.value))}
+                                                className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-3.5 rounded-xl text-xs text-neutral-200 outline-none font-mono"
+                                            >
+                                                <option value={2}>2 Minutes (~40 scenes)</option>
+                                                <option value={5}>5 Minutes (~100 scenes)</option>
+                                                <option value={8}>8 Minutes (~160 scenes)</option>
+                                                <option value={10}>10 Minutes (~200 scenes)</option>
+                                                <option value={12}>12 Minutes (~240 scenes)</option>
+                                            </select>
                                         </div>
                                     )}
                                 </div>
