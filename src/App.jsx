@@ -906,7 +906,7 @@ Return only the corrected prompt text, nothing else.`;
                     <div className="bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800 text-[10px] text-neutral-500 leading-relaxed font-mono">
                         🔒 Secured Pipeline Vault<br/>
                         Mode: Multistage Auto-Run<br/>
-                        Script Target: 80 Scenes
+                        Script Target: {videoType === 'short' ? 20 : targetDuration * 20} Scenes
                     </div>
                 </aside>
 
