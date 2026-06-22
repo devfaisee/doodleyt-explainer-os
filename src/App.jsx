@@ -180,7 +180,7 @@ function App() {
     
     // Core parameters
     const [apiKey, setApiKey] = useState('');
-    const [model, setModel] = useState('deepseek/deepseek-chat');
+    const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
     const [characters, setCharacters] = useState([]);
     
@@ -222,7 +222,7 @@ function App() {
                 setServerStatus('Offline (Client-Only)');
                 
                 const cachedKey = localStorage.getItem('doodleyt_api_key') || '';
-                const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-chat';
+                const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || 'E:/doodleyt/output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
 
@@ -1344,7 +1344,8 @@ Return only the corrected prompt text, nothing else.`;
                                                     saveConfig({ model: e.target.value });
                                                 }}
                                             >
-                                                <option value="deepseek/deepseek-chat">deepseek/deepseek-chat (DeepSeek V3 / V4 Flash equivalent)</option>
+                                                <option value="deepseek/deepseek-v4-flash">deepseek/deepseek-v4-flash (DeepSeek V4 Flash - Recommended)</option>
+                                                <option value="deepseek/deepseek-chat">deepseek/deepseek-chat (DeepSeek V3)</option>
                                                 <option value="google/gemini-2.5-flash">google/gemini-2.5-flash</option>
                                                 <option value="google/gemini-2.5-pro">google/gemini-2.5-pro</option>
                                                 <option value="meta-llama/llama-3.1-70b-instruct">meta-llama/llama-3.1-70b-instruct</option>
