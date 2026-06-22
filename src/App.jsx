@@ -183,6 +183,7 @@ function App() {
     const [authenticated, setAuthenticated] = useState(false);
     const [passKey, setPassKey] = useState('');
     const [activeTab, setActiveTab] = useState('terminal');
+    const [sidebarOpen, setSidebarOpen] = useState(false);
     
     // Core parameters
     const [apiKey, setApiKey] = useState('');
@@ -870,17 +871,31 @@ Return only the corrected prompt text, nothing else.`;
     return (
         <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-200">
             {/* TOP NAVBAR */}
-            <nav className="border-b border-neutral-900 bg-neutral-900/40 backdrop-blur-md px-8 py-4 flex justify-between items-center sticky top-0 z-45">
-                <div className="flex items-center gap-4">
-                    <span className="bg-blue-600 text-white font-mono text-[10px] px-2 py-0.5 rounded font-bold tracking-wider">v2026</span>
-                    <h1 className="text-lg font-black tracking-tight uppercase text-white flex items-center gap-2">
+            <nav className="border-b border-neutral-900 bg-neutral-900/40 backdrop-blur-md px-4 md:px-8 py-4 flex justify-between items-center sticky top-0 z-45">
+                <div className="flex items-center gap-3">
+                    {/* Hamburger Button for Mobile Drawer Toggling */}
+                    <button 
+                        onClick={() => setSidebarOpen(!sidebarOpen)}
+                        className="p-2 -ml-2 text-neutral-450 hover:text-white md:hidden rounded-xl focus:outline-none hover:bg-neutral-900 transition-colors"
+                        aria-label="Toggle Navigation Menu"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            {sidebarOpen ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                            )}
+                        </svg>
+                    </button>
+                    <span className="bg-blue-600 text-white font-mono text-[10px] px-2 py-0.5 rounded font-bold tracking-wider hidden sm:inline-block">v2026</span>
+                    <h1 className="text-sm md:text-lg font-black tracking-tight uppercase text-white flex items-center gap-2">
                         Doodle Theory <span className="text-blue-500">Explainer OS</span>
                     </h1>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 md:gap-4">
                     <div className="flex items-center gap-2 text-xs">
                         <span className={`w-2.5 h-2.5 rounded-full ${serverStatus.includes('Online') ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                        <span className="text-neutral-400 font-mono">Server: {serverStatus}</span>
+                        <span className="text-neutral-400 font-mono hidden sm:inline-block">Server: {serverStatus}</span>
                     </div>
                     <div className="text-xs font-mono text-neutral-500">
                         {apiKey ? '🔐 API Configured' : '🔓 API Key Required'}
@@ -888,31 +903,39 @@ Return only the corrected prompt text, nothing else.`;
                 </div>
             </nav>
 
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Mobile sidebar overlay backdrop */}
+                {sidebarOpen && (
+                    <div 
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
                 {/* SIDEBAR PANEL */}
-                <aside className="w-64 border-r border-neutral-900 bg-neutral-950 p-4 space-y-1.5 shrink-0 flex flex-col justify-between">
+                <aside className={`fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-900 p-4 space-y-1.5 z-45 flex flex-col justify-between transform transition-transform duration-300 md:relative md:transform-none md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                     <div className="space-y-1.5">
                         <div className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest px-3 mb-3">Core Engines</div>
                         
-                        <button onClick={() => setActiveTab('terminal')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'terminal' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                        <button onClick={() => { setActiveTab('terminal'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'terminal' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>💻</span> Execution Terminal
                         </button>
-                        <button onClick={() => setActiveTab('topics')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'topics' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                        <button onClick={() => { setActiveTab('topics'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'topics' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>🧠</span> Niche Brainstormer
                         </button>
-                        <button onClick={() => setActiveTab('sandbox')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'sandbox' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                        <button onClick={() => { setActiveTab('sandbox'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'sandbox' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>📝</span> Script Sandbox
                         </button>
-                        <button onClick={() => setActiveTab('characters')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'characters' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                        <button onClick={() => { setActiveTab('characters'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'characters' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>👥</span> Custom Character DNA
                         </button>
-                        <button onClick={() => setActiveTab('settings')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'settings' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                        <button onClick={() => { setActiveTab('settings'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'settings' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>⚙️</span> Settings & Models
                         </button>
-                        <button onClick={() => setActiveTab('visual')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'visual' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                        <button onClick={() => { setActiveTab('visual'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'visual' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>🎨</span> Visual DNA Registry
                         </button>
-                        <button onClick={() => setActiveTab('qc')} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'qc' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                        <button onClick={() => { setActiveTab('qc'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'qc' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>🛡️</span> QC & Stateless Guardrails
                         </button>
                     </div>
@@ -994,7 +1017,7 @@ Return only the corrected prompt text, nothing else.`;
                                     )}
                                 </div>
 
-                                <div className="flex justify-between items-center pt-2">
+                                <div className="flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center pt-2">
                                     {/* PIPELINE STAGES CHECKLIST */}
                                     <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-mono max-w-xl">
                                         {pipelineStages.map(s => (
@@ -1008,7 +1031,7 @@ Return only the corrected prompt text, nothing else.`;
                                     <button 
                                         onClick={() => runScriptGeneration(customNicheInput)}
                                         disabled={isGenerating}
-                                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-7 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/15 flex items-center gap-2 glow-active shrink-0"
+                                        className="bg-blue-600 hover:bg-blue-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-bold px-7 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/15 flex items-center justify-center gap-2 glow-active shrink-0 w-full md:w-auto"
                                     >
                                         {isGenerating ? (
                                             <>
@@ -1115,7 +1138,7 @@ Return only the corrected prompt text, nothing else.`;
 
                                                 <div className="space-y-3">
                                                     {currentScript.scenes.slice(0, 4).map((scene, i) => (
-                                                        <div key={i} className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex gap-4">
+                                                        <div key={i} className="bg-neutral-950 border border-neutral-800 p-4 rounded-2xl flex flex-col sm:flex-row gap-4">
                                                             <div className="flex-1 space-y-2">
                                                                 <div className="flex justify-between items-center text-xs">
                                                                     <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded font-mono font-bold">{scene.time} ({scene.duration}s)</span>
@@ -1127,7 +1150,7 @@ Return only the corrected prompt text, nothing else.`;
                                                                     {scene.prompt}
                                                                 </div>
                                                             </div>
-                                                            <div className="w-[120px] h-[90px] shrink-0">
+                                                            <div className="w-full sm:w-[120px] h-[140px] sm:h-[90px] shrink-0">
                                                                 <DoodlePreview prompt={scene.prompt} characters={currentScript.characters || characters} />
                                                             </div>
                                                         </div>
@@ -1209,13 +1232,13 @@ Return only the corrected prompt text, nothing else.`;
                     {/* SCRIPT SANDBOX TAB */}
                     {activeTab === 'sandbox' && (
                         <div className="space-y-6 max-w-7xl">
-                            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl flex flex-wrap gap-4 items-center justify-between shadow-lg">
+                            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between shadow-lg">
                                 <div>
                                     <h2 className="text-xl font-bold text-white mb-1">Production Script Sandbox</h2>
                                     <p className="text-sm text-neutral-400">Directly edit generated scripts in real time, audit stateless prompts, and save clean outputs.</p>
                                 </div>
                                 {currentScript && (
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                                         <button 
                                             onClick={autoFixFlaggedPromptsLocally}
                                             disabled={isGenerating}
