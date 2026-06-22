@@ -56,6 +56,7 @@ function ensureDir(dirPath) {
 
 // --- BACKEND ORCHESTRATOR STATE & PIPELINE ---
 const LATEST_SCRIPT_FILE = path.join(__dirname, 'latest_script.json');
+const SCRIPTS_HISTORY_DIR = path.join(__dirname, 'scripts_history');
 const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
 
 function readLatestScript() {
@@ -76,6 +77,74 @@ function writeLatestScript(script) {
         return true;
     } catch (e) {
         console.error('Error writing latest script:', e);
+        return false;
+    }
+}
+
+// --- SCRIPT HISTORY DB ---
+function saveScriptToHistory(script) {
+    try {
+        ensureDir(SCRIPTS_HISTORY_DIR);
+        // Use a slugified title + timestamp as filename
+        const slug = (script.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 60);
+        const filename = `${script.timestamp || Date.now()}_${slug}.json`;
+        const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
+        fs.writeFileSync(filePath, JSON.stringify(script, null, 2), 'utf8');
+        console.log(`[History] Script saved: ${filename}`);
+        return filename;
+    } catch (e) {
+        console.error('Error saving script to history:', e);
+        return null;
+    }
+}
+
+function listScriptHistory() {
+    try {
+        ensureDir(SCRIPTS_HISTORY_DIR);
+        const files = fs.readdirSync(SCRIPTS_HISTORY_DIR)
+            .filter(f => f.endsWith('.json'))
+            .sort((a, b) => b.localeCompare(a)); // Newest first
+        
+        return files.map(filename => {
+            try {
+                const data = JSON.parse(fs.readFileSync(path.join(SCRIPTS_HISTORY_DIR, filename), 'utf8'));
+                return {
+                    filename,
+                    timestamp: data.timestamp,
+                    title: data.title || 'Untitled Script',
+                    category: data.category || '',
+                    videoType: data.videoType || 'long',
+                    sceneCount: (data.scenes || []).length,
+                    thumbnail: data.thumbnail || '',
+                    seoMetadata: data.seoMetadata || null
+                };
+            } catch (e) {
+                return { filename, title: filename, timestamp: 0, sceneCount: 0 };
+            }
+        });
+    } catch (e) {
+        console.error('Error listing script history:', e);
+        return [];
+    }
+}
+
+function loadScriptFromHistory(filename) {
+    try {
+        const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
+        if (!fs.existsSync(filePath)) return null;
+        return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    } catch (e) {
+        console.error('Error loading script from history:', e);
+        return null;
+    }
+}
+
+function deleteScriptFromHistory(filename) {
+    try {
+        const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        return true;
+    } catch (e) {
         return false;
     }
 }
@@ -226,6 +295,12 @@ Create a highly visual thumbnail description. The layout must feature:
 2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
 The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
 
+SEO METADATA GENERATION (Critical for YouTube Publishing):
+Generate platform-perfect SEO data for YouTube:
+- description: A 2-3 sentence compelling video description that starts with a hook, includes the topic's main mystery, and ends with a curiosity-building CTA.
+- hashtags: Exactly 15 viral hashtags relevant to the topic, category, and channel (include #DoodleTheory always). Format as array of strings with # prefix.
+- tags: 25 comma-separated plain tags for YouTube Tags field (no # prefix, mix of broad and specific).
+
 Return strictly a JSON object:
 {
   "title": "[Clickable Title]",
@@ -234,7 +309,12 @@ Return strictly a JSON object:
   "thumbnail": "[Thumbnail image prompt with 1-3 word text overlay detail]",
   "characters": [
     { "name": "NAME", "description": "Complete physical visual description" }
-  ]
+  ],
+  "seoMetadata": {
+    "description": "[2-3 sentence hook-driven video description with CTA]",
+    "hashtags": ["#DoodleTheory", "#ScienceFacts", "... 13 more"],
+    "tags": "doodle theory, animated explainer, science facts, ... 22 more tags"
+  }
 }`;
 
             const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model);
@@ -418,8 +498,13 @@ Return only the corrected prompt text, nothing else.`;
             
             finalScriptData.scenes = finalScenes;
             finalScriptData.timestamp = Date.now();
+            finalScriptData.videoType = videoType;
+            finalScriptData.targetDuration = targetDuration;
             
             writeLatestScript(finalScriptData);
+            // Save permanently to history database
+            const savedFilename = saveScriptToHistory(finalScriptData);
+            if (savedFilename) finalScriptData.historyFilename = savedFilename;
             activeJob.script = finalScriptData;
             
             if (qcErrorsCount === 0) {
@@ -427,6 +512,7 @@ Return only the corrected prompt text, nothing else.`;
             } else {
                 addJobLog(`⚠️ QC Completed: Flagged ${qcErrorsCount} prompts remaining. Run 'Auto-Fix' in the Sandbox to sanitize.`);
             }
+            if (savedFilename) addJobLog(`💾 Script saved to history database: ${savedFilename}`);
             updateJobStageStatus('qc', 'completed');
             activeJob.status = 'completed';
             
@@ -586,6 +672,77 @@ const server = http.createServer((req, res) => {
         activeJob.logs.push(`[${new Date().toLocaleTimeString()}] 🛑 Generation cancelled by user.`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
+        return;
+    }
+
+    if (pathname === '/api/scripts-history' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ scripts: listScriptHistory() }));
+        return;
+    }
+
+    if (pathname === '/api/load-script' && req.method === 'GET') {
+        const filename = parsedUrl.searchParams.get('filename');
+        if (!filename) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'filename query parameter is required' }));
+            return;
+        }
+        // Security: prevent path traversal
+        const safeFilename = path.basename(filename);
+        const script = loadScriptFromHistory(safeFilename);
+        if (!script) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Script not found in history' }));
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ script }));
+        return;
+    }
+
+    if (pathname === '/api/delete-script' && req.method === 'DELETE') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const { filename } = JSON.parse(body);
+                const safeFilename = path.basename(filename);
+                const deleted = deleteScriptFromHistory(safeFilename);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: deleted }));
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/update-script-history' && req.method === 'POST') {
+        // Updates an existing history entry (e.g. after sandbox edits)
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const { filename, script } = JSON.parse(body);
+                if (!filename || !script) throw new Error('filename and script are required');
+                const safeFilename = path.basename(filename);
+                const filePath = path.join(SCRIPTS_HISTORY_DIR, safeFilename);
+                if (!fs.existsSync(filePath)) {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Script not found in history' }));
+                    return;
+                }
+                fs.writeFileSync(filePath, JSON.stringify(script, null, 2), 'utf8');
+                writeLatestScript(script);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true }));
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
         return;
     }
 

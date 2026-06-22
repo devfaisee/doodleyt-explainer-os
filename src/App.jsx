@@ -69,6 +69,20 @@ function App() {
         }
     });
 
+    // Script History state
+    const [scriptHistory, setScriptHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [activeHistoryFilename, setActiveHistoryFilename] = useState(null);
+    const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+    const [copiedField, setCopiedField] = useState(null);
+
+    // Copy to clipboard with visual feedback
+    const copyToClipboard = (text, fieldId) => {
+        navigator.clipboard.writeText(text);
+        setCopiedField(fieldId);
+        setTimeout(() => setCopiedField(null), 2000);
+    };
+
     useEffect(() => {
         if (currentScript) {
             localStorage.setItem('doodleyt_current_script', JSON.stringify(currentScript));
@@ -83,12 +97,21 @@ function App() {
         
         const delayDebounceFn = setTimeout(() => {
             if (serverStatus.includes('Offline')) return;
-            fetch('/api/save-active-script', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ script: currentScript })
-            }).catch(e => console.error('Failed to sync settings', e));
-        }, 1000);
+            // Save to latest_script.json and update history if filename present
+            if (currentScript.historyFilename) {
+                fetch('/api/update-script-history', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename: currentScript.historyFilename, script: currentScript })
+                }).catch(e => console.error('Failed to sync script history', e));
+            } else {
+                fetch('/api/save-active-script', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ script: currentScript })
+                }).catch(e => console.error('Failed to sync settings', e));
+            }
+        }, 1500);
         
         return () => clearTimeout(delayDebounceFn);
     }, [currentScript, isGenerating, serverStatus]);
@@ -130,12 +153,17 @@ function App() {
                 
                 if (data.logs) setPipelineLogs(data.logs);
                 if (data.stages) setPipelineStages(data.stages);
-                if (data.script) setCurrentScript(data.script);
+                if (data.script) {
+                    setCurrentScript(data.script);
+                    if (data.script.historyFilename) setActiveHistoryFilename(data.script.historyFilename);
+                }
                 
                 if (data.status !== 'running') {
                     setIsGenerating(false);
                     clearInterval(pollIntervalRef.current);
                     pollIntervalRef.current = null;
+                    // Refresh history list after generation completes
+                    fetch('/api/scripts-history').then(r => r.json()).then(d => setScriptHistory(d.scripts || [])).catch(() => {});
                 }
             } catch (err) {
                 console.error('Polling error:', err);
@@ -162,6 +190,7 @@ function App() {
                     .then(jobData => {
                         if (jobData.script) {
                             setCurrentScript(jobData.script);
+                            if (jobData.script.historyFilename) setActiveHistoryFilename(jobData.script.historyFilename);
                         }
                         if (jobData.status === 'running') {
                             setIsGenerating(true);
@@ -169,6 +198,12 @@ function App() {
                         }
                     })
                     .catch(e => console.error('Failed to load generation status:', e));
+
+                // Load script history list
+                fetch('/api/scripts-history')
+                    .then(r => r.json())
+                    .then(d => setScriptHistory(d.scripts || []))
+                    .catch(() => {});
             })
             .catch(err => {
                 console.log('Client-only mode (offline)');
@@ -432,11 +467,26 @@ Generate exactly 10 items, one for each category.`
 
     const copyEntireScriptToClipboard = () => {
         if (!currentScript) return;
-        const text = currentScript.scenes.map((s, idx) => {
+        const seoBlock = currentScript.seoMetadata ? `
+=== SEO METADATA ===
+DESCRIPTION:
+${currentScript.seoMetadata.description}
+
+HASHTAGS:
+${Array.isArray(currentScript.seoMetadata.hashtags) ? currentScript.seoMetadata.hashtags.join(' ') : currentScript.seoMetadata.hashtags}
+
+TAGS:
+${currentScript.seoMetadata.tags}
+
+THUMBNAIL PROMPT:
+${currentScript.thumbnail}
+===========================
+` : '';
+        const text = seoBlock + currentScript.scenes.map((s, idx) => {
             return `Scene ${idx + 1} (${s.time} | ${s.duration}s)\nVO: "${s.voiceover}"\nSFX: ${s.sfx} | Camera: ${s.camera}\nPrompt: ${s.prompt}\nOverlay: ${s.textOverlay || 'None'}\n----------------------------------------`;
         }).join('\n\n');
-        navigator.clipboard.writeText(text);
-        alert('Entire script blueprint copied to clipboard!');
+        copyToClipboard(text, 'full-script');
+        alert('Full script + SEO metadata copied to clipboard!');
     };
 
     const runVideoCompilation = async () => {
@@ -636,6 +686,43 @@ Return only the corrected prompt text, nothing else.`;
         }
     };
 
+    // Load a script from history (without overwriting another generation)
+    const loadScriptFromHistory = async (filename) => {
+        setHistoryLoading(true);
+        try {
+            const res = await fetch(`/api/load-script?filename=${encodeURIComponent(filename)}`);
+            if (!res.ok) throw new Error('Failed to load script');
+            const data = await res.json();
+            setCurrentScript(data.script);
+            setActiveHistoryFilename(filename);
+            setShowHistoryPanel(false);
+            setActiveTab('sandbox');
+            addLog(`📂 Loaded history script: "${data.script.title}"`);
+        } catch (e) {
+            addLog(`❌ Failed to load history: ${e.message}`);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    const deleteHistoryScript = async (filename, e) => {
+        e.stopPropagation();
+        if (!window.confirm('Delete this script from history? This cannot be undone.')) return;
+        try {
+            await fetch('/api/delete-script', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename })
+            });
+            setScriptHistory(prev => prev.filter(s => s.filename !== filename));
+            if (activeHistoryFilename === filename) {
+                setActiveHistoryFilename(null);
+            }
+        } catch (e) {
+            addLog(`❌ Delete failed: ${e.message}`);
+        }
+    };
+
     return (
         <div className="min-h-screen flex flex-col bg-neutral-950 text-neutral-200">
             {/* TOP NAVBAR */}
@@ -671,6 +758,71 @@ Return only the corrected prompt text, nothing else.`;
                 </div>
             </nav>
 
+            {/* SCRIPT HISTORY PANEL OVERLAY */}
+            {showHistoryPanel && (
+                <div className="fixed inset-0 z-50 flex">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowHistoryPanel(false)} />
+                    <div className="relative ml-auto w-full max-w-md bg-neutral-950 border-l border-neutral-800 h-full flex flex-col shadow-2xl z-50">
+                        <div className="flex items-center justify-between p-5 border-b border-neutral-800">
+                            <div>
+                                <h2 className="text-base font-black text-white">🗂️ Script History</h2>
+                                <p className="text-[10px] text-neutral-500 font-mono mt-0.5">All generated scripts — saved permanently on server</p>
+                            </div>
+                            <button onClick={() => setShowHistoryPanel(false)} className="text-neutral-500 hover:text-white p-2 rounded-xl hover:bg-neutral-900 transition-colors">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                            {historyLoading ? (
+                                <div className="flex items-center justify-center py-12 text-neutral-500">
+                                    <span className="w-5 h-5 border-2 border-neutral-600 border-t-blue-400 rounded-full animate-spin mr-2"></span> Loading...
+                                </div>
+                            ) : scriptHistory.length === 0 ? (
+                                <div className="text-center py-12 text-neutral-600">
+                                    <span className="text-4xl block mb-3">📄</span>
+                                    <p className="text-sm">No scripts saved yet. Generate your first one!</p>
+                                </div>
+                            ) : (
+                                scriptHistory.map((entry) => {
+                                    const isActive = entry.filename === activeHistoryFilename;
+                                    const date = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown date';
+                                    return (
+                                        <div
+                                            key={entry.filename}
+                                            onClick={() => loadScriptFromHistory(entry.filename)}
+                                            className={`p-4 rounded-2xl border cursor-pointer transition-all group relative ${
+                                                isActive ? 'bg-blue-600/10 border-blue-500/30' : 'bg-neutral-900 border-neutral-800 hover:border-neutral-600'
+                                            }`}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className="flex-1 pr-8">
+                                                    <div className="text-sm font-bold text-white leading-snug line-clamp-2">{entry.title}</div>
+                                                    <div className="text-[10px] text-neutral-500 font-mono mt-0.5">{entry.category}</div>
+                                                </div>
+                                                {isActive && <span className="absolute top-3 right-8 bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded uppercase">Active</span>}
+                                                <button
+                                                    onClick={(e) => deleteHistoryScript(entry.filename, e)}
+                                                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-neutral-600 hover:text-red-400 transition-all p-1 rounded"
+                                                    title="Delete from history"
+                                                >
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[10px] font-mono text-neutral-500">
+                                                <span>⚡ {entry.sceneCount} scenes</span>
+                                                <span className="uppercase text-[9px] bg-neutral-800 px-1.5 py-0.5 rounded">{entry.videoType || 'long'}</span>
+                                            </div>
+                                            <div className="text-[9px] text-neutral-600 font-mono mt-1">{date}</div>
+                                            {entry.seoMetadata && <span className="text-[8px] bg-green-950/40 text-green-400 border border-green-900/30 px-1.5 py-0.5 rounded font-bold mt-1 inline-block">SEO ✓</span>}
+                                        </div>
+                                    );
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-1 overflow-hidden relative">
                 {/* Mobile sidebar overlay backdrop */}
                 {sidebarOpen && (
@@ -705,6 +857,12 @@ Return only the corrected prompt text, nothing else.`;
                         </button>
                         <button onClick={() => { setActiveTab('qc'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'qc' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>🛡️</span> QC & Stateless Guardrails
+                        </button>
+                        <button onClick={() => { setShowHistoryPanel(true); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent relative`}>
+                            <span>🗂️</span> Script History
+                            {scriptHistory.length > 0 && (
+                                <span className="ml-auto bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{scriptHistory.length}</span>
+                            )}
                         </button>
                     </div>
                     <div className="bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800 text-[10px] text-neutral-500 leading-relaxed font-mono">
@@ -1067,7 +1225,131 @@ Return only the corrected prompt text, nothing else.`;
 
                             {currentScript ? (
                                 <div className="space-y-6">
+
+                                    {/* SCRIPT META: Title + Thumbnail + SEO */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        {/* Thumbnail Prompt */}
+                                        {currentScript.thumbnail && (
+                                            <div className="bg-gradient-to-br from-amber-950/20 to-neutral-900 border border-amber-500/20 p-5 rounded-3xl space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-amber-400">🖼️ AI Thumbnail Prompt</h3>
+                                                    <button
+                                                        onClick={() => copyToClipboard(currentScript.thumbnail, 'thumbnail')}
+                                                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all font-mono flex items-center gap-1 ${copiedField === 'thumbnail' ? 'bg-green-950/40 border-green-500/30 text-green-400' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600'}`}
+                                                    >
+                                                        {copiedField === 'thumbnail' ? '✓ Copied!' : '📋 Copy'}
+                                                    </button>
+                                                </div>
+                                                <p className="text-xs text-amber-200/80 leading-relaxed font-mono select-all">{currentScript.thumbnail}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Script Info */}
+                                        <div className="bg-neutral-900 border border-neutral-800 p-5 rounded-3xl space-y-3">
+                                            <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-neutral-400">📊 Script Info</h3>
+                                            <div className="space-y-2">
+                                                <div>
+                                                    <div className="text-[10px] text-neutral-500 font-mono mb-0.5">Title</div>
+                                                    <div className="text-sm font-extrabold text-white">{currentScript.title}</div>
+                                                </div>
+                                                {currentScript.category && (
+                                                    <div>
+                                                        <div className="text-[10px] text-neutral-500 font-mono mb-0.5">Category</div>
+                                                        <div className="text-xs text-blue-400 font-mono font-bold">{currentScript.category}</div>
+                                                    </div>
+                                                )}
+                                                <div className="flex gap-3 text-[10px] font-mono text-neutral-500 pt-1">
+                                                    <span>⚡ {currentScript.scenes?.length || 0} scenes</span>
+                                                    <span className="uppercase bg-neutral-800 px-1.5 py-0.5 rounded">{currentScript.videoType || 'long'}</span>
+                                                    {currentScript.historyFilename && <span className="text-green-400">💾 Saved</span>}
+                                                </div>
+                                                {currentScript.nicheReason && (
+                                                    <div className="text-[10px] text-neutral-400 font-mono leading-relaxed bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">🎯 {currentScript.nicheReason}</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* SEO METADATA PANEL */}
+                                    {currentScript.seoMetadata && (
+                                        <div className="bg-gradient-to-br from-emerald-950/20 to-neutral-900 border border-emerald-500/20 p-5 rounded-3xl space-y-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-emerald-400">🌐 YouTube SEO Package</h3>
+                                                <span className="text-[9px] bg-emerald-950/40 text-emerald-300 border border-emerald-800/40 px-2 py-0.5 rounded-full font-bold font-mono">Ready to Copy-Paste</span>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                                {/* Description */}
+                                                <div className="lg:col-span-1 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Video Description</label>
+                                                        <button
+                                                            onClick={() => copyToClipboard(currentScript.seoMetadata.description, 'seo-desc')}
+                                                            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all font-mono flex items-center gap-1 ${copiedField === 'seo-desc' ? 'bg-green-950/40 border-green-500/30 text-green-400' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'}`}
+                                                        >
+                                                            {copiedField === 'seo-desc' ? '✓ Copied!' : '📋 Copy'}
+                                                        </button>
+                                                    </div>
+                                                    <textarea
+                                                        readOnly
+                                                        rows="5"
+                                                        className="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-2xl text-xs text-neutral-300 font-mono leading-relaxed resize-none outline-none select-all"
+                                                        value={currentScript.seoMetadata.description}
+                                                    />
+                                                </div>
+
+                                                {/* Hashtags */}
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Hashtags (15)</label>
+                                                        <button
+                                                            onClick={() => {
+                                                                const tags = Array.isArray(currentScript.seoMetadata.hashtags)
+                                                                    ? currentScript.seoMetadata.hashtags.join(' ')
+                                                                    : currentScript.seoMetadata.hashtags;
+                                                                copyToClipboard(tags, 'seo-hash');
+                                                            }}
+                                                            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all font-mono flex items-center gap-1 ${copiedField === 'seo-hash' ? 'bg-green-950/40 border-green-500/30 text-green-400' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'}`}
+                                                        >
+                                                            {copiedField === 'seo-hash' ? '✓ Copied!' : '📋 Copy'}
+                                                        </button>
+                                                    </div>
+                                                    <div className="bg-neutral-950 border border-neutral-800 p-3 rounded-2xl min-h-[100px]">
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {(Array.isArray(currentScript.seoMetadata.hashtags)
+                                                                ? currentScript.seoMetadata.hashtags
+                                                                : (currentScript.seoMetadata.hashtags || '').split(' ').filter(Boolean)
+                                                            ).map((tag, idx) => (
+                                                                <span key={idx} className="bg-blue-950/40 text-blue-300 border border-blue-800/30 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">{tag}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Tags */}
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">YouTube Tags</label>
+                                                        <button
+                                                            onClick={() => copyToClipboard(currentScript.seoMetadata.tags, 'seo-tags')}
+                                                            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all font-mono flex items-center gap-1 ${copiedField === 'seo-tags' ? 'bg-green-950/40 border-green-500/30 text-green-400' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'}`}
+                                                        >
+                                                            {copiedField === 'seo-tags' ? '✓ Copied!' : '📋 Copy'}
+                                                        </button>
+                                                    </div>
+                                                    <textarea
+                                                        readOnly
+                                                        rows="5"
+                                                        className="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-2xl text-xs text-neutral-300 font-mono leading-relaxed resize-none outline-none select-all"
+                                                        value={currentScript.seoMetadata.tags}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* DESKTOP TABLE VIEW */}
+
                                     <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-left border-collapse">
