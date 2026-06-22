@@ -288,14 +288,25 @@ function App() {
                     messages: [
                         {
                             role: 'user',
-                            content: `Generate 5 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory' (mystery, strange history, bizarre facts, psychology, evolution).
-The ideas MUST NOT be generic. They should target extremely specific, weird niches (e.g. historical anomalies, psychological oddities, bizarre nature facts).
+                            content: `Generate 5 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
+The channel focuses on:
+- Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why humans are feared by wild predators).
+- Behavioral Psychology, Social Phenomena & Famous Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
+- Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
+- Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
+
+All generated titles must follow these style patterns:
+1. Create a massive curiosity gap (e.g. "The Hidden Trait That Made Humans Feared by Animals", "Why Complete Silence Terrifies the Human Brain", "The Only Predator That Had No Natural Weapon And Won Every Time").
+2. Direct and provocative addressing (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For Modern Food").
+3. Chilling, survival, or evolutionary quirks (e.g. "Before Fire, Every Night Was a Nightmare", "Why Do Predators Ignore Sleeping Ancient Humans").
+
+Write fresh, unique titles that have the exact same theme, niche, tone, and vibe (do not copy the examples verbatim).
 For each topic, evaluate and assign scores (0-10) for Curiosity, Novelty, and Relatability.
 Also write a brief 1-sentence hook statement for each.
 
 Output strictly as a JSON array inside a code block, formatted like this:
 [
-  {"id": 301, "title": "Bizarre Niche Title", "cat": "Strange History", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
+  {"id": 301, "title": "Niche Title Here", "cat": "Niche Category", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
 ]`
                         }
                     ]
@@ -374,10 +385,23 @@ Output strictly as a JSON array inside a code block, formatted like this:
             addLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
 
             const designSystemPrompt = `You are an elite YouTube strategist and character designer for the channel "Doodle Theory".
-The channel explains bizarre, shocking, or mysterious topics using simple MS Paint stickman doodles.`;
+The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, and human biology mysteries using simple MS Paint stickman doodles.`;
 
-            const designUserPrompt = `Autonomously select a highly specific, bizarre, curiosity-driven niche video topic.
+            const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
 ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
+
+The topic must fit within our core categories:
+- Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why humans are feared by wild predators).
+- Behavioral Psychology, Social Phenomena & Famous Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
+- Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
+- Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
+
+The title must follow these style patterns:
+1. Create a massive curiosity gap (e.g. "The Hidden Trait That...", "Why Complete Silence Terrifies...", "The Only Predator That...").
+2. Direct and provocative addressing (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For...").
+3. Chilling, survival, or evolutionary quirks (e.g. "Before Fire, Every Night Was a Nightmare", "Why Do Predators Ignore Sleeping Ancient Humans").
+
+Write a fresh, unique title that has the exact same theme, niche, tone, and vibe (do not copy the examples verbatim).
 
 Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman (e.g. shirt color, hat, accessories, pants, sneakers). Keep the art style: crude stickman outline, solid flat colors, white background.
 
