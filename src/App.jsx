@@ -2,12 +2,30 @@ import React, { useState, useEffect, useRef } from 'react';
 
 // --- PRESETS & HARDCODED BLUEPRINTS ---
 const DEFAULT_TOPICS = [
-    { id: 1, title: "The Wallpaper That Slowly Poisoned A King", cat: "Strange History", curiosity: 9.9, novelty: 9.8, relatability: 9.0, hook: "In the 1800s, a vibrant green dye containing arsenic was used in royal wallpapers, slowly poisoning Napoleon." },
-    { id: 2, title: "Why The World's Quietest Room Causes Hallucinations", cat: "Psychology", curiosity: 9.8, novelty: 9.5, relatability: 9.2, hook: "Inside an anechoic chamber, the silence is so absolute that you can hear your own organs grinding." },
-    { id: 3, title: "The Coding Error That Wiped Out $500M in 45 Seconds", cat: "Tech History", curiosity: 9.7, novelty: 9.4, relatability: 9.1, hook: "A junior dev forgot a reentrancy guard in a smart contract, draining the treasury in less than a minute." }
+    { id: 1, title: "Your Teeth Weren't Meant For Modern Food", cat: "Evolutionary Anthropology", curiosity: 9.8, novelty: 9.6, relatability: 9.4, hook: "Why ancient human skulls show perfect straight teeth and zero wisdom teeth impactions before agriculture." },
+    { id: 2, title: "Why Complete Silence Terrifies the Human Brain", cat: "Behavioral Psychology", curiosity: 9.9, novelty: 9.7, relatability: 9.2, hook: "Inside the world's quietest room, the silence is so absolute that you start hearing your own organs grinding." },
+    { id: 3, title: "Why Left-Handed Spies Were Banned in the 1960s", cat: "Biological Anomalies", curiosity: 9.8, novelty: 9.8, relatability: 8.8, hook: "How an obscure biological trait became an instant automatic dealbreaker for Cold War spy agencies." },
+    { id: 4, title: "Before Fire, Every Night Was a Nightmare", cat: "Existential Mysteries", curiosity: 9.7, novelty: 9.5, relatability: 9.0, hook: "How the discovery of fire saved early humans from the terrifying nocturnal predators that ruled the prehistoric dark." },
+    { id: 5, title: "Why Ancient Builders Buried Gobekli Tepe Under Dirt", cat: "Archaeological Mysteries", curiosity: 9.8, novelty: 9.6, relatability: 8.5, hook: "Why the world's oldest temple was deliberately buried under thousands of tons of soil by its own creators." },
+    { id: 6, title: "The Primal Switch That Flips When You Get Lost", cat: "Survival Psychology", curiosity: 9.6, novelty: 9.4, relatability: 8.9, hook: "Why lost hikers walk in perfect circles, even when they are convinced they are walking straight." },
+    { id: 7, title: "The Town That Danced Themselves to Death in 1518", cat: "Mass Hysteria", curiosity: 9.9, novelty: 9.8, relatability: 8.7, hook: "What happens when a mass psychological outbreak causes an entire city to dance uncontrollably until their hearts fail." },
+    { id: 8, title: "The 1-Character Code Typo That Wiped Out $500M", cat: "Technological Blunders", curiosity: 9.8, novelty: 9.7, relatability: 9.0, hook: "How a junior developer forgot a reentrancy guard, draining a massive decentralized vault in less than a minute." },
+    { id: 9, title: "The Wow Signal and the Fermi Paradox", cat: "Cosmic Anomalies", curiosity: 9.9, novelty: 9.8, relatability: 8.4, hook: "What scientists actually discovered when they analyzed the deep space radio signal that broke cosmic silence." },
+    { id: 10, title: "The Medieval Trials Where Rats Were Put on Trial", cat: "Psychology of Beliefs", curiosity: 9.7, novelty: 9.8, relatability: 8.6, hook: "How medieval courts legally prosecuted, tried, and executed weasels, pigs, and insects for crimes." }
 ];
 
 const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
+
+const validatePromptText = (promptText) => {
+    if (!promptText) return { isValid: true, words: [] };
+    const cleaned = promptText.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ');
+    const tokens = cleaned.split(/\s+/);
+    const leaked = BANNED_PRONOUNS.filter(p => tokens.includes(p));
+    return {
+        isValid: leaked.length === 0,
+        words: leaked
+    };
+};
 
 // --- UTILITY COMPONENT: DYNAMIC DOODLE PREVIEW RENDERER ---
 function DoodlePreview({ prompt = "", characters = [] }) {
@@ -266,13 +284,13 @@ function App() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Brainstorms 5 viral ideas
+    // Brainstorms 10 viral ideas covering all core categories
     const generateTopicsViaAI = async () => {
         if (!apiKey) {
             alert('Please set your OpenRouter API Key in settings first!');
             return;
         }
-        addLog('Inquiring OpenRouter for extremely niche, viral brainstorm matrices...');
+        addLog('Inquiring OpenRouter for 10 extremely niche, viral brainstorm matrices...');
         setIsGenerating(true);
         try {
             const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -288,26 +306,34 @@ function App() {
                     messages: [
                         {
                             role: 'user',
-                            content: `Generate 5 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
-The channel focuses on:
-- Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why humans are feared by wild predators).
-- Behavioral Psychology, Social Phenomena & Famous Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
-- Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
-- Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
+                            content: `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
+The channel focuses strictly on these 10 core categories, and you must generate exactly one topic per category:
+1. Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why wild predators feared us).
+2. Behavioral Psychology & Famous Social Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
+3. Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
+4. Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
+5. Archaeological Mysteries & Lost Civilizations (e.g. Gobekli Tepe anomalies, why the Bronze Age collapsed, unexplained ancient engineering).
+6. Survival Psychology & Extreme Environment Biology (e.g. reacting to freezing isolation, Neanderthal Ice Age survival, the cognitive psychology of getting lost).
+7. Bizarre Historical Events & Mass Hysteria (e.g. the Dancing Plague of 1518, the Dyatlov Pass incident, weird historical coincidences).
+8. Military & Technological Blunders (e.g. the code typo that sank a submarine, how a nation lost a war to emus/birds, history's most expensive engineering mistakes).
+9. Existential Space & Cosmic Anomalies (e.g. the Wow! Signal, the Fermi Paradox, falling into a black hole).
+10. Psychology of Beliefs & Secret Societies (e.g. mass hysteria/witch trials, how ancient secret orders functioned).
 
-All generated titles must follow these style patterns:
-1. Create a massive curiosity gap (e.g. "The Hidden Trait That Made Humans Feared by Animals", "Why Complete Silence Terrifies the Human Brain", "The Only Predator That Had No Natural Weapon And Won Every Time").
-2. Direct and provocative addressing (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For Modern Food").
-3. Chilling, survival, or evolutionary quirks (e.g. "Before Fire, Every Night Was a Nightmare", "Why Do Predators Ignore Sleeping Ancient Humans").
+TITLE GENERATION LAWS (Strictly Enforced):
+- Short & Striking: Length must be 5 to 9 words maximum.
+- Curiosity Gap Formula: Withhold the core secret, answer, or resolution. (e.g. "Why Complete Silence Terrifies the Human Brain", "The Hidden Trait That Made Humans Feared by Animals", "The Only Predator That Had No Natural Weapon and Won").
+- Provocative Addressing: Speak directly to the viewer. (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For Modern Food").
+- Survival/Primal Shock: Highlight deep ancestral fears. (e.g. "Before Fire, Every Night Was a Nightmare", "Why Predators Ignored Sleeping Ancient Humans").
+- Formatting: Use standard lowercase/sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis. Keep it short, mysterious, and highly clickable.
 
-Write fresh, unique titles that have the exact same theme, niche, tone, and vibe (do not copy the examples verbatim).
 For each topic, evaluate and assign scores (0-10) for Curiosity, Novelty, and Relatability.
 Also write a brief 1-sentence hook statement for each.
 
 Output strictly as a JSON array inside a code block, formatted like this:
 [
-  {"id": 301, "title": "Niche Title Here", "cat": "Niche Category", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
-]`
+  {"id": 301, "title": "short curiosity gap title", "cat": "Category Name", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
+]
+Generate exactly 10 items, one for each category.`
                         }
                     ]
                 })
@@ -321,7 +347,7 @@ Output strictly as a JSON array inside a code block, formatted like this:
                 const parsed = JSON.parse(jsonMatch[0]);
                 setTopicBank(parsed);
                 setSelectedTopic(parsed[0]);
-                addLog(`Successfully parsed ${parsed.length} new brainstorm topics.`);
+                addLog(`Successfully parsed ${parsed.length} new brainstorm topics covering all 10 categories.`);
             } else {
                 throw new Error("Could not extract JSON array.");
             }
@@ -385,32 +411,44 @@ Output strictly as a JSON array inside a code block, formatted like this:
             addLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
 
             const designSystemPrompt = `You are an elite YouTube strategist and character designer for the channel "Doodle Theory".
-The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, and human biology mysteries using simple MS Paint stickman doodles.`;
+The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using simple MS Paint stickman doodles.`;
 
             const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
 ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
 
-The topic must fit within our core categories:
-- Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why humans are feared by wild predators).
-- Behavioral Psychology, Social Phenomena & Famous Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
-- Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
-- Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
+The topic must fit within our core 10 categories:
+1. Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why wild predators feared us).
+2. Behavioral Psychology & Famous Social Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
+3. Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
+4. Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
+5. Archaeological Mysteries & Lost Civilizations (e.g. Gobekli Tepe anomalies, why the Bronze Age collapsed, unexplained ancient monuments).
+6. Survival Psychology & Extreme Environment Biology (e.g. reacting to freezing isolation, Neanderthal Ice Age survival, the psychology of getting lost).
+7. Bizarre Historical Events & Mass Hysteria (e.g. the Dancing Plague of 1518, the Dyatlov Pass incident, weird historical coincidences).
+8. Military & Technological Blunders (e.g. the code typo that sank a submarine, how a nation lost a war to emus/birds, history's most expensive engineering mistakes).
+9. Existential Space & Cosmic Anomalies (e.g. the Wow! Signal, the Fermi Paradox, falling into a black hole).
+10. Psychology of Beliefs & Secret Societies (e.g. mass hysteria/witch trials, how ancient secret orders functioned).
 
-The title must follow these style patterns:
-1. Create a massive curiosity gap (e.g. "The Hidden Trait That...", "Why Complete Silence Terrifies...", "The Only Predator That...").
-2. Direct and provocative addressing (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For...").
-3. Chilling, survival, or evolutionary quirks (e.g. "Before Fire, Every Night Was a Nightmare", "Why Do Predators Ignore Sleeping Ancient Humans").
+VIRAL TITLE LAWS (Strictly Enforced):
+- Short & Striking: Length must be 5 to 9 words maximum.
+- Curiosity Gap Formula: Withhold the core secret, answer, or resolution. (e.g. "Why Complete Silence Terrifies the Human Brain", "The Hidden Trait That Made Humans Feared by Animals").
+- Provocative Addressing: Speak directly to the viewer. (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For Modern Food").
+- Survival/Primal Shock: Highlight deep ancestral fears. (e.g. "Before Fire, Every Night Was a Nightmare").
+- Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis. Keep it short, mysterious, and highly clickable.
 
-Write a fresh, unique title that has the exact same theme, niche, tone, and vibe (do not copy the examples verbatim).
+CHARACTER DESIGN RULES:
+Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman (e.g., "BOB: Stick figure, round head, thin black outlines, red baseball cap forward, blue hoodie, black pants, white sneakers, goofy smile"). Art style: crude stickman outline, solid flat colors, white background.
 
-Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman (e.g. shirt color, hat, accessories, pants, sneakers). Keep the art style: crude stickman outline, solid flat colors, white background.
+AI THUMBNAIL PROMPT LAW:
+Create a highly visual thumbnail description. The layout must feature:
+1. A crude MS Paint stickman doodle on a solid white background showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic).
+2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
 
 Return strictly a JSON object:
 {
   "title": "[Clickable Title]",
   "category": "[Category]",
   "nicheReason": "[Why this specific sub-niche is highly viral]",
-  "thumbnail": "[Stateless prompt describing the thumbnail doodle]",
+  "thumbnail": "[Thumbnail image prompt with 1-3 word text overlay detail]",
   "characters": [
     { "name": "NAME", "description": "Complete physical visual description" }
   ]
@@ -432,9 +470,10 @@ Return strictly a JSON object:
             // Constructing variables for script generation
             const charactersListString = finalScriptData.characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
             const charactersPromptGuide = `Stateless Prompt Rule (THE GOLDEN RULE):
-Image generators have no memory. You must never use character names alone (like "Hero is shocked") and never use pronouns (he, she, it, they, his, her, same, previous).
-Instead, you MUST combine the character's full physical description (from the preset below) with the SPECIFIC action, pose, facial expression, and setting of this scene!
+Image generators have no memory. You must never use character names alone (like "Hero is shocked") and never use pronouns (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again, character, figure).
+Instead, you MUST combine the character's full physical description (from the presets below) with the SPECIFIC action, pose, facial expression, and setting of this scene!
 Preserve details: shirt colors, caps, accessories. Make every prompt unique and action-oriented!
+Always start the prompt with: "A crude MS Paint stickman doodle with black outlines and flat colors on a white background. [Describe character physical appearance] is [describe specific action/pose/emotion] [describe scene context/objects]."
 
 Character presets to use:
 ${charactersListString}`;
@@ -450,13 +489,19 @@ You write scripts in JSON format.
 Channel style: chaotic, humorous, mildly sarcastic. Art: hand-drawn stick figure doodles, black outlines, flat colors, white background.
 Visual pacing: Fast-paced scenes of 1-3 seconds.`;
 
-            const act1UserPrompt = `Write Act 1 (Hook & Setup) for the video: "${finalScriptData.title}".
+            const act1UserPrompt = `Write Act 1 (Hook & Setup, scenes 1-20) for the video: "${finalScriptData.title}".
 Niche context: ${finalScriptData.nicheReason}
 
 ${charactersPromptGuide}
 
-Generate exactly 20 consecutive scenes. Start with a shocking, mysterious hook (0-15s) with NO introductions or welcomes.
-For every scene, write the [prompt] combining the character description with the specific scene action/expression. Never write the exact same prompt for different scenes.
+SCRIPTWRITING & PACING LAWS:
+1. No-Greeting Rule: Start at 0:00 instantly with a mind-blowing, shocking hook statement. Never say "hello", "welcome", "in this video we talk about", etc. Start with the hook immediately.
+2. Open Loops: Hook the audience by introducing a mystery or question in the first 15 seconds that they *must* wait until the end of the video to resolve.
+3. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
+4. Dynamic Action Prompts: In the "prompt" field, you must write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
+5. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field (e.g. "BIG MISTAKE", "TOO QUIET...", "-58°F?", "PLOT TWIST!", "WHAT?"). Leave null for other scenes.
+
+Generate exactly 20 consecutive scenes starting from 0:00.
 
 Return strictly a JSON object matching this schema:
 {
@@ -466,7 +511,7 @@ Return strictly a JSON object matching this schema:
       "voiceover": "[Exact spoken sentence]",
       "camera": "[Editing/camera zoom/movement]",
       "sfx": "[Sound effect]",
-      "prompt": "[Complete, action-specific stateless visual prompt. MUST combine the character card details with this scene's action/pose/emotion. No pronouns or names alone. White background]",
+      "prompt": "[Complete, action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
       "textOverlay": "[Text on screen or null]"
     }
   ]
@@ -495,8 +540,13 @@ Last spoken lines of Act 1: "${lastVoAct1}"
 
 ${charactersPromptGuide}
 
+SCRIPTWRITING & PACING LAWS:
+1. Open Loops: Escalate the narrative by opening new sub-mysteries. Ensure the viewer feels compelled to keep watching to find out what happens next.
+2. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
+3. Dynamic Action Prompts: In the "prompt" field, write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
+4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
+
 Write exactly 20 scenes continuing from the end of Act 1.
-For every scene, combine the character card details with unique actions/emotions.
 
 Return strictly a JSON object:
 {
@@ -506,7 +556,7 @@ Return strictly a JSON object:
       "voiceover": "[Spoken sentence]",
       "camera": "[Camera]",
       "sfx": "[SFX]",
-      "prompt": "[Action-specific stateless visual prompt. Inject character visual details + scene action. No pronouns. White background]",
+      "prompt": "[Action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
       "textOverlay": "[Text or null]"
     }
   ]
@@ -535,6 +585,12 @@ Last spoken lines of Act 2: "${lastVoAct2}"
 
 ${charactersPromptGuide}
 
+SCRIPTWRITING & PACING LAWS:
+1. The Twist: Introduce a major revelation or twist that completely shifts the viewer's understanding of the topic.
+2. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
+3. Dynamic Action Prompts: In the "prompt" field, write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
+4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
+
 Write exactly 20 scenes. Keep prompts stateless, unique, and action-oriented.
 
 Return strictly a JSON object:
@@ -545,7 +601,7 @@ Return strictly a JSON object:
       "voiceover": "[Spoken sentence]",
       "camera": "[Camera]",
       "sfx": "[SFX]",
-      "prompt": "[Action-specific stateless visual prompt. Inject character visual details + scene action. No pronouns. White background]",
+      "prompt": "[Action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
       "textOverlay": "[Text or null]"
     }
   ]
@@ -574,6 +630,12 @@ Last spoken lines of Act 3: "${lastVoAct3}"
 
 ${charactersPromptGuide}
 
+SCRIPTWRITING & PACING LAWS:
+1. Payoff & Outro: Resolve all open loops. Conclude with a thought-provoking final sentence that lingers with the viewer. Avoid generic "like and subscribe" outros—keep the immersion until the final frame.
+2. Fast Edit Rate: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
+3. Dynamic Action Prompts: In the "prompt" field, write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
+4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
+
 Write exactly 20 scenes. Ensure prompts are stateless, action-oriented, and do not repeat.
 
 Return strictly a JSON object:
@@ -584,7 +646,7 @@ Return strictly a JSON object:
       "voiceover": "[Spoken sentence]",
       "camera": "[Camera]",
       "sfx": "[SFX]",
-      "prompt": "[Action-specific stateless visual prompt. Inject character visual details + scene action. No pronouns. White background]",
+      "prompt": "[Action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
       "textOverlay": "[Text or null]"
     }
   ]
@@ -598,11 +660,6 @@ Return strictly a JSON object:
             accumulatedScenes = [...accumulatedScenes, ...act4Data.scenes];
             addLog(`✓ Act 4 compiled successfully (Total: ${accumulatedScenes.length} scenes).`);
             updateStageStatus('act4', 'completed');
-
-            // ==========================================
-            // STAGE 6: Stateless QC Check & Auto-Sanitation
-            // ==========================================
-            updateStageStatus('qc', 'running');
             addLog(`⚡ Starting Stage 6: Running Stateless QC Check sweeps...`);
 
             // Dynamically calculate timeline timestamps in JS
@@ -710,6 +767,105 @@ Return only the corrected prompt text, nothing else.`;
             addLog(`❌ QC Fix sequence failed: ${e.message}`);
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    const handleCellEdit = (index, field, value) => {
+        if (!currentScript) return;
+        setCurrentScript(prev => {
+            const newScenes = [...prev.scenes];
+            newScenes[index] = {
+                ...newScenes[index],
+                [field]: value
+            };
+            if (field === 'duration') {
+                let currentAccumulatedTime = 0;
+                newScenes.forEach((s, idx) => {
+                    s.time = formatTime(currentAccumulatedTime);
+                    currentAccumulatedTime += s.duration;
+                });
+            }
+            if (field === 'prompt') {
+                const check = validatePromptText(value);
+                newScenes[index].qcErrors = check.words;
+            }
+            return { ...prev, scenes: newScenes };
+        });
+    };
+
+    const saveScriptToDisk = async (format) => {
+        if (!currentScript) {
+            alert('No script to save!');
+            return;
+        }
+
+        const baseFilename = currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const filename = `${baseFilename}_blueprint.${format}`;
+        let content = '';
+
+        if (format === 'json') {
+            content = JSON.stringify(currentScript, null, 2);
+        } else if (format === 'csv') {
+            const headers = ['Time', 'Duration', 'Voiceover Script', 'SFX', 'Camera', 'Stateless Visual Prompt', 'Overlay'];
+            const rows = currentScript.scenes.map(s => [
+                s.time || '',
+                s.duration || '',
+                s.voiceover || '',
+                s.sfx || '',
+                s.camera || '',
+                s.prompt || '',
+                s.textOverlay || ''
+            ]);
+            const escapeCsv = (val) => {
+                if (val === null || val === undefined) return '';
+                const str = String(val);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+            content = [
+                headers.join(','),
+                ...rows.map(r => r.map(escapeCsv).join(','))
+            ].join('\n');
+        }
+
+        addLog(`💾 Attempting to save script as ${format.toUpperCase()}...`);
+
+        try {
+            const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            addLog(`✓ Browser download triggered for: ${filename}`);
+        } catch (err) {
+            console.error('Browser download failed', err);
+        }
+
+        if (!serverStatus.includes('Offline')) {
+            try {
+                const response = await fetch('/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename, content })
+                });
+                const resData = await response.json();
+                if (resData.success) {
+                    addLog(`✓ Saved to local disk output directory: ${resData.filePath}`);
+                    alert(`Script saved successfully!\n\n1. Downloaded in browser\n2. Saved locally to: ${resData.filePath}`);
+                } else {
+                    throw new Error(resData.error || 'Server rejected save');
+                }
+            } catch (e) {
+                addLog(`⚠️ Local server save failed: ${e.message}`);
+            }
+        } else {
+            alert(`Script downloaded successfully via browser!\n(Local server offline, skipped server sync)`);
         }
     };
 
