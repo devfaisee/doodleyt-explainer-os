@@ -1,9 +1,13 @@
 # Local server files
 config.json
+.env
+.env.local
+.env.*
 
 # Generated outputs
 output/
 dist/
+scripts_history/
 
 # Dependencies
 node_modules/

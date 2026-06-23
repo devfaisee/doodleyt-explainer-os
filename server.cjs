@@ -5,9 +5,33 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 
+// Load environment variables from .env file if it exists
+try {
+    const envPath = path.join(__dirname, '.env');
+    if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        envContent.split(/\r?\n/).forEach(line => {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) return;
+            const index = trimmed.indexOf('=');
+            if (index > 0) {
+                const key = trimmed.slice(0, index).trim();
+                let value = trimmed.slice(index + 1).trim();
+                if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+                    value = value.slice(1, -1);
+                }
+                process.env[key] = value;
+            }
+        });
+    }
+} catch (e) {
+    console.error('Error loading .env file:', e);
+}
+
 const PORT = 3000;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
-const FIXATED_KEY = 'sk-or-v1-' + '8ddf4b104ce98919409c0b7df5fa4c15e7a34ed8325751f1d97d4e8e5b82ba07';
+const FIXATED_KEY = process.env.OPENROUTER_API_KEY || '';
+const MAX_BODY = 10 * 1024 * 1024; // 10 MB
 
 // Helper to read config
 function readConfig() {
@@ -23,6 +47,8 @@ function readConfig() {
         apiKey: FIXATED_KEY,
         model: 'deepseek/deepseek-v4-flash',
         outputPath: path.join(__dirname, 'output'),
+        visualDNA: "Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.",
+        styleReferences: ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'],
         characters: [
             { name: 'BOB', description: 'Stick figure man, round head, thin body, red baseball cap forward, blue hoodie, black pants, white sneakers, large eyebrows, goofy smile' },
             { name: 'SARA', description: 'Female stick figure, long hair drawn as squiggly lines, pink shirt, blue skirt, glasses, surprised expression' }
@@ -116,7 +142,10 @@ function listScriptHistory() {
                     videoType: data.videoType || 'long',
                     sceneCount: (data.scenes || []).length,
                     thumbnail: data.thumbnail || '',
-                    seoMetadata: data.seoMetadata || null
+                    seoMetadata: data.seoMetadata || null,
+                    assetsSynthesized: data.assetsSynthesized || false,
+                    videoPath: data.videoPath || '',
+                    thumbnailPath: data.thumbnailPath || ''
                 };
             } catch (e) {
                 return { filename, title: filename, timestamp: 0, sceneCount: 0 };
@@ -241,12 +270,14 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     
     // Set initial job state
     activeJob.status = 'running';
+    activeJob.jobType = 'generation';
     activeJob.logs = [];
     activeJob.error = null;
     activeJob.topicTheme = topicTheme;
     activeJob.videoType = videoType;
     activeJob.targetDuration = targetDuration;
     activeJob.stages = buildDefaultStages(videoType, targetDuration);
+    activeJob.script = null; // Clear old script data
     
     // Run the actual generation asynchronously
     (async () => {
@@ -259,10 +290,14 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
             updateJobStageStatus('design', 'running');
             addJobLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
             
+            const config = readConfig();
+            const visualDNA = config.visualDNA || "Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.";
+            const styleReferences = config.styleReferences || ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
+
             const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
 The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using simple, badly-drawn MS Paint stickman doodles.
-Art Style Reference Codes: 18154.jpg, 18153.jpg, 18152.jpg, 18142.jpg, 18146.jpg, 18143.jpg, 18147.jpg, 18151.jpg, 18149.jpg, 18159.jpg.
-Visual DNA: Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.`;
+Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
+Visual DNA: ${visualDNA}`;
 
             const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
 ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
@@ -319,7 +354,11 @@ Return strictly a JSON object:
 
             const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model);
             if (activeJob.status === 'idle') return; // Cancelled
-            const designJsonMatch = designResponse.match(/\{[\s\S]*\}/);
+            // Robust JSON extraction: strip markdown code fences first, then fall back to regex
+            let designRaw = designResponse;
+            const designFenceMatch = designRaw.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (designFenceMatch) designRaw = designFenceMatch[1].trim();
+            const designJsonMatch = designRaw.match(/\{[\s\S]*\}/);
             if (!designJsonMatch) throw new Error("Stage 1 failed to return JSON.");
             
             const designData = JSON.parse(designJsonMatch[0]);
@@ -327,9 +366,9 @@ Return strictly a JSON object:
             finalScriptData = { ...finalScriptData, ...designData };
             
             // Save to server config characters
-            const config = readConfig();
-            config.characters = finalScriptData.characters || [];
-            writeConfig(config);
+            const activeConfig = readConfig();
+            activeConfig.characters = finalScriptData.characters || [];
+            writeConfig(activeConfig);
             
             addJobLog(`✓ Title: "${finalScriptData.title}"`);
             addJobLog(`✓ Custom characters designed: ${finalScriptData.characters.map(c => c.name).join(', ')}`);
@@ -412,7 +451,11 @@ Return strictly a JSON object matching this schema:
 
                 const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model);
                 if (activeJob.status === 'idle') return; // Cancelled
-                const actJsonMatch = actResponse.match(/\{[\s\S]*\}/);
+                // Robust JSON extraction: strip markdown code fences first, then fall back to regex
+                let actRaw = actResponse;
+                const actFenceMatch = actRaw.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (actFenceMatch) actRaw = actFenceMatch[1].trim();
+                const actJsonMatch = actRaw.match(/\{[\s\S]*\}/);
                 if (!actJsonMatch) throw new Error(`Stage ${j + 1} (Act ${j}) failed to return JSON.`);
                 
                 const actData = JSON.parse(actJsonMatch[0]);
@@ -525,6 +568,300 @@ Return only the corrected prompt text, nothing else.`;
     })();
 }
 
+function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath) {
+    activeJob.status = 'running';
+    activeJob.jobType = 'synthesis';
+    activeJob.logs = [];
+    activeJob.error = null;
+    activeJob.script = script;
+    activeJob.stages = [];
+    
+    (async () => {
+        addJobLog(`⚡ Starting background asset synthesis for script: "${script.title}"`);
+        try {
+            const config = readConfig();
+            const targetDir = providedOutputPath || config.outputPath || path.join(__dirname, 'output');
+            const imagesDir = path.join(targetDir, 'images');
+            const audioDir = path.join(targetDir, 'audio');
+            const thumbnailsDir = path.join(targetDir, 'thumbnails');
+            
+            ensureDir(targetDir);
+            ensureDir(imagesDir);
+            ensureDir(audioDir);
+            ensureDir(thumbnailsDir);
+            
+            const scenes = script.scenes || [];
+            addJobLog(`⚙️ Synthesizing media for ${scenes.length} scenes...`);
+            
+            // 1. Generate Thumbnail Image if prompt exists and Fal.ai key is available
+            let thumbnailPath = '';
+            if (falApiKey && script.thumbnail) {
+                addJobLog(`🎨 Synthesizing custom thumbnail image...`);
+                try {
+                    const payload = JSON.stringify({
+                        prompt: script.thumbnail,
+                        image_size: script.videoType === 'short' ? 'portrait_4_3' : 'landscape_16_9',
+                        num_inference_steps: 4,
+                        sync_mode: true
+                    });
+                    
+                    const res = await httpsPost(
+                        "https://fal.run/fal-ai/flux/schnell",
+                        {
+                            "Authorization": `Key ${falApiKey}`,
+                            "Content-Type": "application/json"
+                        },
+                        payload
+                    );
+                    
+                    const resJson = JSON.parse(res.body.toString());
+                    if (resJson.images && resJson.images[0]) {
+                        const imgBuffer = await httpsGet(resJson.images[0].url);
+                        const slug = (script.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 50);
+                        const thumbName = `thumb_${script.timestamp || Date.now()}_${slug}.png`;
+                        const fullThumbPath = path.join(thumbnailsDir, thumbName);
+                        
+                        await fs.promises.writeFile(fullThumbPath, imgBuffer);
+                        thumbnailPath = `/output/thumbnails/${thumbName}`;
+                        addJobLog(`✓ Custom thumbnail saved: ${thumbnailPath}`);
+                    } else {
+                        throw new Error("No thumbnail URL returned");
+                    }
+                } catch (err) {
+                    addJobLog(`⚠️ Thumbnail synthesis failed: ${err.message}`);
+                }
+            }
+            
+            // 2. Synthesize each scene sequentially
+            for (let i = 0; i < scenes.length; i++) {
+                if (activeJob.status === 'idle') {
+                    addJobLog(`🛑 Synthesis job cancelled by user.`);
+                    return;
+                }
+                
+                const scene = scenes[i];
+                const indexStr = (i + 1).toString().padStart(3, '0');
+                const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
+                const audioPath = path.join(audioDir, `scene_${indexStr}.wav`);
+                
+                scene.imagePath = `/output/images/scene_${indexStr}.png`;
+                scene.audioPath = `/output/audio/scene_${indexStr}.wav`;
+                
+                // Image synthesis
+                if (falApiKey) {
+                    try {
+                        const payload = JSON.stringify({
+                            prompt: scene.prompt,
+                            image_size: script.videoType === 'short' ? 'portrait_4_3' : 'landscape_16_9',
+                            num_inference_steps: 4,
+                            sync_mode: true
+                        });
+                        
+                        const res = await httpsPost(
+                            "https://fal.run/fal-ai/flux/schnell",
+                            {
+                                "Authorization": `Key ${falApiKey}`,
+                                "Content-Type": "application/json"
+                            },
+                            payload
+                        );
+                        
+                        const resJson = JSON.parse(res.body.toString());
+                        if (resJson.images && resJson.images[0]) {
+                            const imgBuffer = await httpsGet(resJson.images[0].url);
+                            await fs.promises.writeFile(imgPath, imgBuffer);
+                            addJobLog(`[Fal.ai] Scene ${i+1}/${scenes.length} image completed.`);
+                        } else {
+                            throw new Error("No image URL returned");
+                        }
+                    } catch (err) {
+                        addJobLog(`⚠️ Fal.ai failed for scene ${i+1}: ${err.message}. Saving fallback.`);
+                        await fs.promises.writeFile(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                    }
+                } else {
+                    await fs.promises.writeFile(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                }
+                
+                // Audio synthesis
+                if (elevenlabsApiKey && scene.voiceover) {
+                    try {
+                        const payload = JSON.stringify({
+                            text: scene.voiceover,
+                            model_id: "eleven_monolingual_v1",
+                            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                        });
+                        
+                        const res = await httpsPost(
+                            "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+                            {
+                                "xi-api-key": elevenlabsApiKey,
+                                "Content-Type": "application/json"
+                            },
+                            payload
+                        );
+                        await fs.promises.writeFile(audioPath, res.body);
+                        addJobLog(`[ElevenLabs] Scene ${i+1}/${scenes.length} voiceover completed.`);
+                    } catch (err) {
+                        addJobLog(`⚠️ ElevenLabs failed for scene ${i+1}: ${err.message}. Saving silent wav.`);
+                        const duration = parseFloat(scene.duration) || 2;
+                        await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                    }
+                } else {
+                    const duration = parseFloat(scene.duration) || 2;
+                    await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                }
+            }
+            
+            script.assetsSynthesized = true;
+            if (thumbnailPath) script.thumbnailPath = thumbnailPath;
+            script.timestamp = Date.now();
+            
+            writeLatestScript(script);
+            if (script.historyFilename) {
+                const filePath = path.join(SCRIPTS_HISTORY_DIR, script.historyFilename);
+                await fs.promises.writeFile(filePath, JSON.stringify(script, null, 2), 'utf8');
+            }
+            
+            activeJob.script = script;
+            activeJob.status = 'completed';
+            addJobLog(`🎉 Asset synthesis finished successfully!`);
+        } catch (e) {
+            activeJob.status = 'failed';
+            activeJob.error = e.message;
+            addJobLog(`❌ Asset synthesis failed: ${e.message}`);
+        }
+    })();
+}
+
+function startBackendAssembly(script, providedOutputPath) {
+    activeJob.status = 'running';
+    activeJob.jobType = 'assembly';
+    activeJob.logs = [];
+    activeJob.error = null;
+    activeJob.script = script;
+    activeJob.stages = [];
+    
+    (async () => {
+        addJobLog(`🎬 Starting background video compilation for: "${script.title}"`);
+        
+        exec('ffmpeg -version', async (err, stdout, stderr) => {
+            if (err) {
+                activeJob.status = 'failed';
+                activeJob.error = "FFmpeg is not installed or not in system PATH. Final compilation requires FFmpeg.";
+                addJobLog(`❌ FFmpeg check failed: FFmpeg is not installed or not in system PATH.`);
+                return;
+            }
+            
+            try {
+                const config = readConfig();
+                const targetDir = providedOutputPath || config.outputPath || path.join(__dirname, 'output');
+                const imagesDir = path.join(targetDir, 'images');
+                const audioDir = path.join(targetDir, 'audio');
+                const videosDir = path.join(targetDir, 'videos');
+                
+                ensureDir(targetDir);
+                ensureDir(imagesDir);
+                ensureDir(audioDir);
+                ensureDir(videosDir);
+                
+                const scenes = script.scenes || [];
+                const tempVideoFiles = [];
+                const inputsTxtPath = path.join(targetDir, 'inputs.txt');
+                let inputsTxtContent = '';
+                
+                addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos...`);
+                
+                const batchSize = 4;
+                for (let i = 0; i < scenes.length; i += batchSize) {
+                    if (activeJob.status === 'idle') {
+                        addJobLog(`🛑 Compilation cancelled by user.`);
+                        return;
+                    }
+                    
+                    const batch = scenes.slice(i, i + batchSize);
+                    const batchPromises = batch.map((scene, batchIdx) => {
+                        const sceneIndex = i + batchIdx;
+                        const indexStr = (sceneIndex + 1).toString().padStart(3, '0');
+                        const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
+                        const audioPath = path.join(audioDir, `scene_${indexStr}.wav`);
+                        const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
+                        const duration = parseFloat(scene.duration) || 2;
+                        
+                        const cmd = `ffmpeg -y -loop 1 -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -t ${duration} -pix_fmt yuv420p -vf "scale=1280:720" -shortest "${tempSceneVideo}"`;
+                        
+                        return new Promise((resolveScene, rejectScene) => {
+                            exec(cmd, (sceneErr) => {
+                                if (sceneErr) {
+                                    rejectScene(sceneErr);
+                                } else {
+                                    tempVideoFiles.push(tempSceneVideo);
+                                    resolveScene();
+                                }
+                            });
+                        });
+                    });
+                    
+                    try {
+                        await Promise.all(batchPromises);
+                        addJobLog(`✓ Compiled scenes ${i + 1} to ${Math.min(i + batchSize, scenes.length)} of ${scenes.length}`);
+                    } catch (batchErr) {
+                        throw new Error(`Scene compilation failed at batch ${i + 1}: ${batchErr.message}`);
+                    }
+                }
+                
+                tempVideoFiles.sort();
+                
+                tempVideoFiles.forEach(file => {
+                    const escapedPath = file.replace(/\\/g, '/');
+                    inputsTxtContent += `file '${escapedPath}'\n`;
+                });
+                await fs.promises.writeFile(inputsTxtPath, inputsTxtContent, 'utf8');
+                
+                const slug = (script.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 50);
+                const videoFilename = `video_${script.timestamp || Date.now()}_${slug}.mp4`;
+                const finalVideoPath = path.join(videosDir, videoFilename);
+                
+                addJobLog(`⚡ Concatenating individual scene files into final master print...`);
+                const concatCmd = `ffmpeg -y -f concat -safe 0 -i "${inputsTxtPath}" -c copy "${finalVideoPath}"`;
+                
+                exec(concatCmd, async (concatErr) => {
+                    tempVideoFiles.forEach(file => {
+                        try { fs.unlinkSync(file); } catch(e){}
+                    });
+                    try { fs.unlinkSync(inputsTxtPath); } catch(e){}
+                    
+                    if (concatErr) {
+                        activeJob.status = 'failed';
+                        activeJob.error = `Concatenation failed: ${concatErr.message}`;
+                        addJobLog(`❌ Concatenation failed: ${concatErr.message}`);
+                    } else {
+                        const stats = fs.statSync(finalVideoPath);
+                        
+                        script.videoPath = `/output/videos/${videoFilename}`;
+                        script.timestamp = Date.now();
+                        
+                        writeLatestScript(script);
+                        if (script.historyFilename) {
+                            const filePath = path.join(SCRIPTS_HISTORY_DIR, script.historyFilename);
+                            await fs.promises.writeFile(filePath, JSON.stringify(script, null, 2), 'utf8');
+                        }
+                        
+                        activeJob.script = script;
+                        activeJob.status = 'completed';
+                        addJobLog(`🎉 Master video compilation finished successfully!`);
+                        addJobLog(`💾 File saved: ${script.videoPath} (${stats.size} bytes)`);
+                    }
+                });
+                
+            } catch (innerErr) {
+                activeJob.status = 'failed';
+                activeJob.error = innerErr.message;
+                addJobLog(`❌ Compilation failed: ${innerErr.message}`);
+            }
+        });
+    })();
+}
+
 // Native HTTPS POST request helper
 function httpsPost(url, headers, body) {
     return new Promise((resolve, reject) => {
@@ -612,7 +949,7 @@ const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAoAAAAFACAIAAADUeu9RAAAAJ0lEQVR
 const server = http.createServer((req, res) => {
     // Enable CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
@@ -632,8 +969,21 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/generate-script' && req.method === 'POST') {
+        // Concurrent generation guard
+        if (activeJob.status === 'running') {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'A generation job is already in progress.' }));
+            return;
+        }
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
         req.on('end', () => {
             try {
                 const params = JSON.parse(body);
@@ -651,7 +1001,14 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/save-active-script' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
@@ -703,7 +1060,14 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/delete-script' && req.method === 'DELETE') {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
         req.on('end', () => {
             try {
                 const { filename } = JSON.parse(body);
@@ -722,7 +1086,14 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/update-script-history' && req.method === 'POST') {
         // Updates an existing history entry (e.g. after sandbox edits)
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
         req.on('end', () => {
             try {
                 const { filename, script } = JSON.parse(body);
@@ -754,7 +1125,14 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/config' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
         req.on('end', () => {
             try {
                 const newConfig = JSON.parse(body);
@@ -773,7 +1151,14 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/save' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
@@ -796,103 +1181,126 @@ const server = http.createServer((req, res) => {
         return;
     }
     if (pathname === '/api/synthesize-assets' && req.method === 'POST') {
+        if (activeJob.status === 'running') {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'A background job is already in progress.' }));
+            return;
+        }
         let body = '';
-        req.on('data', chunk => { body += chunk; });
-        req.on('end', async () => {
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
+        req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                const { scenes, falApiKey, elevenlabsApiKey, outputPath } = data;
+                const { script, falApiKey, elevenlabsApiKey, outputPath } = data;
+                if (!script) throw new Error("Script data is required");
                 
-                const targetDir = outputPath || path.join(__dirname, 'output');
-                const imagesDir = path.join(targetDir, 'images');
-                const audioDir = path.join(targetDir, 'audio');
-                
-                ensureDir(targetDir);
-                ensureDir(imagesDir);
-                ensureDir(audioDir);
-                
-                console.log(`Starting media synthesis for ${scenes.length} scenes...`);
-                
-                // Synthesize each scene sequentially
-                for (let i = 0; i < scenes.length; i++) {
-                    const scene = scenes[i];
-                    const indexStr = (i + 1).toString().padStart(3, '0');
-                    const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
-                    const audioPath = path.join(audioDir, `scene_${indexStr}.wav`);
-                    
-                    // 1. Image synthesis (Fal.ai Flux Schnell)
-                    if (falApiKey) {
-                        try {
-                            const payload = JSON.stringify({
-                                prompt: scene.prompt,
-                                image_size: "16:9",
-                                num_inference_steps: 4,
-                                sync_mode: true
-                            });
-                            
-                            const res = await httpsPost(
-                                "https://fal.run/fal-ai/flux/schnell",
-                                {
-                                    "Authorization": `Key ${falApiKey}`,
-                                    "Content-Type": "application/json"
-                                },
-                                payload
-                            );
-                            
-                            const resJson = JSON.parse(res.body.toString());
-                            if (resJson.images && resJson.images[0]) {
-                                const imgBuffer = await httpsGet(resJson.images[0].url);
-                                fs.writeFileSync(imgPath, imgBuffer);
-                                console.log(`[Fal.ai] Saved scene_${indexStr}.png`);
-                            } else {
-                                throw new Error("No image URL returned");
-                            }
-                        } catch (err) {
-                            console.error(`Fal.ai failed for scene ${i+1}: ${err.message}. Falling back to mock PNG.`);
-                            fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
-                        }
-                    } else {
-                        // Mock fallback
-                        fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
-                    }
-                    
-                    // 2. Audio Synthesis (ElevenLabs voiceover TTS)
-                    if (elevenlabsApiKey && scene.voiceover) {
-                        try {
-                            const payload = JSON.stringify({
-                                text: scene.voiceover,
-                                model_id: "eleven_monolingual_v1",
-                                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-                            });
-                            
-                            // Using standard Rachel voice: 21m00Tcm4TlvDq8ikWAM
-                            const res = await httpsPost(
-                                "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
-                                {
-                                    "xi-api-key": elevenlabsApiKey,
-                                    "Content-Type": "application/json"
-                                },
-                                payload
-                            );
-                            fs.writeFileSync(audioPath, res.body);
-                            console.log(`[Elevenlabs] Saved scene_${indexStr}.wav`);
-                        } catch (err) {
-                            console.error(`ElevenLabs failed for scene ${i+1}: ${err.message}. Falling back to mock silent WAV.`);
-                            const duration = parseFloat(scene.duration) || 2;
-                            fs.writeFileSync(audioPath, getSilentWavBuffer(duration));
-                        }
-                    } else {
-                        const duration = parseFloat(scene.duration) || 2;
-                        fs.writeFileSync(audioPath, getSilentWavBuffer(duration));
-                    }
-                }
+                startBackendSynthesis(script, falApiKey, elevenlabsApiKey, outputPath);
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ 
-                    success: true, 
-                    imagesDir, 
-                    audioDir 
-                }));
+                res.end(JSON.stringify({ success: true, message: 'Asset synthesis started' }));
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/assemble-video' && req.method === 'POST') {
+        if (activeJob.status === 'running') {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'A background job is already in progress.' }));
+            return;
+        }
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                const { script, outputPath } = data;
+                if (!script) throw new Error("Script data is required");
+                
+                startBackendAssembly(script, outputPath);
+                
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, message: 'Video compilation started' }));
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/brainstorm-topics' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
+        req.on('end', async () => {
+            try {
+                const { apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
+                const apiKey = getEffectiveApiKey(providedApiKey);
+                const model = providedModel || 'deepseek/deepseek-v4-flash';
+                
+                const systemPrompt = "You are a professional YouTube strategist and niche brainstorming expert.";
+                const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
+The channel focuses strictly on these 10 core categories, and you must generate exactly one topic per category:
+1. Evolutionary Anthropology & Ancient Human History
+2. Behavioral Psychology & Famous Social Experiments
+3. Biological Anomalies & Human Body Mysteries
+4. Existential, Cognitive & Scientific Mysteries
+5. Archaeological Mysteries & Lost Civilizations
+6. Survival Psychology & Extreme Environment Biology
+7. Bizarre Historical Events & Mass Hysteria
+8. Military & Technological Blunders
+9. Existential Space & Cosmic Anomalies
+10. Psychology of Beliefs & Secret Societies
+
+VIRAL TITLE LAWS:
+- Short & Striking: 5 to 9 words max.
+- Curiosity Gap Formula: Withhold the core secret.
+- Speak directly to the viewer.
+- Sentence case. No clickbait emojis or ending punctuation.
+
+For each category, return the brainstormed topic metadata.
+Format your response strictly as a JSON object:
+{
+  "topics": [
+    { "id": 1, "title": "[Title 1]", "cat": "[Category 1]", "curiosity": 9.8, "novelty": 9.5, "relatability": 9.2, "hook": "[1 sentence hook]" },
+    ...
+  ]
+}`;
+                
+                const response = await callOpenRouter(systemPrompt, userPrompt, apiKey, model);
+                
+                let raw = response;
+                const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (fenceMatch) raw = fenceMatch[1].trim();
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) throw new Error("Brainstorm failed to return JSON.");
+                
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(jsonMatch[0]);
             } catch (e) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: e.message }));
@@ -901,103 +1309,39 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    if (pathname === '/api/assemble-video' && req.method === 'POST') {
+    if (pathname === '/api/fix-prompt' && req.method === 'POST') {
         let body = '';
-        req.on('data', chunk => { body += chunk; });
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
         req.on('end', async () => {
             try {
-                const data = JSON.parse(body);
-                const { scenes, outputPath } = data;
+                const { prompt, characters: providedChars, apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
+                const apiKey = getEffectiveApiKey(providedApiKey);
+                const model = providedModel || 'deepseek/deepseek-v4-flash';
                 
-                const targetDir = outputPath || path.join(__dirname, 'output');
-                const imagesDir = path.join(targetDir, 'images');
-                const audioDir = path.join(targetDir, 'audio');
+                const charsString = (providedChars || []).map(c => `- **${c.name}**: ${c.description}`).join('\n');
+                const systemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.";
+                const userPrompt = `Correct this image prompt for an AI image generator to make it completely stateless.
+Rules:
+1. Replace character names with their full visual descriptions.
+2. Remove all relative reference words (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again).
+3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
+
+Character Presets:
+${charsString}
+
+Input Prompt to fix: "${prompt}"
+Return only the corrected prompt text, nothing else.`;
                 
-                // Ensure ffmpeg is in path
-                exec('ffmpeg -version', (err, stdout, stderr) => {
-                    if (err) {
-                        res.writeHead(500, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: "FFmpeg is not installed or not in system PATH. Final compilation requires FFmpeg." }));
-                        return;
-                    }
-                    
-                    try {
-                        const tempVideoFiles = [];
-                        const inputsTxtPath = path.join(targetDir, 'inputs.txt');
-                        let inputsTxtContent = '';
-                        
-                        console.log("Compiling individual scene videos...");
-                        
-                        // Compile each scene individually using loop image and WAV audio
-                        let compilePromises = scenes.map((scene, i) => {
-                            return new Promise((resolveScene, rejectScene) => {
-                                const indexStr = (i + 1).toString().padStart(3, '0');
-                                const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
-                                const audioPath = path.join(audioDir, `scene_${indexStr}.wav`);
-                                const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
-                                const duration = parseFloat(scene.duration) || 2;
-                                
-                                // Command: Loop 1 image + WAV -> MP4
-                                const cmd = `ffmpeg -y -loop 1 -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -t ${duration} -pix_fmt yuv420p -vf "scale=1280:720" -shortest "${tempSceneVideo}"`;
-                                
-                                exec(cmd, (sceneErr, sceneStdout, sceneStderr) => {
-                                    if (sceneErr) {
-                                        console.error(`Error rendering scene ${indexStr}:`, sceneErr);
-                                        rejectScene(sceneErr);
-                                    } else {
-                                        tempVideoFiles.push(tempSceneVideo);
-                                        resolveScene();
-                                    }
-                                });
-                            });
-                        });
-                        
-                        Promise.all(compilePromises).then(() => {
-                            // Sort temp files to ensure chronological order
-                            tempVideoFiles.sort();
-                            
-                            // Write inputs.txt content for FFmpeg concat demuxer
-                            tempVideoFiles.forEach(file => {
-                                const escapedPath = file.replace(/\\/g, '/');
-                                inputsTxtContent += `file '${escapedPath}'\n`;
-                            });
-                            fs.writeFileSync(inputsTxtPath, inputsTxtContent, 'utf8');
-                            
-                            const finalVideoPath = path.join(targetDir, 'final_output.mp4');
-                            
-                            // Concat copy command
-                            const concatCmd = `ffmpeg -y -f concat -safe 0 -i "${inputsTxtPath}" -c copy "${finalVideoPath}"`;
-                            
-                            exec(concatCmd, (concatErr, concatStdout, concatStderr) => {
-                                // Clean up temp scene mp4s and inputs.txt
-                                tempVideoFiles.forEach(file => {
-                                    try { fs.unlinkSync(file); } catch(e){}
-                                });
-                                try { fs.unlinkSync(inputsTxtPath); } catch(e){}
-                                
-                                if (concatErr) {
-                                    res.writeHead(500, { 'Content-Type': 'application/json' });
-                                    res.end(JSON.stringify({ error: `Concatenation failed: ${concatErr.message}` }));
-                                } else {
-                                    const stats = fs.statSync(finalVideoPath);
-                                    res.writeHead(200, { 'Content-Type': 'application/json' });
-                                    res.end(JSON.stringify({ 
-                                        success: true, 
-                                        filePath: finalVideoPath,
-                                        fileSize: stats.size
-                                    }));
-                                }
-                            });
-                        }).catch(compileErr => {
-                            res.writeHead(500, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ error: `Scene compilation failed: ${compileErr.message}` }));
-                        });
-                        
-                    } catch (innerErr) {
-                        res.writeHead(500, { 'Content-Type': 'application/json' });
-                        res.end(JSON.stringify({ error: innerErr.message }));
-                    }
-                });
+                const correctedText = await callOpenRouter(systemPrompt, userPrompt, apiKey, model);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ correctedText: correctedText.trim() }));
             } catch (e) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: e.message }));
@@ -1022,6 +1366,15 @@ const server = http.createServer((req, res) => {
                 res.end('index.html not found. Please build the application first (npm run build).');
             }
         }
+        return;
+    }
+
+    // Block sensitive files from being served statically
+    const sensitiveFiles = ['config.json', 'latest_script.json', 'package.json', 'package-lock.json'];
+    const requestedBasename = path.basename(pathname);
+    if (sensitiveFiles.includes(requestedBasename)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Forbidden' }));
         return;
     }
 

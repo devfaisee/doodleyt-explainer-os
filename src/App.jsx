@@ -34,7 +34,7 @@ const validatePromptText = (promptText) => {
 };
 
 
-const FALLBACK_API_KEY = 'sk-or-v1-' + '8ddf4b104ce98919409c0b7df5fa4c15e7a34ed8325751f1d97d4e8e5b82ba07';
+const FALLBACK_API_KEY = '';
 
 // --- MAIN APP COMPONENT ---
 function App() {
@@ -52,6 +52,9 @@ function App() {
     const [characters, setCharacters] = useState([]);
     const [videoType, setVideoType] = useState('long');
     const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12)
+    
+    const [visualDNA, setVisualDNA] = useState("Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.");
+    const [styleReferences, setStyleReferences] = useState(['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg']);
     
     const [topicBank, setTopicBank] = useState(DEFAULT_TOPICS);
     const [customNicheInput, setCustomNicheInput] = useState('');
@@ -97,7 +100,7 @@ function App() {
 
     // Debounced sync to server for sandbox script changes
     useEffect(() => {
-        if (!currentScript || isGenerating) return;
+        if (!currentScript || isGenerating || synthesisStatus === 'running' || compileStatus === 'running') return;
         
         const delayDebounceFn = setTimeout(() => {
             if (serverStatus.includes('Offline')) return;
@@ -118,7 +121,7 @@ function App() {
         }, 1500);
         
         return () => clearTimeout(delayDebounceFn);
-    }, [currentScript, isGenerating, serverStatus]);
+    }, [currentScript, isGenerating, synthesisStatus, compileStatus, serverStatus]);
     
     // Multi-Agent Pipeline Status Checklist (Dynamically built based on length)
     const buildDefaultStages = (type, duration) => {
@@ -131,18 +134,18 @@ function App() {
         return list;
     };
 
-    const [pipelineStages, setPipelineStages] = useState([]);
+    const [pipelineStages, setPipelineStages] = useState(() => buildDefaultStages(videoType, targetDuration));
 
+    // Keep checklist structure synced with length selection
     useEffect(() => {
         setPipelineStages(buildDefaultStages(videoType, targetDuration));
     }, [videoType, targetDuration]);
 
-    const [qcTestText, setQcTestText] = useState('');
     const logEndRef = useRef(null);
     const pollIntervalRef = useRef(null);
 
     const startPollingStatus = () => {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        if (pollIntervalRef.current) return;
         
         pollIntervalRef.current = setInterval(async () => {
             try {
@@ -157,11 +160,26 @@ function App() {
                     if (data.script.historyFilename) setActiveHistoryFilename(data.script.historyFilename);
                 }
                 
-                if (data.status !== 'running') {
+                // Map status according to jobType
+                if (data.jobType === 'synthesis') {
+                    setSynthesisStatus(data.status);
                     setIsGenerating(false);
+                    setCompileStatus('idle');
+                } else if (data.jobType === 'assembly') {
+                    setCompileStatus(data.status);
+                    setIsGenerating(false);
+                    setSynthesisStatus('idle');
+                } else {
+                    // Default to generation
+                    setIsGenerating(data.status === 'running');
+                    setSynthesisStatus('idle');
+                    setCompileStatus('idle');
+                }
+                
+                if (data.status !== 'running') {
                     clearInterval(pollIntervalRef.current);
                     pollIntervalRef.current = null;
-                    // Refresh history list after generation completes
+                    // Refresh history list after any job completes
                     fetch('/api/scripts-history').then(r => r.json()).then(d => setScriptHistory(d.scripts || [])).catch(() => {});
                 }
             } catch (err) {
@@ -182,6 +200,8 @@ function App() {
                 if (data.model) setModel(data.model);
                 if (data.outputPath) setOutputPath(data.outputPath);
                 if (data.characters) setCharacters(data.characters);
+                if (data.visualDNA) setVisualDNA(data.visualDNA);
+                if (data.styleReferences) setStyleReferences(data.styleReferences);
                 
                 // Fetch active background job status on load
                 fetch('/api/generation-status')
@@ -192,7 +212,13 @@ function App() {
                             if (jobData.script.historyFilename) setActiveHistoryFilename(jobData.script.historyFilename);
                         }
                         if (jobData.status === 'running') {
-                            setIsGenerating(true);
+                            if (jobData.jobType === 'synthesis') {
+                                setSynthesisStatus('running');
+                            } else if (jobData.jobType === 'assembly') {
+                                setCompileStatus('running');
+                            } else {
+                                setIsGenerating(true);
+                            }
                             startPollingStatus();
                         }
                     })
@@ -214,12 +240,16 @@ function App() {
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || 'E:/doodleyt/output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
+                const cachedVisualDNA = localStorage.getItem('doodleyt_visual_dna') || "Crude hand-drawn MS Paint stickman illustrations. Crisp black outlines, stark white backgrounds, minimal color fills (flat colors only), highly exaggerated comic emotions, and bold text overlays. No smooth shading, no gradients, no 3D elements. Low-quality drawings are part of the humor and branding.";
+                const cachedStyleReferences = localStorage.getItem('doodleyt_style_references') ? JSON.parse(localStorage.getItem('doodleyt_style_references')) : ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
 
                 setApiKey(cachedKey);
                 setFalApiKey(cachedFalKey);
                 setElevenlabsApiKey(cachedElevenlabsKey);
                 setModel(cachedModel);
                 setOutputPath(cachedPath);
+                setVisualDNA(cachedVisualDNA);
+                setStyleReferences(cachedStyleReferences);
 
                 try {
                     if (cachedChars) setCharacters(JSON.parse(cachedChars));
@@ -247,6 +277,8 @@ function App() {
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
         if (updatedFields.characters !== undefined) localStorage.setItem('doodleyt_characters', JSON.stringify(updatedFields.characters));
+        if (updatedFields.visualDNA !== undefined) localStorage.setItem('doodleyt_visual_dna', updatedFields.visualDNA);
+        if (updatedFields.styleReferences !== undefined) localStorage.setItem('doodleyt_style_references', JSON.stringify(updatedFields.styleReferences));
 
         if (serverStatus.includes('Offline')) return;
         try {
@@ -273,73 +305,30 @@ function App() {
 
     // Brainstorms 10 viral ideas covering all core categories
     const generateTopicsViaAI = async () => {
-        if (!apiKey) {
-            alert('Please set your OpenRouter API Key in settings first!');
-            return;
-        }
-        addLog('Inquiring OpenRouter for 10 extremely niche, viral brainstorm matrices...');
+        addLog('Inquiring local server to brainstorm 10 viral niche matrices...');
         setIsGenerating(true);
         try {
-            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            const response = await fetch('/api/brainstorm-topics', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`,
-                    'HTTP-Referer': window.location.origin,
-                    'X-Title': 'Doodle Theory'
-                },
-                body: JSON.stringify({
-                    model: model,
-                    messages: [
-                        {
-                            role: 'user',
-                            content: `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
-The channel focuses strictly on these 10 core categories, and you must generate exactly one topic per category:
-1. Evolutionary Anthropology & Ancient Human History (e.g. how ancient humans slept, hunted, survived, why fire feels different, how we flirted before language, why wild predators feared us).
-2. Behavioral Psychology & Famous Social Experiments (e.g. Rat Park, Calhoun's Universe 25, the Spotlight Effect, the Pratfall Effect, traits of introverts/loners).
-3. Biological Anomalies & Human Body Mysteries (e.g. baby amnesia, left/right handedness, blood type differences, teeth and modern food mismatch, what complete silence does to the brain).
-4. Existential, Cognitive & Scientific Mysteries (e.g. sensory deprivation hallucinations, what did ancient humans do at night, what happens after we die, are we dumber than our grandparents).
-5. Archaeological Mysteries & Lost Civilizations (e.g. Gobekli Tepe anomalies, why the Bronze Age collapsed, unexplained ancient engineering).
-6. Survival Psychology & Extreme Environment Biology (e.g. reacting to freezing isolation, Neanderthal Ice Age survival, the cognitive psychology of getting lost).
-7. Bizarre Historical Events & Mass Hysteria (e.g. the Dancing Plague of 1518, the Dyatlov Pass incident, weird historical coincidences).
-8. Military & Technological Blunders (e.g. the code typo that sank a submarine, how a nation lost a war to emus/birds, history's most expensive engineering mistakes).
-9. Existential Space & Cosmic Anomalies (e.g. the Wow! Signal, the Fermi Paradox, falling into a black hole).
-10. Psychology of Beliefs & Secret Societies (e.g. mass hysteria/witch trials, how ancient secret orders functioned).
-
-TITLE GENERATION LAWS (Strictly Enforced):
-- Short & Striking: Length must be 5 to 9 words maximum.
-- Curiosity Gap Formula: Withhold the core secret, answer, or resolution. (e.g. "Why Complete Silence Terrifies the Human Brain", "The Hidden Trait That Made Humans Feared by Animals", "The Only Predator That Had No Natural Weapon and Won").
-- Provocative Addressing: Speak directly to the viewer. (e.g. "Ancient Humans Were Stronger Than You", "Your Teeth Weren't Meant For Modern Food").
-- Survival/Primal Shock: Highlight deep ancestral fears. (e.g. "Before Fire, Every Night Was a Nightmare", "Why Predators Ignored Sleeping Ancient Humans").
-- Formatting: Use standard lowercase/sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis. Keep it short, mysterious, and highly clickable.
-
-For each topic, evaluate and assign scores (0-10) for Curiosity, Novelty, and Relatability.
-Also write a brief 1-sentence hook statement for each.
-
-Output strictly as a JSON array inside a code block, formatted like this:
-[
-  {"id": 301, "title": "short curiosity gap title", "cat": "Category Name", "curiosity": 9.9, "novelty": 9.8, "relatability": 9.1, "hook": "Bizarre hook sentence"}
-]
-Generate exactly 10 items, one for each category.`
-                        }
-                    ]
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiKey, model })
             });
-
-            const result = await response.json();
-            const text = result.choices[0].message.content;
-            const jsonMatch = text.match(/\[[\s\S]*\]/);
             
-            if (jsonMatch) {
-                const parsed = JSON.parse(jsonMatch[0]);
-                setTopicBank(parsed);
-                setSelectedTopic(parsed[0]);
-                addLog(`Successfully parsed ${parsed.length} new brainstorm topics covering all 10 categories.`);
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || `HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (data.topics && data.topics.length > 0) {
+                setTopicBank(data.topics);
+                setSelectedTopic(data.topics[0]);
+                addLog('✓ Received 10 custom YouTube ideas based on our categories.');
             } else {
-                throw new Error("Could not extract JSON array.");
+                throw new Error('Invalid brainstorm response structure');
             }
         } catch (e) {
-            addLog(`Error generating niches: ${e.message}`);
+            addLog(`❌ Error generating niches: ${e.message}`);
         } finally {
             setIsGenerating(false);
         }
@@ -347,7 +336,13 @@ Generate exactly 10 items, one for each category.`
 
     // Orchestrates sequential, multi-call generation logic in background on the server
     const runScriptGeneration = async (topicTheme) => {
+        if (currentScript && !window.confirm("You have an active script in the sandbox. Starting a new generation will clear it. Proceed?")) {
+            return;
+        }
+
         setIsGenerating(true);
+        setCurrentScript(null);
+        setActiveHistoryFilename(null);
         setPipelineLogs(['[System] Triggering script generation from backend orchestrator...']);
         
         // Reset dynamic stages to idle status
@@ -382,6 +377,8 @@ Generate exactly 10 items, one for each category.`
         try {
             await fetch('/api/cancel-generation', { method: 'POST' });
             setIsGenerating(false);
+            setSynthesisStatus('idle');
+            setCompileStatus('idle');
             if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
                 pollIntervalRef.current = null;
@@ -395,6 +392,7 @@ Generate exactly 10 items, one for each category.`
     const runAssetSynthesis = async () => {
         if (!currentScript) return;
         setSynthesisStatus('running');
+        setPipelineLogs(['[System] Triggering asset synthesis on the backend...']);
         addLog('⚡ Launching media asset synthesis pipeline (images & audio)...');
         addLog(`🔑 Using configuration: Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), ElevenLabs (${elevenlabsApiKey ? 'Provided' : 'Mock Fallback'})`);
         
@@ -403,7 +401,7 @@ Generate exactly 10 items, one for each category.`
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    scenes: currentScript.scenes,
+                    script: currentScript,
                     falApiKey,
                     elevenlabsApiKey,
                     outputPath
@@ -415,12 +413,7 @@ Generate exactly 10 items, one for each category.`
                 throw new Error(errData.error || `HTTP ${response.status}`);
             }
 
-            const data = await response.json();
-            addLog(`✅ Asset synthesis completed successfully!`);
-            addLog(`📁 Images written to: ${data.imagesDir}`);
-            addLog(`📁 Audio written to: ${data.audioDir}`);
-            setSynthesisStatus('completed');
-            setCurrentScript(prev => prev ? { ...prev, timestamp: Date.now() } : null);
+            startPollingStatus();
         } catch (e) {
             addLog(`❌ Synthesis pipeline failed: ${e.message}`);
             setSynthesisStatus('failed');
@@ -453,6 +446,7 @@ ${currentScript.thumbnail}
     const runVideoCompilation = async () => {
         if (!currentScript) return;
         setCompileStatus('running');
+        setPipelineLogs(['[System] Triggering video compilation on the backend...']);
         addLog('🎬 Launching FFmpeg compiler stitching routine...');
         
         try {
@@ -460,7 +454,7 @@ ${currentScript.thumbnail}
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    scenes: currentScript.scenes,
+                    script: currentScript,
                     outputPath
                 })
             });
@@ -470,10 +464,7 @@ ${currentScript.thumbnail}
                 throw new Error(errData.error || `HTTP ${response.status}`);
             }
 
-            const data = await response.json();
-            addLog(`🎉 Video render completed! Final MP4 size: ${data.fileSize} bytes.`);
-            addLog(`💾 Saved final video file to: ${data.filePath}`);
-            setCompileStatus('completed');
+            startPollingStatus();
         } catch (e) {
             addLog(`❌ Video compilation failed: ${e.message}`);
             setCompileStatus('failed');
@@ -496,53 +487,48 @@ ${currentScript.thumbnail}
 
         try {
             const currentChars = currentScript.characters || characters;
-            const charsString = currentChars.map(c => `- **${c.name}**: ${c.description}`).join('\n');
+            const updatedScenes = [...currentScript.scenes];
             
             for (const index of flaggedIndices) {
-                const scene = currentScript.scenes[index];
+                const scene = updatedScenes[index];
                 addLog(`Fixing Scene ${index + 1} (${scene.time})...`);
                 
-                const prompt = `Correct this image prompt for an AI image generator to make it completely stateless.
-Rules:
-1. Replace character names with their full visual descriptions.
-2. Remove all relative reference words (he, she, it, they, his, her, their, same, previous, earlier, above, below, again).
-3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
-
-Character Presets:
-${charsString}
-
-Input Prompt to fix: "${scene.prompt}"
-Return only the corrected prompt text, nothing else.`;
-
-                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                const response = await fetch('/api/fix-prompt', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        model: model,
-                        messages: [{ role: 'user', content: prompt }]
+                        prompt: scene.prompt,
+                        characters: currentChars,
+                        apiKey,
+                        model
                     })
                 });
 
-                const result = await response.json();
-                const correctedText = result.choices[0].message.content.trim();
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                scene.prompt = data.correctedText;
                 
-                setCurrentScript(prev => {
-                    const newScenes = [...prev.scenes];
-                    newScenes[index] = {
-                        ...newScenes[index],
-                        prompt: correctedText,
-                        qcErrors: []
-                    };
-                    return { ...prev, scenes: newScenes };
-                });
-                addLog(`✅ Refactored Scene ${index + 1} successfully.`);
+                const checkAgain = validatePromptText(scene.prompt);
+                scene.qcErrors = checkAgain.words;
+                if (checkAgain.isValid) {
+                    addLog(`   Scene ${index + 1} fixed.`);
+                } else {
+                    addLog(`   Scene ${index + 1} still has issues: [${checkAgain.words.join(', ')}]`);
+                }
             }
-            addLog(`🎉 Stateless validation complete. All prompts sanitized.`);
+            
+            setCurrentScript(prev => {
+                if (!prev) return null;
+                return { ...prev, scenes: updatedScenes };
+            });
+            
+            addLog(`✓ Automated prompt sanitation complete.`);
         } catch (e) {
-            addLog(`❌ QC Fix sequence failed: ${e.message}`);
+            addLog(`❌ Automated QC correction failed: ${e.message}`);
         } finally {
             setIsGenerating(false);
         }
@@ -774,7 +760,16 @@ Return only the corrected prompt text, nothing else.`;
                                                 <span className="uppercase text-[9px] bg-neutral-800 px-1.5 py-0.5 rounded">{entry.videoType || 'long'}</span>
                                             </div>
                                             <div className="text-[9px] text-neutral-600 font-mono mt-1">{date}</div>
-                                            {entry.seoMetadata && <span className="text-[8px] bg-green-950/40 text-green-400 border border-green-900/30 px-1.5 py-0.5 rounded font-bold mt-1 inline-block">SEO ✓</span>}
+                                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                {entry.seoMetadata && <span className="text-[8px] bg-green-950/40 text-green-400 border border-green-900/30 px-1.5 py-0.5 rounded font-bold">SEO ✓</span>}
+                                                {entry.videoPath ? (
+                                                    <span className="text-[8px] bg-emerald-950/40 text-emerald-400 border border-emerald-900/30 px-1.5 py-0.5 rounded font-bold">Video ✓</span>
+                                                ) : entry.assetsSynthesized ? (
+                                                    <span className="text-[8px] bg-blue-950/40 text-blue-400 border border-blue-900/30 px-1.5 py-0.5 rounded font-bold">Assets ✓</span>
+                                                ) : (
+                                                    <span className="text-[8px] bg-neutral-850 text-neutral-400 border border-neutral-800 px-1.5 py-0.5 rounded font-bold">Draft</span>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })
@@ -1195,44 +1190,124 @@ Return only the corrected prompt text, nothing else.`;
 
                                     {/* SCRIPT META: Title + Thumbnail + SEO */}
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                        {/* Compiled Video Player */}
+                                        {currentScript.videoPath && (
+                                            <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-4 shadow-xl col-span-1 lg:col-span-2">
+                                                <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-blue-400 flex items-center gap-2">
+                                                    <span>🎬</span> Generated Video Output
+                                                </h3>
+                                                <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-neutral-800 relative">
+                                                    <video 
+                                                        src={currentScript.videoPath} 
+                                                        controls 
+                                                        className="w-full h-full object-contain"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
+                                                    <span className="text-[10px] text-neutral-500 font-mono select-all">
+                                                        Web URL: {window.location.origin}{currentScript.videoPath}
+                                                    </span>
+                                                    <a 
+                                                        href={currentScript.videoPath} 
+                                                        download={`video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`}
+                                                        className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 w-full sm:w-auto justify-center"
+                                                    >
+                                                        📥 Download Video
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {/* Thumbnail Prompt */}
                                         {currentScript.thumbnail && (
                                             <div className="bg-gradient-to-br from-amber-950/20 to-neutral-900 border border-amber-500/20 p-5 rounded-3xl space-y-3">
                                                 <div className="flex items-center justify-between">
                                                     <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-amber-400">🖼️ AI Thumbnail Prompt</h3>
-                                                    <button
-                                                        onClick={() => copyToClipboard(currentScript.thumbnail, 'thumbnail')}
-                                                        className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all font-mono flex items-center gap-1 ${copiedField === 'thumbnail' ? 'bg-green-950/40 border-green-500/30 text-green-400' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600'}`}
-                                                    >
-                                                        {copiedField === 'thumbnail' ? '✓ Copied!' : '📋 Copy'}
-                                                    </button>
+                                                    <div className="flex gap-2">
+                                                        {currentScript.thumbnailPath && (
+                                                            <a
+                                                                href={currentScript.thumbnailPath}
+                                                                download={`thumbnail_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.png`}
+                                                                className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-amber-900/30 border-amber-800/30 text-amber-400 hover:text-white transition-all font-mono"
+                                                            >
+                                                                📥 Download Image
+                                                            </a>
+                                                        )}
+                                                        <button
+                                                            onClick={() => copyToClipboard(currentScript.thumbnail, 'thumbnail')}
+                                                            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-all font-mono flex items-center gap-1 ${copiedField === 'thumbnail' ? 'bg-green-950/40 border-green-500/30 text-green-400' : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white hover:border-neutral-600'}`}
+                                                        >
+                                                            {copiedField === 'thumbnail' ? '✓ Copied!' : '📋 Copy Prompt'}
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs text-amber-200/80 leading-relaxed font-mono select-all">{currentScript.thumbnail}</p>
+                                                
+                                                {currentScript.thumbnailPath && (
+                                                    <div className="aspect-video w-full rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-850 mb-3 flex items-center justify-center">
+                                                        <img 
+                                                            src={currentScript.thumbnailPath} 
+                                                            alt="AI Generated Thumbnail" 
+                                                            className="max-h-full max-w-full object-contain"
+                                                        />
+                                                    </div>
+                                                )}
+                                                <textarea
+                                                    rows="4"
+                                                    className="w-full bg-neutral-950 border border-neutral-800 focus:border-amber-500 p-3 rounded-2xl text-xs text-amber-200/80 font-mono leading-relaxed outline-none resize-none"
+                                                    value={currentScript.thumbnail}
+                                                    onChange={(e) => {
+                                                        const newVal = e.target.value;
+                                                        setCurrentScript(prev => ({ ...prev, thumbnail: newVal }));
+                                                    }}
+                                                />
                                             </div>
                                         )}
 
                                         {/* Script Info */}
                                         <div className="bg-neutral-900 border border-neutral-800 p-5 rounded-3xl space-y-3">
                                             <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-neutral-400">📊 Script Info</h3>
-                                            <div className="space-y-2">
+                                            <div className="space-y-3.5">
                                                 <div>
-                                                    <div className="text-[10px] text-neutral-500 font-mono mb-0.5">Title</div>
-                                                    <div className="text-sm font-extrabold text-white">{currentScript.title}</div>
+                                                    <label className="text-[10px] text-neutral-500 font-mono uppercase tracking-wider block mb-1">Title</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 rounded-xl text-sm font-extrabold text-white outline-none"
+                                                        value={currentScript.title}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setCurrentScript(prev => ({ ...prev, title: newVal }));
+                                                        }}
+                                                    />
                                                 </div>
-                                                {currentScript.category && (
-                                                    <div>
-                                                        <div className="text-[10px] text-neutral-500 font-mono mb-0.5">Category</div>
-                                                        <div className="text-xs text-blue-400 font-mono font-bold">{currentScript.category}</div>
-                                                    </div>
-                                                )}
+                                                <div>
+                                                    <label className="text-[10px] text-neutral-500 font-mono uppercase tracking-wider block mb-1">Category</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 rounded-xl text-xs text-blue-400 font-mono font-bold outline-none"
+                                                        value={currentScript.category || ''}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setCurrentScript(prev => ({ ...prev, category: newVal }));
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-neutral-500 font-mono uppercase tracking-wider block mb-1">Niche Viability</label>
+                                                    <textarea
+                                                        rows="2"
+                                                        className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 rounded-xl text-[10px] text-neutral-400 font-mono leading-relaxed outline-none resize-none"
+                                                        value={currentScript.nicheReason || ''}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setCurrentScript(prev => ({ ...prev, nicheReason: newVal }));
+                                                        }}
+                                                    />
+                                                </div>
                                                 <div className="flex gap-3 text-[10px] font-mono text-neutral-500 pt-1">
                                                     <span>⚡ {currentScript.scenes?.length || 0} scenes</span>
-                                                    <span className="uppercase bg-neutral-800 px-1.5 py-0.5 rounded">{currentScript.videoType || 'long'}</span>
-                                                    {currentScript.historyFilename && <span className="text-green-400">💾 Saved</span>}
+                                                    <span className="uppercase bg-neutral-850 px-1.5 py-0.5 rounded text-neutral-350">{currentScript.videoType || 'long'}</span>
+                                                    {currentScript.historyFilename && <span className="text-green-400 font-bold">💾 Auto-Saved</span>}
                                                 </div>
-                                                {currentScript.nicheReason && (
-                                                    <div className="text-[10px] text-neutral-400 font-mono leading-relaxed bg-neutral-950 p-2.5 rounded-xl border border-neutral-800">🎯 {currentScript.nicheReason}</div>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1258,17 +1333,23 @@ Return only the corrected prompt text, nothing else.`;
                                                         </button>
                                                     </div>
                                                     <textarea
-                                                        readOnly
                                                         rows="5"
-                                                        className="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-2xl text-xs text-neutral-300 font-mono leading-relaxed resize-none outline-none select-all"
+                                                        className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 p-3 rounded-2xl text-xs text-neutral-300 font-mono leading-relaxed resize-none outline-none"
                                                         value={currentScript.seoMetadata.description}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setCurrentScript(prev => ({
+                                                                ...prev,
+                                                                seoMetadata: { ...prev.seoMetadata, description: newVal }
+                                                            }));
+                                                        }}
                                                     />
                                                 </div>
 
                                                 {/* Hashtags */}
                                                 <div className="space-y-2">
                                                     <div className="flex items-center justify-between">
-                                                        <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Hashtags (15)</label>
+                                                        <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Hashtags (Space Separated)</label>
                                                         <button
                                                             onClick={() => {
                                                                 const tags = Array.isArray(currentScript.seoMetadata.hashtags)
@@ -1281,16 +1362,25 @@ Return only the corrected prompt text, nothing else.`;
                                                             {copiedField === 'seo-hash' ? '✓ Copied!' : '📋 Copy'}
                                                         </button>
                                                     </div>
-                                                    <div className="bg-neutral-950 border border-neutral-800 p-3 rounded-2xl min-h-[100px]">
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {(Array.isArray(currentScript.seoMetadata.hashtags)
-                                                                ? currentScript.seoMetadata.hashtags
-                                                                : (currentScript.seoMetadata.hashtags || '').split(' ').filter(Boolean)
-                                                            ).map((tag, idx) => (
-                                                                <span key={idx} className="bg-blue-950/40 text-blue-300 border border-blue-800/30 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">{tag}</span>
-                                                            ))}
-                                                        </div>
-                                                    </div>
+                                                    <textarea
+                                                        rows="5"
+                                                        className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 p-3 rounded-2xl text-xs text-neutral-300 font-mono leading-relaxed resize-none outline-none"
+                                                        value={
+                                                            Array.isArray(currentScript.seoMetadata.hashtags)
+                                                                ? currentScript.seoMetadata.hashtags.join(' ')
+                                                                : currentScript.seoMetadata.hashtags || ''
+                                                        }
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setCurrentScript(prev => ({
+                                                                ...prev,
+                                                                seoMetadata: { 
+                                                                    ...prev.seoMetadata, 
+                                                                    hashtags: newVal.split(/\s+/).filter(Boolean)
+                                                                }
+                                                            }));
+                                                        }}
+                                                    />
                                                 </div>
 
                                                 {/* Tags */}
@@ -1305,10 +1395,16 @@ Return only the corrected prompt text, nothing else.`;
                                                         </button>
                                                     </div>
                                                     <textarea
-                                                        readOnly
                                                         rows="5"
-                                                        className="w-full bg-neutral-950 border border-neutral-800 p-3 rounded-2xl text-xs text-neutral-300 font-mono leading-relaxed resize-none outline-none select-all"
-                                                        value={currentScript.seoMetadata.tags}
+                                                        className="w-full bg-neutral-950 border border-neutral-800 focus:border-emerald-500 p-3 rounded-2xl text-xs text-neutral-300 font-mono leading-relaxed resize-none outline-none"
+                                                        value={currentScript.seoMetadata.tags || ''}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setCurrentScript(prev => ({
+                                                                ...prev,
+                                                                seoMetadata: { ...prev.seoMetadata, tags: newVal }
+                                                            }));
+                                                        }}
                                                     />
                                                 </div>
                                             </div>
@@ -1615,10 +1711,7 @@ Return only the corrected prompt text, nothing else.`;
                                             placeholder="sk-or-v1-..."
                                             className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
                                             value={apiKey}
-                                            onChange={(e) => {
-                                                setApiKey(e.target.value);
-                                                saveConfig({ apiKey: e.target.value });
-                                            }}
+                                            onChange={(e) => setApiKey(e.target.value)}
                                         />
                                     </div>
 
@@ -1629,10 +1722,7 @@ Return only the corrected prompt text, nothing else.`;
                                             placeholder="fal-..."
                                             className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
                                             value={falApiKey}
-                                            onChange={(e) => {
-                                                setFalApiKey(e.target.value);
-                                                saveConfig({ falApiKey: e.target.value });
-                                            }}
+                                            onChange={(e) => setFalApiKey(e.target.value)}
                                         />
                                     </div>
 
@@ -1643,10 +1733,7 @@ Return only the corrected prompt text, nothing else.`;
                                             placeholder="eleven-labs-key..."
                                             className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
                                             value={elevenlabsApiKey}
-                                            onChange={(e) => {
-                                                setElevenlabsApiKey(e.target.value);
-                                                saveConfig({ elevenlabsApiKey: e.target.value });
-                                            }}
+                                            onChange={(e) => setElevenlabsApiKey(e.target.value)}
                                         />
                                     </div>
 
@@ -1656,10 +1743,7 @@ Return only the corrected prompt text, nothing else.`;
                                             <select 
                                                 className="flex-1 bg-neutral-950 border border-neutral-855 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
                                                 value={model}
-                                                onChange={(e) => {
-                                                    setModel(e.target.value);
-                                                    saveConfig({ model: e.target.value });
-                                                }}
+                                                onChange={(e) => setModel(e.target.value)}
                                             >
                                                 <option value="deepseek/deepseek-v4-flash">deepseek/deepseek-v4-flash (DeepSeek V4 Flash - Recommended)</option>
                                                 <option value="deepseek/deepseek-chat">deepseek/deepseek-chat (DeepSeek V3)</option>
@@ -1672,10 +1756,7 @@ Return only the corrected prompt text, nothing else.`;
                                                 placeholder="Custom model..."
                                                 className="bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm w-1/3"
                                                 value={model}
-                                                onChange={(e) => {
-                                                    setModel(e.target.value);
-                                                    saveConfig({ model: e.target.value });
-                                                }}
+                                                onChange={(e) => setModel(e.target.value)}
                                             />
                                         </div>
                                     </div>
@@ -1687,10 +1768,28 @@ Return only the corrected prompt text, nothing else.`;
                                             placeholder="E:/doodleyt/output"
                                             className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
                                             value={outputPath}
-                                            onChange={(e) => {
-                                                setOutputPath(e.target.value);
-                                                saveConfig({ outputPath: e.target.value });
-                                            }}
+                                            onChange={(e) => setOutputPath(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Visual DNA Guidelines String</label>
+                                        <textarea 
+                                            rows="3"
+                                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm resize-none"
+                                            value={visualDNA}
+                                            onChange={(e) => setVisualDNA(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Style Reference Codes (Comma-separated)</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="18154.jpg, 18153.jpg, ..."
+                                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
+                                            value={Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}
+                                            onChange={(e) => setStyleReferences(e.target.value.split(',').map(s => s.trim()))}
                                         />
                                     </div>
                                 </div>
@@ -1698,7 +1797,7 @@ Return only the corrected prompt text, nothing else.`;
                                 <div className="pt-4 border-t border-neutral-800 flex justify-end">
                                     <button 
                                         onClick={() => {
-                                            saveConfig({ apiKey, model, outputPath, characters });
+                                            saveConfig({ apiKey, falApiKey, elevenlabsApiKey, model, outputPath, characters, visualDNA, styleReferences });
                                             alert('Settings locked successfully!');
                                         }}
                                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition"
@@ -1728,41 +1827,46 @@ Return only the corrected prompt text, nothing else.`;
                                     <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
                                         <div className="flex justify-between items-center">
                                             <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Style DNA Anchor String</h3>
-                                            <span className="bg-blue-900/30 text-blue-400 border border-blue-800/30 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">Locked</span>
+                                            <span className="bg-blue-900/30 text-blue-400 border border-blue-800/30 text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase">Editable</span>
                                         </div>
                                         <p className="text-xs text-neutral-400">This prefix string is appended to every single visual scene prompt prior to image synthesis, forcing Stable Diffusion / Midjourney seeds to stay strictly on-brand.</p>
-                                        <div className="bg-neutral-950 p-5 rounded-2xl border border-neutral-800 text-sm font-mono text-neutral-300 leading-relaxed relative group">
-                                            {CONSTITUTION.visualDNA}
+                                        <textarea 
+                                            value={visualDNA}
+                                            onChange={(e) => setVisualDNA(e.target.value)}
+                                            rows="4"
+                                            className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-4 rounded-2xl text-sm font-mono text-neutral-300 leading-relaxed outline-none resize-none"
+                                        />
+                                        <div className="flex justify-end">
                                             <button 
                                                 onClick={() => {
-                                                    navigator.clipboard.writeText(CONSTITUTION.visualDNA);
-                                                    alert('Visual DNA copied to clipboard!');
+                                                    saveConfig({ visualDNA });
+                                                    alert('Visual DNA Guidelines updated successfully!');
                                                 }}
-                                                className="absolute bottom-3 right-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-400 hover:text-white px-3 py-1.5 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5"
+                                                className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition"
                                             >
-                                                📋 Copy
+                                                Apply Guidelines
                                             </button>
                                         </div>
                                     </div>
 
                                     {/* Linked System Assets */}
                                     <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl shadow-lg space-y-4">
-                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">System Seed Reference Images</h3>
-                                        <p className="text-xs text-neutral-400">These asset identifier files are referenced in prompt embeddings to trigger specific MS Paint stickman style checkpoints.</p>
+                                        <h3 className="text-xs uppercase tracking-widest font-mono text-neutral-400 font-semibold">Style Reference Tags</h3>
+                                        <p className="text-xs text-neutral-400">These identifiers are injected into prompt seeds to trigger stickman style checkpoints. Edit in Settings.</p>
                                         
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {CONSTITUTION.styleReferences.map((ref, idx) => (
-                                                <div key={ref} className="bg-neutral-950 border border-neutral-850 p-4 rounded-2xl flex items-center justify-between hover:border-blue-500/30 transition-all group">
+                                            {styleReferences.map((ref, idx) => (
+                                                <div key={ref + idx} className="bg-neutral-950 border border-neutral-850 p-4 rounded-2xl flex items-center justify-between hover:border-blue-500/30 transition-all group">
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-lg font-bold group-hover:scale-105 transition-transform">
-                                                            🖼️
+                                                            🏷️
                                                         </div>
                                                         <div>
                                                             <div className="text-sm font-mono font-bold text-white">{ref}</div>
-                                                            <div className="text-[10px] text-neutral-500 font-mono">Index Reference: #{idx + 1}</div>
+                                                            <div className="text-[10px] text-neutral-500 font-mono">Reference #{idx + 1}</div>
                                                         </div>
                                                     </div>
-                                                    <span className="bg-green-950/20 text-green-400 border border-green-900/30 text-[9px] font-mono px-2 py-0.5 rounded uppercase">Active</span>
+                                                    <span className="bg-green-950/20 text-green-400 border border-green-900/30 text-[9px] font-mono px-2 py-0.5 rounded uppercase font-bold">Active</span>
                                                 </div>
                                             ))}
                                         </div>
