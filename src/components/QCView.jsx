@@ -48,7 +48,7 @@ export default function QCView({
                             <textarea 
                                 value={qcTestText}
                                 onChange={(e) => setQcTestText(e.target.value)}
-                                placeholder="e.g. A crude stickman doodle of Bob holding a pen. He is smiling while he looks at the camera again..."
+                                placeholder="e.g. A clean hand-drawn 2D cartoon of Bob holding a pen. He is smiling while he looks at the camera again..."
                                 rows="3"
                                 className="w-full bg-neutral-950 border border-neutral-800 focus:border-red-500 focus:ring-1 focus:ring-red-500/20 p-4 rounded-2xl text-sm text-neutral-200 outline-none font-mono resize-none transition-all"
                             />
@@ -77,7 +77,7 @@ export default function QCView({
                         <div className="text-xs text-neutral-400 space-y-3 leading-relaxed">
                             <p><strong>Memoryless Generators:</strong> Image generators process each image in total isolation. They do not know what was generated in previous scenes.</p>
                             <p><strong>The Pronoun Trap:</strong> Saying <em>"He is walking"</em> makes the generator hallucinate a random new character. The name <em>"Bob"</em> alone is not enough either, as "Bob" means nothing to the base model.</p>
-                            <p><strong>The Solution:</strong> The orchestrator automatically parses every character's description card and injects it in place of pronouns. The word <em>"He"</em> is forbidden; instead, we must say: <em>"A crude stickman with red baseball cap and blue hoodie"</em>.</p>
+                            <p><strong>The Solution:</strong> The orchestrator automatically parses every character's description card and injects it in place of pronouns. The word <em>"He"</em> is forbidden; instead, we must say: <em>"A cartoon figure with red baseball cap and blue hoodie"</em>.</p>
                         </div>
                     </div>
 

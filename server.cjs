@@ -102,7 +102,7 @@ function readConfig() {
         apiKey: FIXATED_KEY,
         model: 'deepseek/deepseek-v4-flash',
         outputPath: path.join(__dirname, 'output'),
-        visualDNA: "Crude whiteboard cartoon illustration style (similar to channel Zenn). Hand-drawn felt-pen black outlines, flat solid color fills, highly exaggerated comical expressions (wide eyes, sweating, gaping mouths). Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments (like soft blue ice, dark navy cave, or ocean floor). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.",
+        visualDNA: "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).",
         styleReferences: ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'],
         characters: [
             { name: 'BOB', description: 'Stick figure man, round head, thin body, red baseball cap forward, blue hoodie, black pants, white sneakers, large eyebrows, goofy smile' },
@@ -490,11 +490,11 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
             addJobLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
             
             const config = readConfig();
-            const visualDNA = config.visualDNA || "Crude whiteboard cartoon illustration style (similar to channel Zenn). Hand-drawn felt-pen black outlines, flat solid color fills, highly exaggerated comical expressions (wide eyes, sweating, gaping mouths). Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments (like soft blue ice, dark navy cave, or ocean floor). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.";
+            const visualDNA = config.visualDNA || "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).";
             const styleReferences = config.styleReferences || ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
 
             const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
-The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using simple, badly-drawn MS Paint stickman doodles.
+The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using clean, hand-drawn 2D vector-style cartoon illustrations.
 Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
 Visual DNA: ${visualDNA}`;
 
@@ -521,11 +521,11 @@ VIRAL TITLE LAWS (Strictly Enforced):
 - Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis.
 
 CHARACTER DESIGN RULES:
-Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a stickman. Art style: crude stickman outline, solid flat colors, white background.
+Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a cartoon character. Art style: clean hand-drawn 2D cartoon outlines, solid flat colors, white background.
 
 AI THUMBNAIL PROMPT LAW:
 Create a highly visual thumbnail description. The layout must feature:
-1. A crude MS Paint stickman doodle on a solid white background showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic).
+1. A clean, hand-drawn 2D cartoon illustration showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic) on a solid white background, with smooth outlines and flat color fills.
 2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
 The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
 
@@ -576,7 +576,7 @@ Return strictly a JSON object:
             const charactersListString = finalScriptData.characters.map(c => `- **${c.name}**: ${c.description}`).join('\n');
             const charactersPromptGuide = `Stateless Prompt Rule (THE GOLDEN RULE):
 Image generators have no memory. You must never use character names alone and never use pronouns (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again, character, figure).
-Always start the prompt with: "A crude MS Paint stickman doodle with black outlines and flat colors on a white background. [Describe character physical appearance] is [describe specific action/pose/emotion] [describe scene context/objects]."
+Always start the prompt with: "A clean, hand-drawn 2D vector-style cartoon illustration with smooth black felt-pen outlines and flat color fills. [Describe character physical appearance] is [describe specific action/pose/emotion] [describe scene context/objects]. Solid flat white background."
 
 Character presets to use:
 ${charactersListString}`;
@@ -703,7 +703,7 @@ Return strictly a JSON object matching this schema:
 Rules:
 1. Replace character names with their full visual descriptions.
 2. Remove all relative reference words (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again).
-3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
+3. Keep the art style: clean, hand-drawn 2D vector-style cartoon illustration, smooth black felt-pen outlines, flat color fills, solid white background.
 
 Character Presets:
 ${charsString}
@@ -1535,7 +1535,7 @@ Format your response strictly as a JSON object:
 Rules:
 1. Replace character names with their full visual descriptions.
 2. Remove all relative reference words (he, she, it, they, his, her, their, its, same, previous, earlier, above, below, again).
-3. Keep the art style: crude MS Paint stickman doodle, black outline, white background.
+3. Keep the art style: clean, hand-drawn 2D vector-style cartoon illustration, smooth black felt-pen outlines, flat color fills, solid white background.
 
 Character Presets:
 ${charsString}
