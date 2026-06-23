@@ -33,6 +33,61 @@ const CONFIG_FILE = path.join(__dirname, 'config.json');
 const FIXATED_KEY = process.env.OPENROUTER_API_KEY || '';
 const MAX_BODY = 10 * 1024 * 1024; // 10 MB
 
+// --- POSTGRESQL DATABASE FOR PERMANENT MEMORY ---
+let pgPool = null;
+if (process.env.DATABASE_URL) {
+    try {
+        const pg = require('pg');
+        pgPool = new pg.Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: {
+                rejectUnauthorized: false
+            }
+        });
+        console.log('[Database] Connecting to PostgreSQL database...');
+        
+        // Initialize table
+        pgPool.query(`
+            CREATE TABLE IF NOT EXISTS scripts_history (
+                filename VARCHAR(255) PRIMARY KEY,
+                timestamp BIGINT,
+                title TEXT,
+                category VARCHAR(255),
+                video_type VARCHAR(50),
+                scene_count INT,
+                thumbnail TEXT,
+                seo_metadata JSONB,
+                assets_synthesized BOOLEAN,
+                video_path TEXT,
+                thumbnail_path TEXT,
+                full_script JSONB
+            );
+        `).then(() => {
+            console.log('[Database] PostgreSQL table scripts_history is ready.');
+        }).catch(err => {
+            console.error('[Database] Failed to create table scripts_history:', err);
+        });
+    } catch (e) {
+        console.error('[Database] Failed to initialize pg Pool:', e);
+    }
+}
+
+function mapRowToScriptSummary(row) {
+    return {
+        filename: row.filename,
+        timestamp: parseInt(row.timestamp, 10),
+        title: row.title || 'Untitled Script',
+        category: row.category || '',
+        videoType: row.video_type || 'long',
+        sceneCount: parseInt(row.scene_count, 10) || 0,
+        thumbnail: row.thumbnail || '',
+        seoMetadata: row.seo_metadata || null,
+        assetsSynthesized: row.assets_synthesized || false,
+        videoPath: row.video_path || '',
+        thumbnailPath: row.thumbnail_path || ''
+    };
+}
+
 // Helper to read config
 function readConfig() {
     try {
@@ -108,15 +163,45 @@ function writeLatestScript(script) {
 }
 
 // --- SCRIPT HISTORY DB ---
-function saveScriptToHistory(script) {
+async function saveScriptToHistory(script) {
     try {
-        ensureDir(SCRIPTS_HISTORY_DIR);
         // Use a slugified title + timestamp as filename
         const slug = (script.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 60);
         const filename = `${script.timestamp || Date.now()}_${slug}.json`;
-        const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
-        fs.writeFileSync(filePath, JSON.stringify(script, null, 2), 'utf8');
-        console.log(`[History] Script saved: ${filename}`);
+
+        if (pgPool) {
+            await pgPool.query(`
+                INSERT INTO scripts_history (
+                    filename, timestamp, title, category, video_type, scene_count, 
+                    thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, full_script
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            `, [
+                filename,
+                script.timestamp || Date.now(),
+                script.title || 'Untitled Script',
+                script.category || '',
+                script.videoType || 'long',
+                (script.scenes || []).length,
+                script.thumbnail || '',
+                script.seoMetadata ? JSON.stringify(script.seoMetadata) : null,
+                script.assetsSynthesized || false,
+                script.videoPath || '',
+                script.thumbnailPath || '',
+                JSON.stringify(script)
+            ]);
+            console.log(`[History] Script saved to PostgreSQL: ${filename}`);
+        }
+
+        // Also write locally as fallback/cache/local dev compatibility
+        try {
+            ensureDir(SCRIPTS_HISTORY_DIR);
+            const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
+            fs.writeFileSync(filePath, JSON.stringify(script, null, 2), 'utf8');
+            console.log(`[History] Script saved locally: ${filename}`);
+        } catch (localErr) {
+            console.error('Error writing history file locally:', localErr);
+        }
+
         return filename;
     } catch (e) {
         console.error('Error saving script to history:', e);
@@ -124,7 +209,22 @@ function saveScriptToHistory(script) {
     }
 }
 
-function listScriptHistory() {
+async function listScriptHistory() {
+    try {
+        if (pgPool) {
+            const res = await pgPool.query(`
+                SELECT filename, timestamp, title, category, video_type, scene_count, 
+                       thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path 
+                FROM scripts_history 
+                ORDER BY timestamp DESC
+            `);
+            return res.rows.map(row => mapRowToScriptSummary(row));
+        }
+    } catch (e) {
+        console.error('[History] Failed to list scripts from PostgreSQL database, falling back to files:', e);
+    }
+
+    // Fallback to local files
     try {
         ensureDir(SCRIPTS_HISTORY_DIR);
         const files = fs.readdirSync(SCRIPTS_HISTORY_DIR)
@@ -152,28 +252,127 @@ function listScriptHistory() {
             }
         });
     } catch (e) {
-        console.error('Error listing script history:', e);
+        console.error('Error listing script history from files:', e);
         return [];
     }
 }
 
-function loadScriptFromHistory(filename) {
+async function loadScriptFromHistory(filename) {
+    try {
+        if (pgPool) {
+            const res = await pgPool.query('SELECT full_script FROM scripts_history WHERE filename = $1', [filename]);
+            if (res.rowCount > 0) {
+                const fullScript = res.rows[0].full_script;
+                return typeof fullScript === 'string' ? JSON.parse(fullScript) : fullScript;
+            }
+        }
+    } catch (e) {
+        console.error(`[History] Failed to load script ${filename} from PostgreSQL, falling back to file:`, e);
+    }
+
+    // Fallback to file
     try {
         const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
         if (!fs.existsSync(filePath)) return null;
         return JSON.parse(fs.readFileSync(filePath, 'utf8'));
     } catch (e) {
-        console.error('Error loading script from history:', e);
+        console.error('Error loading script from history file:', e);
         return null;
     }
 }
 
-function deleteScriptFromHistory(filename) {
+async function deleteScriptFromHistory(filename) {
+    let deletedDb = false;
+    let deletedLocal = false;
+
+    try {
+        if (pgPool) {
+            const res = await pgPool.query('DELETE FROM scripts_history WHERE filename = $1', [filename]);
+            deletedDb = res.rowCount > 0;
+            console.log(`[History] Deleted from database: ${filename} (success: ${deletedDb})`);
+        }
+    } catch (e) {
+        console.error('[History] Failed to delete script from PostgreSQL:', e);
+    }
+
     try {
         const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            deletedLocal = true;
+            console.log(`[History] Deleted local file: ${filename}`);
+        }
+    } catch (e) {
+        console.error('[History] Failed to delete script history file:', e);
+    }
+
+    return deletedDb || deletedLocal;
+}
+
+async function updateScriptInHistory(filename, script) {
+    try {
+        let exists = false;
+        if (pgPool) {
+            const checkRes = await pgPool.query('SELECT filename FROM scripts_history WHERE filename = $1', [filename]);
+            if (checkRes.rowCount > 0) {
+                exists = true;
+            }
+        }
+        const filePath = path.join(SCRIPTS_HISTORY_DIR, filename);
+        if (fs.existsSync(filePath)) {
+            exists = true;
+        }
+
+        if (!exists) {
+            return false;
+        }
+
+        if (pgPool) {
+            await pgPool.query(`
+                INSERT INTO scripts_history (
+                    filename, timestamp, title, category, video_type, scene_count, 
+                    thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, full_script
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                ON CONFLICT (filename) DO UPDATE SET
+                    timestamp = EXCLUDED.timestamp,
+                    title = EXCLUDED.title,
+                    category = EXCLUDED.category,
+                    video_type = EXCLUDED.video_type,
+                    scene_count = EXCLUDED.scene_count,
+                    thumbnail = EXCLUDED.thumbnail,
+                    seo_metadata = EXCLUDED.seo_metadata,
+                    assets_synthesized = EXCLUDED.assets_synthesized,
+                    video_path = EXCLUDED.video_path,
+                    thumbnail_path = EXCLUDED.thumbnail_path,
+                    full_script = EXCLUDED.full_script
+            `, [
+                filename,
+                script.timestamp || Date.now(),
+                script.title || 'Untitled Script',
+                script.category || '',
+                script.videoType || 'long',
+                (script.scenes || []).length,
+                script.thumbnail || '',
+                script.seoMetadata ? JSON.stringify(script.seoMetadata) : null,
+                script.assetsSynthesized || false,
+                script.videoPath || '',
+                script.thumbnailPath || '',
+                JSON.stringify(script)
+            ]);
+            console.log(`[History] Database entry updated/upserted: ${filename}`);
+        }
+        
+        // Also update local file
+        try {
+            ensureDir(SCRIPTS_HISTORY_DIR);
+            fs.writeFileSync(filePath, JSON.stringify(script, null, 2), 'utf8');
+            console.log(`[History] Local file updated: ${filename}`);
+        } catch (localErr) {
+            console.error('Error writing local file on update:', localErr);
+        }
         return true;
     } catch (e) {
+        console.error('Error updating script in history:', e);
         return false;
     }
 }
@@ -546,7 +745,7 @@ Return only the corrected prompt text, nothing else.`;
             
             writeLatestScript(finalScriptData);
             // Save permanently to history database
-            const savedFilename = saveScriptToHistory(finalScriptData);
+            const savedFilename = await saveScriptToHistory(finalScriptData);
             if (savedFilename) finalScriptData.historyFilename = savedFilename;
             activeJob.script = finalScriptData;
             
@@ -718,8 +917,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
             
             writeLatestScript(script);
             if (script.historyFilename) {
-                const filePath = path.join(SCRIPTS_HISTORY_DIR, script.historyFilename);
-                await fs.promises.writeFile(filePath, JSON.stringify(script, null, 2), 'utf8');
+                await updateScriptInHistory(script.historyFilename, script);
             }
             
             activeJob.script = script;
@@ -842,8 +1040,7 @@ function startBackendAssembly(script, providedOutputPath) {
                         
                         writeLatestScript(script);
                         if (script.historyFilename) {
-                            const filePath = path.join(SCRIPTS_HISTORY_DIR, script.historyFilename);
-                            await fs.promises.writeFile(filePath, JSON.stringify(script, null, 2), 'utf8');
+                            await updateScriptInHistory(script.historyFilename, script);
                         }
                         
                         activeJob.script = script;
@@ -1033,8 +1230,13 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/scripts-history' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ scripts: listScriptHistory() }));
+        listScriptHistory().then(scripts => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ scripts }));
+        }).catch(err => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        });
         return;
     }
 
@@ -1047,14 +1249,18 @@ const server = http.createServer((req, res) => {
         }
         // Security: prevent path traversal
         const safeFilename = path.basename(filename);
-        const script = loadScriptFromHistory(safeFilename);
-        if (!script) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Script not found in history' }));
-            return;
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ script }));
+        loadScriptFromHistory(safeFilename).then(script => {
+            if (!script) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Script not found in history' }));
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ script }));
+        }).catch(err => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        });
         return;
     }
 
@@ -1068,11 +1274,11 @@ const server = http.createServer((req, res) => {
                 res.end(JSON.stringify({ error: 'Request body too large.' }));
             }
         });
-        req.on('end', () => {
+        req.on('end', async () => {
             try {
                 const { filename } = JSON.parse(body);
                 const safeFilename = path.basename(filename);
-                const deleted = deleteScriptFromHistory(safeFilename);
+                const deleted = await deleteScriptFromHistory(safeFilename);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: deleted }));
             } catch (e) {
@@ -1094,18 +1300,17 @@ const server = http.createServer((req, res) => {
                 res.end(JSON.stringify({ error: 'Request body too large.' }));
             }
         });
-        req.on('end', () => {
+        req.on('end', async () => {
             try {
                 const { filename, script } = JSON.parse(body);
                 if (!filename || !script) throw new Error('filename and script are required');
                 const safeFilename = path.basename(filename);
-                const filePath = path.join(SCRIPTS_HISTORY_DIR, safeFilename);
-                if (!fs.existsSync(filePath)) {
+                const updated = await updateScriptInHistory(safeFilename, script);
+                if (!updated) {
                     res.writeHead(404, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ error: 'Script not found in history' }));
                     return;
                 }
-                fs.writeFileSync(filePath, JSON.stringify(script, null, 2), 'utf8');
                 writeLatestScript(script);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true }));
