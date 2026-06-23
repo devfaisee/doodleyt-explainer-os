@@ -629,8 +629,9 @@ ${charactersPromptGuide}
 SCRIPTWRITING & PACING LAWS:
 1. Pacing & Timing: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
 2. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format (e.g. ${videoType === 'short' ? '"9:16 vertical portrait layout"' : '"16:9 widescreen landscape layout"'}).
-3. Dynamic Action Prompts: In the "prompt" field, you must write a unique, detailed description of the scene's action. Follow the Stateless Prompt Rule. Never output the exact same visual prompt for different scenes.
-4. Capitalized Text Overlay: Every 3-4 scenes, add a short, high-impact text overlay in the "textOverlay" field. Leave null for other scenes.
+3. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt that combines the visual action description (adhering to the Stateless Prompt Rule, white background, presets), the camera framing/editing guide (e.g., "Close-up on...", "Dolly zoom on...", "Wide shot of..."), and the text overlay ONLY if/when absolutely necessary.
+4. Sparsely Used Text Overlays: Overlays are distracting and must be used extremely sparingly (only when utmost needed for an essential word, main joke, or punchline—meaning 90%+ of scenes should have NO overlay text mentioned in their prompt). If and only if a text overlay is needed, include it inside the prompt as: "with bold, hand-drawn uppercase text '...' written on screen". If no overlay is needed, do not mention any overlay text in the prompt.
+Never output the exact same visual prompt for different scenes.
 
 Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
 
@@ -640,10 +641,8 @@ Return strictly a JSON object matching this schema:
     {
       "duration": [1, 2, or 3],
       "voiceover": "[Exact spoken sentence]",
-      "camera": "[Editing/camera zoom/movement]",
       "sfx": "[Sound effect]",
-      "prompt": "[Complete, action-specific stateless visual prompt. Follow Stateless Prompt Rule. White background]",
-      "textOverlay": "[Text on screen or null]"
+      "prompt": "[Complete, unified stateless visual prompt blending camera direction, action, and extremely rare text overlay instructions. Follow Stateless Prompt Rule. White background]"
     }
   ]
 }`;

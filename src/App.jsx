@@ -554,7 +554,7 @@ ${currentScript.thumbnail}
 ===========================
 ` : '';
         const text = seoBlock + currentScript.scenes.map((s, idx) => {
-            return `Scene ${idx + 1} (${s.time} | ${s.duration}s)\nVO: "${s.voiceover}"\nSFX: ${s.sfx} | Camera: ${s.camera}\nPrompt: ${s.prompt}\nOverlay: ${s.textOverlay || 'None'}\n----------------------------------------`;
+            return `Scene ${idx + 1} (${s.time} | ${s.duration}s)\nVO: "${s.voiceover}"\nSFX: ${s.sfx}\nPrompt: ${s.prompt}\n----------------------------------------`;
         }).join('\n\n');
         copyToClipboard(text, 'full-script');
     };
@@ -686,15 +686,13 @@ ${currentScript.thumbnail}
         if (format === 'json') {
             content = JSON.stringify(currentScript, null, 2);
         } else if (format === 'csv') {
-            const headers = ['Time', 'Duration', 'Voiceover Script', 'SFX', 'Camera', 'Stateless Visual Prompt', 'Overlay'];
+            const headers = ['Time', 'Duration', 'Voiceover Script', 'SFX', 'Stateless Visual Prompt'];
             const rows = currentScript.scenes.map(s => [
                 s.time || '',
                 s.duration || '',
                 s.voiceover || '',
                 s.sfx || '',
-                s.camera || '',
-                s.prompt || '',
-                s.textOverlay || ''
+                s.prompt || ''
             ]);
             const escapeCsv = (val) => {
                 if (val === null || val === undefined) return '';
