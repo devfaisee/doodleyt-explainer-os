@@ -782,14 +782,22 @@ ${currentScript.thumbnail}
                 </div>
             `).join('');
 
+            const hashtagsText = Array.isArray(currentScript.seoMetadata?.hashtags)
+                ? currentScript.seoMetadata.hashtags.join(' ')
+                : currentScript.seoMetadata?.hashtags || 'N/A';
+
             const seoBlock = currentScript.seoMetadata ? `
-            <div class="mt-6 pt-6 border-t border-neutral-800 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="mt-6 pt-6 border-t border-neutral-800 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                    <h3 class="text-xs font-mono font-bold text-neutral-450 uppercase tracking-wider">SEO Description</h3>
+                    <h3 class="text-xs font-mono font-bold text-neutral-455 uppercase tracking-wider">SEO Description</h3>
                     <p class="text-xs text-neutral-400 mt-1 leading-relaxed">${escapeHtml(currentScript.seoMetadata.description || 'N/A')}</p>
                 </div>
                 <div>
-                    <h3 class="text-xs font-mono font-bold text-neutral-450 uppercase tracking-wider">Tags & Hashtags</h3>
+                    <h3 class="text-xs font-mono font-bold text-neutral-455 uppercase tracking-wider">Hashtags</h3>
+                    <p class="text-xs text-neutral-400 mt-1 leading-relaxed font-mono">${escapeHtml(hashtagsText)}</p>
+                </div>
+                <div>
+                    <h3 class="text-xs font-mono font-bold text-neutral-455 uppercase tracking-wider">YouTube Tags</h3>
                     <p class="text-xs text-neutral-400 mt-1 leading-relaxed font-mono">${escapeHtml(currentScript.seoMetadata.tags || 'N/A')}</p>
                 </div>
             </div>

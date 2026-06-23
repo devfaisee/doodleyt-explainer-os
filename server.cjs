@@ -627,10 +627,18 @@ Last spoken lines of previous section: "${lastVoContext}"
 ${charactersPromptGuide}
 
 SCRIPTWRITING & PACING LAWS:
-1. Pacing & Timing: Keep each scene duration between 1 to 3 seconds. Spoken voiceover sentences must be short, conversational, and punchy.
-2. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format (e.g. ${videoType === 'short' ? '"9:16 vertical portrait layout"' : '"16:9 widescreen landscape layout"'}).
-3. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt that combines the visual action description (adhering to the Stateless Prompt Rule, white background, presets), the camera framing/editing guide (e.g., "Close-up on...", "Dolly zoom on...", "Wide shot of..."), and the text overlay ONLY if/when absolutely necessary.
-4. Sparsely Used Text Overlays: Overlays are distracting and must be used extremely sparingly (only when utmost needed for an essential word, main joke, or punchline—meaning 90%+ of scenes should have NO overlay text mentioned in their prompt). If and only if a text overlay is needed, include it inside the prompt as: "with bold, hand-drawn uppercase text '...' written on screen". If no overlay is needed, do not mention any overlay text in the prompt.
+1. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
+   - Keep the voiceover script for any single scene EXTREMELY short (maximum 10 words, ideal is 5 to 8 words per scene).
+   - If a sentence is long, you MUST split it across multiple consecutive scenes (e.g. Scene A: "Imagine waking up...", Scene B: "...and speaking with a totally different accent overnight").
+   - Each split scene MUST have a different, unique visual prompt to keep the screen dynamically changing.
+2. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Calculate duration strictly using these metrics:
+   - 1 to 4 words = 2 seconds
+   - 5 to 7 words = 3 seconds
+   - 8 to 10 words = 4 seconds
+   Never set a 2-second duration for a long 10-15 word sentence. Never put more than 10 words in a single scene's voiceover.
+3. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format (e.g. ${videoType === 'short' ? '"9:16 vertical portrait layout"' : '"16:9 widescreen landscape layout"'}).
+4. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt that combines the visual action description (adhering to the Stateless Prompt Rule, white background, presets), the camera framing/editing guide (e.g., "Close-up on...", "Dolly zoom on...", "Wide shot of..."), and the text overlay ONLY if/when absolutely necessary.
+5. Sparsely Used Text Overlays: Overlays are distracting and must be used extremely sparingly (only when utmost needed for an essential word, main joke, or punchline—meaning 90%+ of scenes should have NO overlay text mentioned in their prompt). If and only if a text overlay is needed, include it inside the prompt as: "with bold, hand-drawn uppercase text '...' written on screen". If no overlay is needed, do not mention any overlay text in the prompt.
 Never output the exact same visual prompt for different scenes.
 
 Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
@@ -639,8 +647,8 @@ Return strictly a JSON object matching this schema:
 {
   "scenes": [
     {
-      "duration": [1, 2, or 3],
-      "voiceover": "[Exact spoken sentence]",
+      "duration": [2, 3, or 4],
+      "voiceover": "[Exact short spoken clause, maximum 10 words]",
       "sfx": "[Sound effect]",
       "prompt": "[Complete, unified stateless visual prompt blending camera direction, action, and extremely rare text overlay instructions. Follow Stateless Prompt Rule. White background]"
     }
