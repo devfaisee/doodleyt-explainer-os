@@ -279,16 +279,25 @@ export default function SandboxView({
                     {/* DESKTOP TABLE VIEW */}
                     <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                            <table className="w-full min-w-[1500px] text-left border-collapse table-fixed">
+                                <colgroup>
+                                    <col className="w-[90px]" />
+                                    <col className="w-[90px]" />
+                                    <col className="w-[350px]" />
+                                    <col className="w-[180px]" />
+                                    <col className="w-[180px]" />
+                                    <col className="w-[520px]" />
+                                    <col className="w-[180px]" />
+                                </colgroup>
                                 <thead>
                                     <tr className="bg-neutral-950 border-b border-neutral-800 text-[11px] font-mono text-neutral-400 uppercase tracking-wider">
-                                        <th className="py-4 px-4 w-[85px]">Time</th>
-                                        <th className="py-4 px-3 w-[100px]">Dur</th>
-                                        <th className="py-4 px-4 w-[28%] min-w-[320px]">Voiceover Script</th>
-                                        <th className="py-4 px-4 w-[14%] min-w-[150px]">SFX</th>
-                                        <th className="py-4 px-4 w-[14%] min-w-[150px]">Camera</th>
-                                        <th className="py-4 px-4 min-w-[400px]">Stateless Visual Prompt</th>
-                                        <th className="py-4 px-4 w-[14%] min-w-[150px]">Overlay</th>
+                                        <th className="py-4 px-3">Time</th>
+                                        <th className="py-4 px-3">Dur</th>
+                                        <th className="py-4 px-4">Voiceover Script</th>
+                                        <th className="py-4 px-4">SFX</th>
+                                        <th className="py-4 px-4">Camera</th>
+                                        <th className="py-4 px-4">Stateless Visual Prompt</th>
+                                        <th className="py-4 px-4">Overlay</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-800 text-sm">
@@ -296,7 +305,7 @@ export default function SandboxView({
                                         const isFlagged = scene.qcErrors && scene.qcErrors.length > 0;
                                         return (
                                             <tr key={i} className={`hover:bg-neutral-950/40 transition-colors ${isFlagged ? 'bg-red-950/10 border-l-4 border-l-red-500' : ''}`}>
-                                                <td className="py-3.5 px-4 font-mono font-bold text-neutral-400">
+                                                <td className="py-3.5 px-2 font-mono font-bold text-neutral-400">
                                                     <input 
                                                         type="text" 
                                                         className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none font-mono text-sm text-center text-neutral-200"
