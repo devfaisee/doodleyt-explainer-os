@@ -1547,7 +1547,7 @@ ${currentScript.thumbnail}
                                                 <thead>
                                                     <tr className="bg-neutral-950 border-b border-neutral-800 text-[11px] font-mono text-neutral-400 uppercase tracking-wider">
                                                         <th className="py-4 px-4 w-[85px]">Time</th>
-                                                        <th className="py-4 px-3 w-[75px]">Dur</th>
+                                                        <th className="py-4 px-3 w-[100px]">Dur</th>
                                                         <th className="py-4 px-4 w-[28%] min-w-[320px]">Voiceover Script</th>
                                                         <th className="py-4 px-4 w-[14%] min-w-[150px]">SFX</th>
                                                         <th className="py-4 px-4 w-[14%] min-w-[150px]">Camera</th>
@@ -1568,10 +1568,10 @@ ${currentScript.thumbnail}
                                                                         onChange={(e) => handleCellEdit(i, 'time', e.target.value)}
                                                                     />
                                                                 </td>
-                                                                <td className="py-3.5 px-3">
+                                                                <td className="py-3.5 px-2">
                                                                     <input 
                                                                         type="number" 
-                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none text-center font-mono text-sm text-neutral-200"
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2 w-full rounded-xl outline-none text-center font-mono text-sm text-neutral-200"
                                                                         value={scene.duration}
                                                                         onChange={(e) => handleCellEdit(i, 'duration', parseInt(e.target.value) || 1)}
                                                                     />
@@ -1718,7 +1718,7 @@ ${currentScript.thumbnail}
                                                                 <span className="text-[10px] text-neutral-500 font-mono">Dur:</span>
                                                                 <input 
                                                                     type="number" 
-                                                                    className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-1.5 w-12 rounded-xl outline-none text-center font-mono text-xs text-neutral-200"
+                                                                    className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-1.5 w-16 rounded-xl outline-none text-center font-mono text-xs text-neutral-200"
                                                                     value={scene.duration}
                                                                     onChange={(e) => handleCellEdit(i, 'duration', parseInt(e.target.value) || 1)}
                                                                 />
