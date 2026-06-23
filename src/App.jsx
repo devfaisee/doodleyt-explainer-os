@@ -49,6 +49,28 @@ function App() {
     const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
+    const [apiServerUrl, setApiServerUrl] = useState(() => {
+        const cached = localStorage.getItem('doodleyt_api_server_url');
+        if (cached) return cached;
+        if (window.location.host.includes('3000')) {
+            return window.location.origin;
+        }
+        return 'http://localhost:3000';
+    });
+
+    const apiFetch = (url, options = {}) => {
+        const baseUrl = apiServerUrl.endsWith('/') ? apiServerUrl.slice(0, -1) : apiServerUrl;
+        const targetUrl = url.startsWith('/') ? url : `/${url}`;
+        return fetch(`${baseUrl}${targetUrl}`, options);
+    };
+
+    const getAssetUrl = (path) => {
+        if (!path) return '';
+        if (path.startsWith('http')) return path;
+        const baseUrl = apiServerUrl.endsWith('/') ? apiServerUrl.slice(0, -1) : apiServerUrl;
+        const targetUrl = path.startsWith('/') ? path : `/${path}`;
+        return `${baseUrl}${targetUrl}`;
+    };
     const [characters, setCharacters] = useState([]);
     const [videoType, setVideoType] = useState('long');
     const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12)
@@ -106,13 +128,13 @@ function App() {
             if (serverStatus.includes('Offline')) return;
             // Save to latest_script.json and update history if filename present
             if (currentScript.historyFilename) {
-                fetch('/api/update-script-history', {
+                apiFetch('/api/update-script-history', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ filename: currentScript.historyFilename, script: currentScript })
                 }).catch(e => console.error('Failed to sync script history', e));
             } else {
-                fetch('/api/save-active-script', {
+                apiFetch('/api/save-active-script', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ script: currentScript })
@@ -149,7 +171,7 @@ function App() {
         
         pollIntervalRef.current = setInterval(async () => {
             try {
-                const res = await fetch('/api/generation-status');
+                const res = await apiFetch('/api/generation-status');
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
                 
@@ -180,7 +202,7 @@ function App() {
                     clearInterval(pollIntervalRef.current);
                     pollIntervalRef.current = null;
                     // Refresh history list after any job completes
-                    fetch('/api/scripts-history').then(r => r.json()).then(d => setScriptHistory(d.scripts || [])).catch(() => {});
+                    apiFetch('/api/scripts-history').then(r => r.json()).then(d => setScriptHistory(d.scripts || [])).catch(() => {});
                 }
             } catch (err) {
                 console.error('Polling error:', err);
@@ -190,7 +212,7 @@ function App() {
 
     // Fetch config on load
     useEffect(() => {
-        fetch('/api/config')
+        apiFetch('/api/config')
             .then(res => res.json())
             .then(data => {
                 setServerStatus('Online');
@@ -204,7 +226,7 @@ function App() {
                 if (data.styleReferences) setStyleReferences(data.styleReferences);
                 
                 // Fetch active background job status on load
-                fetch('/api/generation-status')
+                apiFetch('/api/generation-status')
                     .then(res => res.json())
                     .then(jobData => {
                         if (jobData.script) {
@@ -225,7 +247,7 @@ function App() {
                     .catch(e => console.error('Failed to load generation status:', e));
 
                 // Load script history list
-                fetch('/api/scripts-history')
+                apiFetch('/api/scripts-history')
                     .then(r => r.json())
                     .then(d => setScriptHistory(d.scripts || []))
                     .catch(() => {});
@@ -276,13 +298,14 @@ function App() {
         if (updatedFields.elevenlabsApiKey !== undefined) localStorage.setItem('doodleyt_elevenlabs_key', updatedFields.elevenlabsApiKey);
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
+        if (updatedFields.apiServerUrl !== undefined) localStorage.setItem('doodleyt_api_server_url', updatedFields.apiServerUrl);
         if (updatedFields.characters !== undefined) localStorage.setItem('doodleyt_characters', JSON.stringify(updatedFields.characters));
         if (updatedFields.visualDNA !== undefined) localStorage.setItem('doodleyt_visual_dna', updatedFields.visualDNA);
         if (updatedFields.styleReferences !== undefined) localStorage.setItem('doodleyt_style_references', JSON.stringify(updatedFields.styleReferences));
 
         if (serverStatus.includes('Offline')) return;
         try {
-            await fetch('/api/config', {
+            await apiFetch('/api/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedFields)
@@ -308,7 +331,7 @@ function App() {
         addLog('Inquiring local server to brainstorm 10 viral niche matrices...');
         setIsGenerating(true);
         try {
-            const response = await fetch('/api/brainstorm-topics', {
+            const response = await apiFetch('/api/brainstorm-topics', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ apiKey, model })
@@ -347,7 +370,7 @@ function App() {
         setPipelineStages(prev => prev.map(s => ({ ...s, status: 'idle' })));
         
         try {
-            const response = await fetch('/api/generate-script', {
+            const response = await apiFetch('/api/generate-script', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -376,7 +399,7 @@ function App() {
 
     const cancelScriptGeneration = async () => {
         try {
-            await fetch('/api/cancel-generation', { method: 'POST' });
+            await apiFetch('/api/cancel-generation', { method: 'POST' });
             setIsGenerating(false);
             setSynthesisStatus('idle');
             setCompileStatus('idle');
@@ -398,7 +421,7 @@ function App() {
         addLog(`🔑 Using configuration: Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), ElevenLabs (${elevenlabsApiKey ? 'Provided' : 'Mock Fallback'})`);
         
         try {
-            const response = await fetch('/api/synthesize-assets', {
+            const response = await apiFetch('/api/synthesize-assets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -451,7 +474,7 @@ ${currentScript.thumbnail}
         addLog('🎬 Launching FFmpeg compiler stitching routine...');
         
         try {
-            const response = await fetch('/api/assemble-video', {
+            const response = await apiFetch('/api/assemble-video', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -494,7 +517,7 @@ ${currentScript.thumbnail}
                 const scene = updatedScenes[index];
                 addLog(`Fixing Scene ${index + 1} (${scene.time})...`);
                 
-                const response = await fetch('/api/fix-prompt', {
+                const response = await apiFetch('/api/fix-prompt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -614,7 +637,7 @@ ${currentScript.thumbnail}
 
         if (!serverStatus.includes('Offline')) {
             try {
-                const response = await fetch('/api/save', {
+                const response = await apiFetch('/api/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ filename, content })
@@ -638,7 +661,7 @@ ${currentScript.thumbnail}
     const loadScriptFromHistory = async (filename) => {
         setHistoryLoading(true);
         try {
-            const res = await fetch(`/api/load-script?filename=${encodeURIComponent(filename)}`);
+            const res = await apiFetch(`/api/load-script?filename=${encodeURIComponent(filename)}`);
             if (!res.ok) throw new Error('Failed to load script');
             const data = await res.json();
             setCurrentScript(data.script);
@@ -657,7 +680,7 @@ ${currentScript.thumbnail}
         e.stopPropagation();
         if (!window.confirm('Delete this script from history? This cannot be undone.')) return;
         try {
-            await fetch('/api/delete-script', {
+            await apiFetch('/api/delete-script', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filename })
@@ -1199,17 +1222,17 @@ ${currentScript.thumbnail}
                                                 </h3>
                                                 <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-neutral-800 relative">
                                                     <video 
-                                                        src={currentScript.videoPath} 
+                                                        src={getAssetUrl(currentScript.videoPath)} 
                                                         controls 
                                                         className="w-full h-full object-contain"
                                                     />
                                                 </div>
                                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
                                                     <span className="text-[10px] text-neutral-500 font-mono select-all">
-                                                        Web URL: {window.location.origin}{currentScript.videoPath}
+                                                        Web URL: {getAssetUrl(currentScript.videoPath)}
                                                     </span>
                                                     <a 
-                                                        href={currentScript.videoPath} 
+                                                        href={getAssetUrl(currentScript.videoPath)} 
                                                         download={`video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`}
                                                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 w-full sm:w-auto justify-center"
                                                     >
@@ -1227,7 +1250,7 @@ ${currentScript.thumbnail}
                                                     <div className="flex gap-2">
                                                         {currentScript.thumbnailPath && (
                                                             <a
-                                                                href={currentScript.thumbnailPath}
+                                                                href={getAssetUrl(currentScript.thumbnailPath)}
                                                                 download={`thumbnail_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.png`}
                                                                 className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-amber-900/30 border-amber-800/30 text-amber-400 hover:text-white transition-all font-mono"
                                                             >
@@ -1246,7 +1269,7 @@ ${currentScript.thumbnail}
                                                 {currentScript.thumbnailPath && (
                                                     <div className="aspect-video w-full rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-850 mb-3 flex items-center justify-center">
                                                         <img 
-                                                            src={currentScript.thumbnailPath} 
+                                                            src={getAssetUrl(currentScript.thumbnailPath)} 
                                                             alt="AI Generated Thumbnail" 
                                                             className="max-h-full max-w-full object-contain"
                                                         />
@@ -1774,6 +1797,17 @@ ${currentScript.thumbnail}
                                     </div>
 
                                     <div>
+                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Backend API Server URL</label>
+                                        <input 
+                                            type="text" 
+                                            placeholder="http://localhost:3000"
+                                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
+                                            value={apiServerUrl}
+                                            onChange={(e) => setApiServerUrl(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div>
                                         <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Visual DNA Guidelines String</label>
                                         <textarea 
                                             rows="3"
@@ -1798,7 +1832,7 @@ ${currentScript.thumbnail}
                                 <div className="pt-4 border-t border-neutral-800 flex justify-end">
                                     <button 
                                         onClick={() => {
-                                            saveConfig({ apiKey, falApiKey, elevenlabsApiKey, model, outputPath, characters, visualDNA, styleReferences });
+                                            saveConfig({ apiKey, falApiKey, elevenlabsApiKey, model, outputPath, apiServerUrl, characters, visualDNA, styleReferences });
                                             alert('Settings locked successfully!');
                                         }}
                                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition"
