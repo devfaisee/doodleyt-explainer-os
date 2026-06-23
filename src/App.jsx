@@ -49,17 +49,10 @@ function App() {
     const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
-    const [apiServerUrl, setApiServerUrl] = useState(() => {
-        const cached = localStorage.getItem('doodleyt_api_server_url');
-        if (cached) return cached;
-        if (window.location.host.includes('3000')) {
-            return window.location.origin;
-        }
-        return 'http://localhost:3000';
-    });
+    const API_SERVER_URL = 'https://doodleyt-explainer-os.render.com';
 
     const apiFetch = (url, options = {}) => {
-        const baseUrl = apiServerUrl.endsWith('/') ? apiServerUrl.slice(0, -1) : apiServerUrl;
+        const baseUrl = API_SERVER_URL;
         const targetUrl = url.startsWith('/') ? url : `/${url}`;
         return fetch(`${baseUrl}${targetUrl}`, options);
     };
@@ -67,7 +60,7 @@ function App() {
     const getAssetUrl = (path) => {
         if (!path) return '';
         if (path.startsWith('http')) return path;
-        const baseUrl = apiServerUrl.endsWith('/') ? apiServerUrl.slice(0, -1) : apiServerUrl;
+        const baseUrl = API_SERVER_URL;
         const targetUrl = path.startsWith('/') ? path : `/${path}`;
         return `${baseUrl}${targetUrl}`;
     };
@@ -202,7 +195,7 @@ function App() {
                     clearInterval(pollIntervalRef.current);
                     pollIntervalRef.current = null;
                     // Refresh history list after any job completes
-                    apiFetch('/api/scripts-history').then(r => r.json()).then(d => setScriptHistory(d.scripts || [])).catch(() => {});
+                    syncScriptHistory();
                 }
             } catch (err) {
                 console.error('Polling error:', err);
@@ -247,14 +240,16 @@ function App() {
                     .catch(e => console.error('Failed to load generation status:', e));
 
                 // Load script history list
-                apiFetch('/api/scripts-history')
-                    .then(r => r.json())
-                    .then(d => setScriptHistory(d.scripts || []))
-                    .catch(() => {});
+                syncScriptHistory();
             })
             .catch(err => {
                 console.log('Client-only mode (offline)');
                 setServerStatus('Offline (Client-Only)');
+                
+                try {
+                    const backupStr = localStorage.getItem('doodleyt_history_backup');
+                    if (backupStr) setScriptHistory(JSON.parse(backupStr));
+                } catch(e) {}
                 
                 const cachedKey = localStorage.getItem('doodleyt_api_key') || FALLBACK_API_KEY;
                 const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
@@ -292,13 +287,102 @@ function App() {
         }
     }, [pipelineLogs]);
 
+    const syncScriptHistory = async () => {
+        try {
+            const res = await apiFetch('/api/scripts-history');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const serverScripts = data.scripts || [];
+            
+            // Get local backup summaries
+            let localBackup = [];
+            try {
+                const backupStr = localStorage.getItem('doodleyt_history_backup');
+                if (backupStr) localBackup = JSON.parse(backupStr);
+            } catch(e) {}
+            
+            // Get full scripts cache
+            let fullCache = {};
+            try {
+                const cacheStr = localStorage.getItem('doodleyt_full_scripts_cache');
+                if (cacheStr) fullCache = JSON.parse(cacheStr);
+            } catch(e) {}
+
+            if (serverScripts.length === 0 && localBackup.length > 0) {
+                addLog('⚠️ Server history was empty (Render container was likely restarted). Auto-restoring backup history from browser...');
+                let restoredCount = 0;
+                for (const entry of localBackup) {
+                    const fullScript = fullCache[entry.filename];
+                    if (fullScript) {
+                        try {
+                            await apiFetch('/api/update-script-history', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ filename: entry.filename, script: fullScript })
+                            });
+                            restoredCount++;
+                        } catch (err) {
+                            console.error('Failed to restore script:', entry.filename, err);
+                        }
+                    }
+                }
+                if (restoredCount > 0) {
+                    addLog(`✓ Successfully restored ${restoredCount} scripts from browser backup!`);
+                    // Fetch history from server again now that it has been restored
+                    const res2 = await apiFetch('/api/scripts-history');
+                    if (res2.ok) {
+                        const data2 = await res2.json();
+                        const finalScripts = data2.scripts || [];
+                        setScriptHistory(finalScripts);
+                        localStorage.setItem('doodleyt_history_backup', JSON.stringify(finalScripts));
+                    }
+                }
+            } else {
+                setScriptHistory(serverScripts);
+                if (serverScripts.length > 0) {
+                    localStorage.setItem('doodleyt_history_backup', JSON.stringify(serverScripts));
+                    
+                    // Pre-cache full scripts in the background for any scripts we don't have cached yet
+                    let updatedCache = false;
+                    for (const entry of serverScripts) {
+                        if (!fullCache[entry.filename]) {
+                            try {
+                                const loadRes = await apiFetch(`/api/load-script?filename=${encodeURIComponent(entry.filename)}`);
+                                if (loadRes.ok) {
+                                    const loadData = await loadRes.json();
+                                    if (loadData.script) {
+                                        fullCache[entry.filename] = loadData.script;
+                                        updatedCache = true;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Failed to pre-cache script:', entry.filename, e);
+                            }
+                        }
+                    }
+                    if (updatedCache) {
+                        localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(fullCache));
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to sync script history:', err);
+            // Fallback to local storage backup if backend is entirely offline
+            try {
+                const backupStr = localStorage.getItem('doodleyt_history_backup');
+                if (backupStr) {
+                    setScriptHistory(JSON.parse(backupStr));
+                }
+            } catch(e) {}
+        }
+    };
+
     const saveConfig = async (updatedFields) => {
         if (updatedFields.apiKey !== undefined) localStorage.setItem('doodleyt_api_key', updatedFields.apiKey);
         if (updatedFields.falApiKey !== undefined) localStorage.setItem('doodleyt_fal_key', updatedFields.falApiKey);
         if (updatedFields.elevenlabsApiKey !== undefined) localStorage.setItem('doodleyt_elevenlabs_key', updatedFields.elevenlabsApiKey);
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
-        if (updatedFields.apiServerUrl !== undefined) localStorage.setItem('doodleyt_api_server_url', updatedFields.apiServerUrl);
         if (updatedFields.characters !== undefined) localStorage.setItem('doodleyt_characters', JSON.stringify(updatedFields.characters));
         if (updatedFields.visualDNA !== undefined) localStorage.setItem('doodleyt_visual_dna', updatedFields.visualDNA);
         if (updatedFields.styleReferences !== undefined) localStorage.setItem('doodleyt_style_references', JSON.stringify(updatedFields.styleReferences));
@@ -669,6 +753,14 @@ ${currentScript.thumbnail}
             setShowHistoryPanel(false);
             setActiveTab('sandbox');
             addLog(`📂 Loaded history script: "${data.script.title}"`);
+
+            // Cache full script in local storage
+            try {
+                const cacheStr = localStorage.getItem('doodleyt_full_scripts_cache') || '{}';
+                const cache = JSON.parse(cacheStr);
+                cache[filename] = data.script;
+                localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(cache));
+            } catch(e) {}
         } catch (e) {
             addLog(`❌ Failed to load history: ${e.message}`);
         } finally {
@@ -689,6 +781,18 @@ ${currentScript.thumbnail}
             if (activeHistoryFilename === filename) {
                 setActiveHistoryFilename(null);
             }
+
+            // Remove from local storage backups as well
+            try {
+                const backupStr = localStorage.getItem('doodleyt_history_backup') || '[]';
+                const backup = JSON.parse(backupStr).filter(s => s.filename !== filename);
+                localStorage.setItem('doodleyt_history_backup', JSON.stringify(backup));
+
+                const cacheStr = localStorage.getItem('doodleyt_full_scripts_cache') || '{}';
+                const cache = JSON.parse(cacheStr);
+                delete cache[filename];
+                localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(cache));
+            } catch(e) {}
         } catch (e) {
             addLog(`❌ Delete failed: ${e.message}`);
         }
@@ -1797,17 +1901,6 @@ ${currentScript.thumbnail}
                                     </div>
 
                                     <div>
-                                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Backend API Server URL</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="http://localhost:3000"
-                                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
-                                            value={apiServerUrl}
-                                            onChange={(e) => setApiServerUrl(e.target.value)}
-                                        />
-                                    </div>
-
-                                    <div>
                                         <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Visual DNA Guidelines String</label>
                                         <textarea 
                                             rows="3"
@@ -1832,7 +1925,7 @@ ${currentScript.thumbnail}
                                 <div className="pt-4 border-t border-neutral-800 flex justify-end">
                                     <button 
                                         onClick={() => {
-                                            saveConfig({ apiKey, falApiKey, elevenlabsApiKey, model, outputPath, apiServerUrl, characters, visualDNA, styleReferences });
+                                            saveConfig({ apiKey, falApiKey, elevenlabsApiKey, model, outputPath, characters, visualDNA, styleReferences });
                                             alert('Settings locked successfully!');
                                         }}
                                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition"
