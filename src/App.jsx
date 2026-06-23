@@ -706,12 +706,226 @@ ${currentScript.thumbnail}
                 headers.join(','),
                 ...rows.map(r => r.map(escapeCsv).join(','))
             ].join('\n');
+        } else if (format === 'html') {
+            const escapeHtml = (unsafe) => {
+                if (!unsafe) return '';
+                return unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            };
+
+            const scenesHtml = currentScript.scenes.map((scene, idx) => `
+                <tr class="hover:bg-neutral-950/20 transition-colors">
+                    <td class="py-5 px-4 font-mono font-extrabold text-neutral-450 text-center">
+                        <div class="bg-neutral-950 border border-neutral-850 py-2 rounded-xl text-center">${escapeHtml(scene.time)}</div>
+                    </td>
+                    <td class="py-5 px-4 font-mono text-neutral-450 text-center">
+                        <div class="bg-neutral-950 border border-neutral-850 py-2 rounded-xl text-center">${scene.duration}s</div>
+                    </td>
+                    <td class="py-5 px-5 vertical-align-top">
+                        <div class="relative bg-neutral-950 border border-neutral-850 p-4 pb-12 rounded-2xl min-h-[120px] text-neutral-300 leading-relaxed text-sm">
+                            ${escapeHtml(scene.voiceover)}
+                            <button id="vo_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.voiceover || '')}'), 'vo_copy_${idx}')" class="absolute bottom-2.5 right-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all">📋 Copy</button>
+                        </div>
+                    </td>
+                    <td class="py-5 px-5 vertical-align-top">
+                        <div class="relative bg-neutral-950 border border-neutral-850 p-4 pb-12 rounded-2xl min-h-[90px] text-purple-400 font-semibold text-sm">
+                            ${escapeHtml(scene.sfx || 'None')}
+                            <button id="sfx_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.sfx || '')}'), 'sfx_copy_${idx}')" class="absolute bottom-2.5 right-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all">📋 Copy</button>
+                        </div>
+                    </td>
+                    <td class="py-5 px-5 vertical-align-top">
+                        <div class="relative bg-neutral-950 border border-neutral-850 p-4 pb-12 rounded-2xl min-h-[140px] text-neutral-350 font-mono text-xs leading-normal">
+                            ${escapeHtml(scene.prompt)}
+                            <button id="prompt_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.prompt || '')}'), 'prompt_copy_${idx}')" class="absolute bottom-2.5 right-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-455 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all">📋 Copy</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            const mobileCardsHtml = currentScript.scenes.map((scene, idx) => `
+                <div class="bg-neutral-900 border border-neutral-800 p-5 rounded-3xl space-y-4">
+                    <div class="flex justify-between items-center border-b border-neutral-800 pb-3">
+                        <span class="font-extrabold text-sm text-neutral-300 font-mono">Scene #${idx + 1}</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-neutral-400 font-mono">Time: <strong class="text-neutral-225">${escapeHtml(scene.time)}</strong></span>
+                            <span class="text-xs text-neutral-400 font-mono">Dur: <strong class="text-neutral-225">${scene.duration}s</strong></span>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[10px] font-mono text-neutral-450 uppercase tracking-wider font-bold">Voiceover Script</label>
+                            <button id="m_vo_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.voiceover || '')}'), 'm_vo_copy_${idx}')" class="bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all">📋 Copy</button>
+                        </div>
+                        <div class="bg-neutral-950 border border-neutral-850 p-3.5 rounded-2xl text-neutral-300 text-sm leading-relaxed">${escapeHtml(scene.voiceover)}</div>
+                    </div>
+
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[10px] font-mono text-neutral-450 uppercase tracking-wider font-bold">SFX</label>
+                            <button id="m_sfx_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.sfx || '')}'), 'm_sfx_copy_${idx}')" class="bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-neutral-455 px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all">📋 Copy</button>
+                        </div>
+                        <div class="bg-neutral-950 border border-neutral-850 p-3 rounded-2xl text-purple-400 font-semibold text-sm">${escapeHtml(scene.sfx || 'None')}</div>
+                    </div>
+
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center">
+                            <label class="text-[10px] font-mono text-neutral-455 uppercase tracking-wider font-bold">Stateless Visual Prompt</label>
+                            <button id="m_prompt_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.prompt || '')}'), 'm_prompt_copy_${idx}')" class="bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-neutral-455 px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all">📋 Copy</button>
+                        </div>
+                        <div class="bg-neutral-950 border border-neutral-850 p-3.5 rounded-2xl text-neutral-300 font-mono text-xs leading-normal">${escapeHtml(scene.prompt)}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            const seoBlock = currentScript.seoMetadata ? `
+            <div class="mt-6 pt-6 border-t border-neutral-800 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-xs font-mono font-bold text-neutral-450 uppercase tracking-wider">SEO Description</h3>
+                    <p class="text-xs text-neutral-400 mt-1 leading-relaxed">${escapeHtml(currentScript.seoMetadata.description || 'N/A')}</p>
+                </div>
+                <div>
+                    <h3 class="text-xs font-mono font-bold text-neutral-450 uppercase tracking-wider">Tags & Hashtags</h3>
+                    <p class="text-xs text-neutral-400 mt-1 leading-relaxed font-mono">${escapeHtml(currentScript.seoMetadata.tags || 'N/A')}</p>
+                </div>
+            </div>
+            ` : '';
+
+            content = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${escapeHtml(currentScript.title)} - Script Blueprint</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    }
+                }
+            }
+        }
+        function copyToClipboard(text, id) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById(id);
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✓ Copied!';
+                btn.classList.add('bg-green-950', 'border-green-500', 'text-green-400');
+                btn.classList.remove('bg-neutral-900', 'border-neutral-800', 'text-neutral-455');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('bg-green-950', 'border-green-500', 'text-green-400');
+                    btn.classList.add('bg-neutral-900', 'border-neutral-800', 'text-neutral-455');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #e5e5e5;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="p-6 md:p-12 max-w-7xl mx-auto space-y-8">
+    <!-- Header Block -->
+    <div class="border border-neutral-800 bg-neutral-900/40 p-8 rounded-3xl backdrop-blur-md">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-6 border-b border-neutral-800">
+            <div>
+                <span class="text-xs font-bold font-mono tracking-widest text-blue-500 uppercase">Doodle Theory Explainer Blueprint</span>
+                <h1 class="text-3xl md:text-4xl font-extrabold font-outfit text-white mt-1">${escapeHtml(currentScript.title)}</h1>
+            </div>
+            <div class="flex gap-3">
+                <span class="bg-neutral-800 border border-neutral-700/50 text-neutral-350 px-3 py-1.5 rounded-full text-xs font-mono font-bold capitalize">${escapeHtml(currentScript.videoType || 'widescreen')}</span>
+                <span class="bg-blue-950/40 border border-blue-500/30 text-blue-400 px-3 py-1.5 rounded-full text-xs font-mono font-bold">${currentScript.targetDuration}s Target</span>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div class="space-y-4">
+                <div>
+                    <h3 class="text-xs font-mono font-bold text-neutral-450 uppercase tracking-wider">Topic Category</h3>
+                    <p class="text-sm font-semibold text-neutral-200 mt-1">${escapeHtml(currentScript.category || 'N/A')}</p>
+                </div>
+                <div>
+                    <h3 class="text-xs font-mono font-bold text-neutral-450 uppercase tracking-wider">Hook & Pacing Angle</h3>
+                    <p class="text-sm text-neutral-300 mt-1 leading-relaxed">${escapeHtml(currentScript.nicheReason || 'N/A')}</p>
+                </div>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <h3 class="text-xs font-mono font-bold text-neutral-455 uppercase tracking-wider">Thumbnail Composition</h3>
+                    <p class="text-sm text-neutral-300 mt-1 leading-relaxed font-mono bg-neutral-950/60 p-3 rounded-xl border border-neutral-850">${escapeHtml(currentScript.thumbnail || 'N/A')}</p>
+                </div>
+            </div>
+        </div>
+        ${seoBlock}
+    </div>
+
+    <!-- Sandbox View Replica -->
+    <div class="space-y-4">
+        <h2 class="text-xl font-bold font-outfit text-white flex items-center gap-2">
+            <span class="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse"></span>
+            Script Sandbox Blueprint
+        </h2>
+        
+        <!-- Desktop Table -->
+        <div class="hidden md:block bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[1200px] text-left border-collapse table-fixed">
+                    <colgroup>
+                        <col class="w-[80px]" />
+                        <col class="w-[80px]" />
+                        <col class="w-[380px]" />
+                        <col class="w-[200px]" />
+                        <col class="w-[660px]" />
+                    </colgroup>
+                    <thead>
+                        <tr class="bg-neutral-950 border-b border-neutral-800 text-[11px] font-mono text-neutral-450 uppercase tracking-wider">
+                            <th class="py-4 px-4 text-center">Time</th>
+                            <th class="py-4 px-4 text-center">Dur</th>
+                            <th class="py-4 px-5">Voiceover Script</th>
+                            <th class="py-4 px-5">SFX</th>
+                            <th class="py-4 px-5">Stateless Visual Prompt</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-neutral-800 text-sm">
+                        ${scenesHtml}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mobile Card View -->
+        <div class="block md:hidden space-y-4">
+            ${mobileCardsHtml}
+        </div>
+    </div>
+</body>
+</html>`;
         }
 
         addLog(`💾 Attempting to save script as ${format.toUpperCase()}...`);
 
         try {
-            const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv;charset=utf-8;' });
+            let mimeType = 'text/plain';
+            if (format === 'json') mimeType = 'application/json';
+            else if (format === 'csv') mimeType = 'text/csv;charset=utf-8;';
+            else if (format === 'html') mimeType = 'text/html;charset=utf-8;';
+            const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.setAttribute('href', url);

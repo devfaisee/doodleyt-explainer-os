@@ -46,6 +46,12 @@ export default function SandboxView({
                         >
                             Export CSV
                         </button>
+                        <button 
+                            onClick={() => saveScriptToDisk('html')}
+                            className="bg-indigo-650 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5"
+                        >
+                            🌐 Export HTML Layout
+                        </button>
                     </div>
                 )}
             </div>
