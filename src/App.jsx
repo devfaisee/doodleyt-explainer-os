@@ -341,8 +341,6 @@ function App() {
         }
 
         setIsGenerating(true);
-        setCurrentScript(null);
-        setActiveHistoryFilename(null);
         setPipelineLogs(['[System] Triggering script generation from backend orchestrator...']);
         
         // Reset dynamic stages to idle status
@@ -366,6 +364,9 @@ function App() {
                 throw new Error(errData.error || `HTTP ${response.status}`);
             }
             
+            // Clear script state only after confirmed success
+            setCurrentScript(null);
+            setActiveHistoryFilename(null);
             startPollingStatus();
         } catch (e) {
             addLog(`❌ Failed to start generation: ${e.message}`);
