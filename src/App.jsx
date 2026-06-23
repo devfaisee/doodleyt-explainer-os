@@ -1540,19 +1540,19 @@ ${currentScript.thumbnail}
                                     )}
 
                                     {/* DESKTOP TABLE VIEW */}
-
+ 
                                     <div className="hidden md:block bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
                                         <div className="overflow-x-auto">
                                             <table className="w-full text-left border-collapse">
                                                 <thead>
                                                     <tr className="bg-neutral-950 border-b border-neutral-800 text-[11px] font-mono text-neutral-400 uppercase tracking-wider">
-                                                        <th className="py-4 px-4 w-[80px]">Time</th>
-                                                        <th className="py-4 px-3 w-[70px]">Dur</th>
-                                                        <th className="py-4 px-4 w-[32%] min-w-[260px]">Voiceover Script</th>
-                                                        <th className="py-4 px-4 w-[12%] min-w-[120px]">SFX</th>
-                                                        <th className="py-4 px-4 w-[12%] min-w-[120px]">Camera</th>
-                                                        <th className="py-4 px-4 min-w-[320px]">Stateless Visual Prompt</th>
-                                                        <th className="py-4 px-4 w-[100px]">Overlay</th>
+                                                        <th className="py-4 px-4 w-[85px]">Time</th>
+                                                        <th className="py-4 px-3 w-[75px]">Dur</th>
+                                                        <th className="py-4 px-4 w-[28%] min-w-[320px]">Voiceover Script</th>
+                                                        <th className="py-4 px-4 w-[14%] min-w-[150px]">SFX</th>
+                                                        <th className="py-4 px-4 w-[14%] min-w-[150px]">Camera</th>
+                                                        <th className="py-4 px-4 min-w-[400px]">Stateless Visual Prompt</th>
+                                                        <th className="py-4 px-4 w-[14%] min-w-[150px]">Overlay</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-neutral-800 text-sm">
@@ -1563,7 +1563,7 @@ ${currentScript.thumbnail}
                                                                 <td className="py-3.5 px-4 font-mono font-bold text-neutral-400">
                                                                     <input 
                                                                         type="text" 
-                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2 w-full rounded-xl outline-none font-mono text-xs text-center"
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none font-mono text-sm text-center text-neutral-200"
                                                                         value={scene.time}
                                                                         onChange={(e) => handleCellEdit(i, 'time', e.target.value)}
                                                                     />
@@ -1571,7 +1571,7 @@ ${currentScript.thumbnail}
                                                                 <td className="py-3.5 px-3">
                                                                     <input 
                                                                         type="number" 
-                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2 w-full rounded-xl outline-none text-center font-mono text-xs"
+                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none text-center font-mono text-sm text-neutral-200"
                                                                         value={scene.duration}
                                                                         onChange={(e) => handleCellEdit(i, 'duration', parseInt(e.target.value) || 1)}
                                                                     />
@@ -1579,72 +1579,113 @@ ${currentScript.thumbnail}
                                                                 <td className="py-3.5 px-4">
                                                                     <div className="relative group">
                                                                         <textarea 
-                                                                            rows="4"
-                                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none resize-y leading-relaxed text-xs text-neutral-200 min-h-[90px]"
+                                                                            rows="5"
+                                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3.5 pb-10 w-full rounded-2xl outline-none resize-y leading-relaxed text-sm text-neutral-200 min-h-[140px]"
                                                                             value={scene.voiceover}
                                                                             onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
                                                                         />
                                                                         <button 
-                                                                            onClick={() => {
-                                                                                navigator.clipboard.writeText(scene.voiceover);
-                                                                                alert('Voiceover copied!');
-                                                                            }}
-                                                                            className="absolute top-2 right-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                            onClick={() => copyToClipboard(scene.voiceover, `voiceover_${i}`)}
+                                                                            className={`absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all z-10 ${
+                                                                                copiedField === `voiceover_${i}` 
+                                                                                    ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                                    : 'bg-neutral-900 border-neutral-800 text-neutral-450 hover:text-white hover:border-neutral-700'
+                                                                            }`}
                                                                             title="Copy Voiceover"
                                                                         >
-                                                                            Copy
+                                                                            {copiedField === `voiceover_${i}` ? '✓ Copied!' : '📋 Copy'}
                                                                         </button>
                                                                     </div>
                                                                 </td>
                                                                 <td className="py-3.5 px-4">
-                                                                    <textarea 
-                                                                        rows="2"
-                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-purple-400 font-semibold min-h-[60px]"
-                                                                        value={scene.sfx}
-                                                                        onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
-                                                                    />
-                                                                </td>
-                                                                <td className="py-3.5 px-4">
-                                                                    <textarea 
-                                                                        rows="2"
-                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-sky-400 min-h-[60px]"
-                                                                        value={scene.camera}
-                                                                        onChange={(e) => handleCellEdit(i, 'camera', e.target.value)}
-                                                                    />
+                                                                    <div className="relative group">
+                                                                        <textarea 
+                                                                            rows="3"
+                                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-3 pb-10 w-full rounded-2xl outline-none resize-y text-sm text-purple-400 font-semibold min-h-[85px]"
+                                                                            value={scene.sfx}
+                                                                            onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
+                                                                        />
+                                                                        <button 
+                                                                            onClick={() => copyToClipboard(scene.sfx, `sfx_${i}`)}
+                                                                            className={`absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all z-10 ${
+                                                                                copiedField === `sfx_${i}` 
+                                                                                    ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                                    : 'bg-neutral-900 border-neutral-800 text-neutral-450 hover:text-white hover:border-neutral-700'
+                                                                            }`}
+                                                                            title="Copy SFX"
+                                                                        >
+                                                                            {copiedField === `sfx_${i}` ? '✓ Copied!' : '📋 Copy'}
+                                                                        </button>
+                                                                    </div>
                                                                 </td>
                                                                 <td className="py-3.5 px-4">
                                                                     <div className="relative group">
                                                                         <textarea 
-                                                                            rows="5"
-                                                                            className={`bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none text-[11px] font-mono leading-normal text-neutral-300 resize-y min-h-[120px] ${isFlagged ? 'border-red-500 focus:border-red-500' : ''}`}
+                                                                            rows="3"
+                                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-3 pb-10 w-full rounded-2xl outline-none resize-y text-sm text-sky-400 min-h-[85px]"
+                                                                            value={scene.camera}
+                                                                            onChange={(e) => handleCellEdit(i, 'camera', e.target.value)}
+                                                                        />
+                                                                        <button 
+                                                                            onClick={() => copyToClipboard(scene.camera, `camera_${i}`)}
+                                                                            className={`absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all z-10 ${
+                                                                                copiedField === `camera_${i}` 
+                                                                                    ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                                    : 'bg-neutral-900 border-neutral-800 text-neutral-450 hover:text-white hover:border-neutral-700'
+                                                                            }`}
+                                                                            title="Copy Camera Settings"
+                                                                        >
+                                                                            {copiedField === `camera_${i}` ? '✓ Copied!' : '📋 Copy'}
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-3.5 px-4">
+                                                                    <div className="relative group">
+                                                                        <textarea 
+                                                                            rows="6"
+                                                                            className={`bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3.5 pb-10 w-full rounded-2xl outline-none text-sm font-mono leading-normal text-neutral-300 resize-y min-h-[180px] ${isFlagged ? 'border-red-500 focus:border-red-500' : ''}`}
                                                                             value={scene.prompt}
                                                                             onChange={(e) => handleCellEdit(i, 'prompt', e.target.value)}
                                                                         />
                                                                         <button 
-                                                                            onClick={() => {
-                                                                                navigator.clipboard.writeText(scene.prompt);
-                                                                                alert('Prompt copied!');
-                                                                            }}
-                                                                            className="absolute top-2 right-2 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                            onClick={() => copyToClipboard(scene.prompt, `prompt_${i}`)}
+                                                                            className={`absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all z-10 ${
+                                                                                copiedField === `prompt_${i}` 
+                                                                                    ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                                    : 'bg-neutral-900 border-neutral-800 text-neutral-450 hover:text-white hover:border-neutral-700'
+                                                                            }`}
                                                                             title="Copy Prompt"
                                                                         >
-                                                                            Copy
+                                                                            {copiedField === `prompt_${i}` ? '✓ Copied!' : '📋 Copy'}
                                                                         </button>
                                                                         {isFlagged && (
-                                                                            <div className="absolute right-2 bottom-2 bg-red-650 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse font-mono">
+                                                                            <div className="absolute left-2.5 bottom-2.5 bg-red-650 text-white font-bold text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse font-mono">
                                                                                 ⚠️ Pronoun Leak: {scene.qcErrors.join(', ')}
                                                                             </div>
                                                                         )}
                                                                     </div>
                                                                 </td>
                                                                 <td className="py-3.5 px-4">
-                                                                    <textarea 
-                                                                        rows="2"
-                                                                        className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-amber-500 font-bold min-h-[60px]"
-                                                                        value={scene.textOverlay || ''}
-                                                                        placeholder="--"
-                                                                        onChange={(e) => handleCellEdit(i, 'textOverlay', e.target.value)}
-                                                                    />
+                                                                    <div className="relative group">
+                                                                        <textarea 
+                                                                            rows="3"
+                                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-3 pb-10 w-full rounded-2xl outline-none resize-y text-sm text-amber-500 font-bold min-h-[85px]"
+                                                                            value={scene.textOverlay || ''}
+                                                                            placeholder="--"
+                                                                            onChange={(e) => handleCellEdit(i, 'textOverlay', e.target.value)}
+                                                                        />
+                                                                        <button 
+                                                                            onClick={() => copyToClipboard(scene.textOverlay || '', `overlay_${i}`)}
+                                                                            className={`absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all z-10 ${
+                                                                                copiedField === `overlay_${i}` 
+                                                                                    ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                                    : 'bg-neutral-900 border-neutral-800 text-neutral-450 hover:text-white hover:border-neutral-700'
+                                                                            }`}
+                                                                            title="Copy Overlay Text"
+                                                                        >
+                                                                            {copiedField === `overlay_${i}` ? '✓ Copied!' : '📋 Copy'}
+                                                                        </button>
+                                                                    </div>
                                                                 </td>
                                                             </tr>
                                                         );
@@ -1690,39 +1731,64 @@ ${currentScript.thumbnail}
                                                         <div className="flex justify-between items-center">
                                                             <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Voiceover Script</label>
                                                             <button 
-                                                                onClick={() => {
-                                                                    navigator.clipboard.writeText(scene.voiceover);
-                                                                    alert('Voiceover copied!');
-                                                                }}
-                                                                className="text-[9px] font-bold text-neutral-450 hover:text-white bg-neutral-950 px-2 py-0.5 rounded border border-neutral-850 transition-colors"
+                                                                onClick={() => copyToClipboard(scene.voiceover, `voiceover_m_${i}`)}
+                                                                className={`text-[9px] font-bold px-2 py-1 rounded border transition-all font-mono flex items-center gap-1 ${
+                                                                    copiedField === `voiceover_m_${i}` 
+                                                                        ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
+                                                                }`}
                                                             >
-                                                                Copy
+                                                                {copiedField === `voiceover_m_${i}` ? '✓ Copied!' : '📋 Copy'}
                                                             </button>
                                                         </div>
                                                         <textarea 
-                                                            rows="4"
-                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none resize-y leading-relaxed text-xs text-neutral-200 min-h-[90px]"
+                                                            rows="5"
+                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none resize-y leading-relaxed text-sm text-neutral-200 min-h-[120px]"
                                                             value={scene.voiceover}
                                                             onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
                                                         />
                                                     </div>
                                                     
                                                     {/* SFX & Camera */}
-                                                    <div className="grid grid-cols-2 gap-3">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                         <div className="space-y-1">
-                                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">SFX</label>
+                                                            <div className="flex justify-between items-center">
+                                                                <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">SFX</label>
+                                                                <button 
+                                                                    onClick={() => copyToClipboard(scene.sfx, `sfx_m_${i}`)}
+                                                                    className={`text-[9px] font-bold px-2 py-0.5 rounded border transition-all font-mono flex items-center gap-1 ${
+                                                                        copiedField === `sfx_m_${i}` 
+                                                                            ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                            : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
+                                                                    }`}
+                                                                >
+                                                                    {copiedField === `sfx_m_${i}` ? '✓ Copied!' : '📋 Copy'}
+                                                                </button>
+                                                            </div>
                                                             <textarea 
-                                                                rows="2"
-                                                                className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-purple-400 font-semibold min-h-[60px]"
+                                                                rows="3"
+                                                                className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-sm text-purple-400 font-semibold min-h-[80px]"
                                                                 value={scene.sfx}
                                                                 onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
                                                             />
                                                         </div>
                                                         <div className="space-y-1">
-                                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Camera</label>
+                                                            <div className="flex justify-between items-center">
+                                                                <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Camera</label>
+                                                                <button 
+                                                                    onClick={() => copyToClipboard(scene.camera, `camera_m_${i}`)}
+                                                                    className={`text-[9px] font-bold px-2 py-0.5 rounded border transition-all font-mono flex items-center gap-1 ${
+                                                                        copiedField === `camera_m_${i}` 
+                                                                            ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                            : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
+                                                                    }`}
+                                                                >
+                                                                    {copiedField === `camera_m_${i}` ? '✓ Copied!' : '📋 Copy'}
+                                                                </button>
+                                                            </div>
                                                             <textarea 
-                                                                rows="2"
-                                                                className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-sky-400 min-h-[60px]"
+                                                                rows="3"
+                                                                className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-sm text-sky-400 min-h-[80px]"
                                                                 value={scene.camera}
                                                                 onChange={(e) => handleCellEdit(i, 'camera', e.target.value)}
                                                             />
@@ -1734,19 +1800,20 @@ ${currentScript.thumbnail}
                                                         <div className="flex justify-between items-center">
                                                             <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Stateless Visual Prompt</label>
                                                             <button 
-                                                                onClick={() => {
-                                                                    navigator.clipboard.writeText(scene.prompt);
-                                                                    alert('Prompt copied!');
-                                                                }}
-                                                                className="text-[9px] font-bold text-neutral-400 hover:text-white bg-neutral-950 px-2 py-0.5 rounded border border-neutral-850 transition-colors"
+                                                                onClick={() => copyToClipboard(scene.prompt, `prompt_m_${i}`)}
+                                                                className={`text-[9px] font-bold px-2 py-1 rounded border transition-all font-mono flex items-center gap-1 ${
+                                                                    copiedField === `prompt_m_${i}` 
+                                                                        ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
+                                                                }`}
                                                             >
-                                                                Copy
+                                                                {copiedField === `prompt_m_${i}` ? '✓ Copied!' : '📋 Copy'}
                                                             </button>
                                                         </div>
                                                         <div className="relative">
                                                             <textarea 
-                                                                rows="5"
-                                                                className={`bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none text-[11px] font-mono leading-normal text-neutral-300 resize-y min-h-[120px] ${isFlagged ? 'border-red-500 focus:border-red-500' : ''}`}
+                                                                rows="6"
+                                                                className={`bg-neutral-950 border border-neutral-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 p-3 w-full rounded-2xl outline-none text-sm font-mono leading-normal text-neutral-300 resize-y min-h-[180px] ${isFlagged ? 'border-red-500 focus:border-red-500' : ''}`}
                                                                 value={scene.prompt}
                                                                 onChange={(e) => handleCellEdit(i, 'prompt', e.target.value)}
                                                             />
@@ -1760,10 +1827,22 @@ ${currentScript.thumbnail}
 
                                                     {/* Overlay */}
                                                     <div className="space-y-1">
-                                                        <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Overlay Text</label>
+                                                        <div className="flex justify-between items-center">
+                                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">Overlay Text</label>
+                                                            <button 
+                                                                onClick={() => copyToClipboard(scene.textOverlay || '', `overlay_m_${i}`)}
+                                                                className={`text-[9px] font-bold px-2 py-0.5 rounded border transition-all font-mono flex items-center gap-1 ${
+                                                                    copiedField === `overlay_m_${i}` 
+                                                                        ? 'bg-green-950 border-green-500 text-green-400' 
+                                                                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
+                                                                }`}
+                                                            >
+                                                                {copiedField === `overlay_m_${i}` ? '✓ Copied!' : '📋 Copy'}
+                                                            </button>
+                                                        </div>
                                                         <textarea 
-                                                            rows="2"
-                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-xs text-amber-500 font-bold min-h-[60px]"
+                                                            rows="3"
+                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-sm text-amber-500 font-bold min-h-[80px]"
                                                             value={scene.textOverlay || ''}
                                                             placeholder="--"
                                                             onChange={(e) => handleCellEdit(i, 'textOverlay', e.target.value)}
