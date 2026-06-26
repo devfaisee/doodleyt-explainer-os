@@ -464,7 +464,8 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
         'X-Title': 'Doodle Theory OS'
     };
     try {
-        const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload);
+        // LLM inference can take 3-5 min for large Act outputs — use 5 min timeout
+        const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload, 300000);
         const data = JSON.parse(res.body.toString());
         if (!data.choices || !data.choices[0] || !data.choices[0].message) {
             throw new Error(data.error?.message || 'Invalid completions response structure');
@@ -578,7 +579,8 @@ async function callGeminiAPI(systemInstruction, userPrompt, apiKey, modelName = 
         'Content-Type': 'application/json'
     };
     try {
-        const res = await httpsPost(url, headers, payload);
+        // LLM inference can be slow for large prompts — use 5 min timeout
+        const res = await httpsPost(url, headers, payload, 300000);
         const data = JSON.parse(res.body.toString());
         if (data.error) {
             throw new Error(data.error.message || 'Gemini error');
