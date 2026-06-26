@@ -53,6 +53,7 @@ function App() {
     
     // Core parameters
     const [apiKey, setApiKey] = useState('');
+    const [geminiApiKey, setGeminiApiKey] = useState('');
     const [falApiKey, setFalApiKey] = useState('');
     const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
@@ -74,7 +75,7 @@ function App() {
     };
     const [characters, setCharacters] = useState([]);
     const [videoType, setVideoType] = useState('long');
-    const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12)
+    const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12, 15, 20, 25)
     
     const [visualDNA, setVisualDNA] = useState("Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).");
     const [styleReferences, setStyleReferences] = useState(['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg']);
@@ -218,6 +219,7 @@ function App() {
             .then(data => {
                 setServerStatus('Online');
                 setApiKey(data.apiKey || FALLBACK_API_KEY);
+                if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
                 if (data.falApiKey) setFalApiKey(data.falApiKey);
                 if (data.elevenlabsApiKey) setElevenlabsApiKey(data.elevenlabsApiKey);
                 if (data.model) setModel(data.model);
@@ -260,6 +262,7 @@ function App() {
                 } catch(e) {}
                 
                 const cachedKey = localStorage.getItem('doodleyt_api_key') || FALLBACK_API_KEY;
+                const cachedGeminiKey = localStorage.getItem('doodleyt_gemini_key') || '';
                 const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
                 const cachedElevenlabsKey = localStorage.getItem('doodleyt_elevenlabs_key') || '';
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
@@ -269,6 +272,7 @@ function App() {
                 const cachedStyleReferences = localStorage.getItem('doodleyt_style_references') ? JSON.parse(localStorage.getItem('doodleyt_style_references')) : ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
 
                 setApiKey(cachedKey);
+                setGeminiApiKey(cachedGeminiKey);
                 setFalApiKey(cachedFalKey);
                 setElevenlabsApiKey(cachedElevenlabsKey);
                 setModel(cachedModel);
@@ -387,6 +391,7 @@ function App() {
 
     const saveConfig = async (updatedFields) => {
         if (updatedFields.apiKey !== undefined) localStorage.setItem('doodleyt_api_key', updatedFields.apiKey);
+        if (updatedFields.geminiApiKey !== undefined) localStorage.setItem('doodleyt_gemini_key', updatedFields.geminiApiKey);
         if (updatedFields.falApiKey !== undefined) localStorage.setItem('doodleyt_fal_key', updatedFields.falApiKey);
         if (updatedFields.elevenlabsApiKey !== undefined) localStorage.setItem('doodleyt_elevenlabs_key', updatedFields.elevenlabsApiKey);
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
@@ -518,6 +523,7 @@ function App() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     script: currentScript,
+                    apiKey,
                     falApiKey,
                     elevenlabsApiKey,
                     outputPath
@@ -1259,6 +1265,8 @@ ${currentScript.thumbnail}
                         <SettingsView
                             apiKey={apiKey}
                             setApiKey={setApiKey}
+                            geminiApiKey={geminiApiKey}
+                            setGeminiApiKey={setGeminiApiKey}
                             falApiKey={falApiKey}
                             setFalApiKey={setFalApiKey}
                             elevenlabsApiKey={elevenlabsApiKey}

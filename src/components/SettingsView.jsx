@@ -3,6 +3,8 @@ import React from 'react';
 export default function SettingsView({
     apiKey,
     setApiKey,
+    geminiApiKey,
+    setGeminiApiKey,
     falApiKey,
     setFalApiKey,
     elevenlabsApiKey,
@@ -25,7 +27,18 @@ export default function SettingsView({
                 
                 <div className="space-y-4">
                     <div>
-                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">OpenRouter API Key</label>
+                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Google AI Studio API Key (Gemini)</label>
+                        <input 
+                            type="password" 
+                            placeholder="AQ.Ab8RN6..."
+                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
+                            value={geminiApiKey || ''}
+                            onChange={(e) => setGeminiApiKey(e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">OpenRouter API Key (For Audio & Models)</label>
                         <input 
                             type="password" 
                             placeholder="sk-or-v1-..."
@@ -117,7 +130,7 @@ export default function SettingsView({
                 <div className="pt-4 border-t border-neutral-800 flex justify-end">
                     <button 
                         onClick={() => {
-                            saveConfig({ apiKey, falApiKey, elevenlabsApiKey, model, outputPath, characters, visualDNA, styleReferences });
+                            saveConfig({ apiKey, geminiApiKey, falApiKey, elevenlabsApiKey, model, outputPath, characters, visualDNA, styleReferences });
                             alert('Settings locked successfully!');
                         }}
                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition"

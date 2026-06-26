@@ -86,6 +86,9 @@ export default function TerminalView({
                                 <option value={8}>8 Minutes (Dynamic Scene Count)</option>
                                 <option value={10}>10 Minutes (Dynamic Scene Count)</option>
                                 <option value={12}>12 Minutes (Dynamic Scene Count)</option>
+                                <option value={15}>15 Minutes (Dynamic Scene Count)</option>
+                                <option value={20}>20 Minutes (Dynamic Scene Count)</option>
+                                <option value={25}>25 Minutes (Dynamic Scene Count)</option>
                             </select>
                         </div>
                     )}

@@ -463,6 +463,80 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model) {
     }
 }
 
+function extractSpokenText(voiceover) {
+    if (!voiceover) return '';
+    const match = voiceover.match(/"([^"]+)"/);
+    if (match) {
+        return match[1];
+    }
+    return voiceover.replace(/^Read\s+[^:]+:\s*/i, '');
+}
+
+async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
+    const payload = JSON.stringify({
+        model: 'openai/gpt-audio-mini',
+        modalities: ['text', 'audio'],
+        audio: {
+            voice: voice,
+            format: 'wav'
+        },
+        messages: [
+            { role: 'user', content: textPrompt }
+        ]
+    });
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'Doodle Theory OS'
+    };
+    try {
+        const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload);
+        const data = JSON.parse(res.body.toString());
+        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            throw new Error(data.error?.message || 'Invalid audio completions response structure');
+        }
+        const message = data.choices[0].message;
+        if (!message.audio || !message.audio.data) {
+            throw new Error('No audio data returned in OpenRouter completions');
+        }
+        return Buffer.from(message.audio.data, 'base64');
+    } catch (e) {
+        throw new Error(`OpenRouter Audio Call Failed: ${e.message}`);
+    }
+}
+
+async function callGeminiAPI(systemInstruction, userPrompt, apiKey, modelName = 'gemini-2.5-flash', isJson = true) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+    const payload = JSON.stringify({
+        contents: [{
+            parts: [{ text: userPrompt }]
+        }],
+        systemInstruction: systemInstruction ? {
+            parts: [{ text: systemInstruction }]
+        } : undefined,
+        generationConfig: isJson ? {
+            responseMimeType: "application/json"
+        } : undefined
+    });
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+    try {
+        const res = await httpsPost(url, headers, payload);
+        const data = JSON.parse(res.body.toString());
+        if (data.error) {
+            throw new Error(data.error.message || 'Gemini error');
+        }
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+            throw new Error('Invalid Gemini API response structure');
+        }
+        return data.candidates[0].content.parts[0].text;
+    } catch (e) {
+        throw new Error(`Google Gemini Call Failed: ${e.message}`);
+    }
+}
+
 function startBackendScriptGeneration(topicTheme, videoType, targetDuration, providedApiKey, providedModel) {
     const apiKey = getEffectiveApiKey(providedApiKey);
     const model = providedModel || 'deepseek/deepseek-v4-flash';
@@ -478,81 +552,96 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     activeJob.stages = buildDefaultStages(videoType, targetDuration);
     activeJob.script = null; // Clear old script data
     
-    // Run the actual generation asynchronously
-    (async () => {
-        addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
-        addJobLog(`🧠 Target Model: ${model}`);
-        addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
-        
-        try {
-            // Stage 1: Niche & Custom Character Design
-            updateJobStageStatus('design', 'running');
-            addJobLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
-            
+        // Run the actual generation asynchronously
+        (async () => {
             const config = readConfig();
-            const visualDNA = config.visualDNA || "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).";
-            const styleReferences = config.styleReferences || ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
+            const geminiKey = config.geminiApiKey;
+            const useGemini = geminiKey && geminiKey.trim().length > 10;
+            const geminiModelName = (model && model.includes('pro')) ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
 
-            const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
-The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using clean, hand-drawn 2D vector-style cartoon illustrations.
-Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
-Visual DNA: ${visualDNA}`;
-
-            const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
-${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
-
-The topic must fit within our core 10 categories:
-1. Evolutionary Anthropology & Ancient Human History
-2. Behavioral Psychology & Famous Social Experiments
-3. Biological Anomalies & Human Body Mysteries
-4. Existential, Cognitive & Scientific Mysteries
-5. Archaeological Mysteries & Lost Civilizations
-6. Survival Psychology & Extreme Environment Biology
-7. Bizarre Historical Events & Mass Hysteria
-8. Military & Technological Blunders
-9. Existential Space & Cosmic Anomalies
-10. Psychology of Beliefs & Secret Societies
-
-VIRAL TITLE LAWS (Strictly Enforced):
-- Short & Striking: Length must be 5 to 9 words maximum.
-- Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
-- Provocative Addressing: Speak directly to the viewer.
-- Survival/Primal Shock: Highlight deep ancestral fears.
-- Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis.
-
-CHARACTER DESIGN RULES:
-Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a cartoon character. Art style: clean hand-drawn 2D cartoon outlines, solid flat colors, white background.
-
-AI THUMBNAIL PROMPT LAW:
-Create a highly visual thumbnail description. The layout must feature:
-1. A clean, hand-drawn 2D cartoon illustration showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic) on a solid white background, with smooth outlines and flat color fills.
-2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
-The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
-
-SEO METADATA GENERATION (Critical for YouTube Publishing):
-Generate platform-perfect SEO data for YouTube:
-- description: A 2-3 sentence compelling video description that starts with a hook, includes the topic's main mystery, and ends with a curiosity-building CTA.
-- hashtags: Exactly 15 viral hashtags relevant to the topic, category, and channel (include #DoodleTheory always). Format as array of strings with # prefix.
-- tags: 25 comma-separated plain tags for YouTube Tags field (no # prefix, mix of broad and specific).
-
-Return strictly a JSON object:
-{
-  "title": "[Clickable Title]",
-  "category": "[Category]",
-  "nicheReason": "[Why this specific sub-niche is highly viral]",
-  "thumbnail": "[Thumbnail image prompt with 1-3 word text overlay detail]",
-  "characters": [
-    { "name": "NAME", "description": "Complete physical visual description" }
-  ],
-  "seoMetadata": {
-    "description": "[2-3 sentence hook-driven video description with CTA]",
-    "hashtags": ["#DoodleTheory", "#ScienceFacts", "... 13 more"],
-    "tags": "doodle theory, animated explainer, science facts, ... 22 more tags"
-  }
-}`;
-
-            const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model);
-            if (activeJob.status === 'idle') return; // Cancelled
+            addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
+            if (useGemini) {
+                addJobLog(`🤖 Routing script writing to Google Gemini API (${geminiModelName})`);
+            } else {
+                addJobLog(`🧠 Routing script writing to OpenRouter (${model})`);
+            }
+            addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
+            
+            try {
+                // Stage 1: Niche & Custom Character Design
+                updateJobStageStatus('design', 'running');
+                addJobLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
+                
+                const visualDNA = config.visualDNA || "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).";
+                const styleReferences = config.styleReferences || ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
+    
+                const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
+    The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using clean, hand-drawn 2D vector-style cartoon illustrations.
+    Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
+    Visual DNA: ${visualDNA}`;
+    
+                const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
+    ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
+    
+    The topic must fit within our core 10 categories:
+    1. Evolutionary Anthropology & Ancient Human History
+    2. Behavioral Psychology & Famous Social Experiments
+    3. Biological Anomalies & Human Body Mysteries
+    4. Existential, Cognitive & Scientific Mysteries
+    5. Archaeological Mysteries & Lost Civilizations
+    6. Survival Psychology & Extreme Environment Biology
+    7. Bizarre Historical Events & Mass Hysteria
+    8. Military & Technological Blunders
+    9. Existential Space & Cosmic Anomalies
+    10. Psychology of Beliefs & Secret Societies
+    
+    VIRAL TITLE LAWS (Strictly Enforced):
+    - Short & Striking: Length must be 5 to 9 words maximum.
+    - Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
+    - Provocative Addressing: Speak directly to the viewer.
+    - Survival/Primal Shock: Highlight deep ancestral fears.
+    - Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis.
+    
+    CHARACTER DESIGN RULES:
+    Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a cartoon character. Art style: clean hand-drawn 2D cartoon outlines, solid flat colors, white background.
+    
+    AI THUMBNAIL PROMPT LAW:
+    Create a highly visual thumbnail description. The layout must feature:
+    1. A clean, hand-drawn 2D cartoon illustration showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic) on a solid white background, with smooth outlines and flat color fills.
+    2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
+    3. The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
+    
+    SEO METADATA GENERATION (Critical for YouTube Publishing):
+    Generate platform-perfect SEO data for YouTube:
+    - description: A 2-3 sentence compelling video description that starts with a hook, includes the topic's main mystery, and ends with a curiosity-building CTA.
+    - hashtags: Exactly 15 viral hashtags relevant to the topic, category, and channel (include #DoodleTheory always). Format as array of strings with # prefix.
+    - tags: 25 comma-separated plain tags for YouTube Tags field (no # prefix, mix of broad and specific).
+    
+    Return strictly a JSON object:
+    {
+      "title": "[Clickable Title]",
+      "category": "[Category]",
+      "nicheReason": "[Why this specific sub-niche is highly viral]",
+      "thumbnail": "[Thumbnail image prompt with 1-3 word text overlay detail]",
+      "characters": [
+        { "name": "NAME", "description": "Complete physical visual description" }
+      ],
+      "seoMetadata": {
+        "description": "[2-3 sentence hook-driven video description with CTA]",
+        "hashtags": ["#DoodleTheory", "#ScienceFacts", "... 13 more"],
+        "tags": "doodle theory, animated explainer, science facts, ... 22 more tags"
+      }
+    }`;
+    
+                let designResponse;
+                if (useGemini) {
+                    addJobLog(`🧠 Routing Stage 1 Niche Design through Google Gemini API...`);
+                    designResponse = await callGeminiAPI(designSystemPrompt, designUserPrompt, geminiKey, geminiModelName, true);
+                } else {
+                    addJobLog(`🧠 Routing Stage 1 Niche Design through OpenRouter...`);
+                    designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model);
+                }
+                if (activeJob.status === 'idle') return; // Cancelled
             // Robust JSON extraction: strip markdown code fences first, then fall back to regex
             let designRaw = designResponse;
             const designFenceMatch = designRaw.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -622,23 +711,26 @@ Visual Pacing: Fast-paced scenes of 1-3 seconds. Every few seconds must introduc
 Niche context: ${finalScriptData.nicheReason}
 ${actFocusText}
 
+
 Last spoken lines of previous section: "${lastVoContext}"
 
 ${charactersPromptGuide}
 
+
 SCRIPTWRITING & PACING LAWS:
 1. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 10 words, ideal is 5 to 8 words per scene).
-   - If a sentence is long, you MUST split it across multiple consecutive scenes (e.g. Scene A: "Imagine waking up...", Scene B: "...and speaking with a totally different accent overnight").
-   - Each split scene MUST have a different, unique visual prompt to keep the screen dynamically changing.
-2. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Calculate duration strictly using these metrics:
+   - If a sentence is long, you MUST split it across multiple consecutive scenes.
+   - Prefixed Emotional Performance (Tagging): Prefix the "voiceover" text for every single scene with an acting/tone instruction (e.g., 'Read with energy and enthusiasm: "..."', 'Read in a calm, documentary narrator voice: "..."', 'Read with quiet suspense: "..."'). Always wrap the spoken clause inside double quotes inside the string.
+   - Calculate duration strictly using only the spoken words inside the double quotes (ignore the length of the performance prefix like 'Read with...:').
+2. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Calculate duration strictly using only the spoken words inside the double quotes. Use these metrics:
    - 1 to 4 words = 2 seconds
    - 5 to 7 words = 3 seconds
    - 8 to 10 words = 4 seconds
-   Never set a 2-second duration for a long 10-15 word sentence. Never put more than 10 words in a single scene's voiceover.
-3. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format (e.g. ${videoType === 'short' ? '"9:16 vertical portrait layout"' : '"16:9 widescreen landscape layout"'}).
-4. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt that combines the visual action description (adhering to the Stateless Prompt Rule, white background, presets), the camera framing/editing guide (e.g., "Close-up on...", "Dolly zoom on...", "Wide shot of..."), and the text overlay ONLY if/when absolutely necessary.
-5. Sparsely Used Text Overlays: Overlays are distracting and must be used extremely sparingly (only when utmost needed for an essential word, main joke, or punchline—meaning 90%+ of scenes should have NO overlay text mentioned in their prompt). If and only if a text overlay is needed, include it inside the prompt as: "with bold, hand-drawn uppercase text '...' written on screen". If no overlay is needed, do not mention any overlay text in the prompt.
+   Never put more than 10 spoken words in a single scene.
+3. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format.
+4. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt that combines the visual action description (adhering to the Stateless Prompt Rule, white background, presets), the camera framing/editing guide, and the text overlay ONLY if/when absolutely necessary.
+5. Sparsely Used Text Overlays: Overlays are distracting and must be used extremely sparingly. If and only if a text overlay is needed, include it inside the prompt as: "with bold, hand-drawn uppercase text '...' written on screen". If no overlay is needed, do not mention any overlay text.
 Never output the exact same visual prompt for different scenes.
 
 Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
@@ -648,14 +740,19 @@ Return strictly a JSON object matching this schema:
   "scenes": [
     {
       "duration": [2, 3, or 4],
-      "voiceover": "[Exact short spoken clause, maximum 10 words]",
+      "voiceover": "[Voice performance instruction followed by spoken clause inside double quotes, e.g. 'Read with energy and enthusiasm: \"Hey everyone!\"']",
       "sfx": "[Sound effect]",
       "prompt": "[Complete, unified stateless visual prompt blending camera direction, action, and extremely rare text overlay instructions. Follow Stateless Prompt Rule. White background]"
     }
   ]
 }`;
 
-                const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model);
+                let actResponse;
+                if (useGemini) {
+                    actResponse = await callGeminiAPI(actSystemPrompt, actUserPrompt, geminiKey, geminiModelName, true);
+                } else {
+                    actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model);
+                }
                 if (activeJob.status === 'idle') return; // Cancelled
                 // Robust JSON extraction: strip markdown code fences first, then fall back to regex
                 let actRaw = actResponse;
@@ -720,12 +817,13 @@ Input Prompt to fix: "${scene.prompt}"
 Return only the corrected prompt text, nothing else.`;
 
                         try {
-                            const correctedText = await callOpenRouter(
-                                "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.",
-                                prompt,
-                                apiKey,
-                                model
-                            );
+                            let correctedText;
+                            const qcSystemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.";
+                            if (useGemini) {
+                                correctedText = await callGeminiAPI(qcSystemPrompt, prompt, geminiKey, geminiModelName, false);
+                            } else {
+                                correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, model);
+                            }
                             
                             scene.prompt = correctedText.trim();
                             const checkAgain = validatePromptText(scene.prompt);
@@ -774,7 +872,7 @@ Return only the corrected prompt text, nothing else.`;
     })();
 }
 
-function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath) {
+function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey) {
     activeJob.status = 'running';
     activeJob.jobType = 'synthesis';
     activeJob.logs = [];
@@ -889,18 +987,55 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                 }
                 
                 // Audio synthesis
-                if (elevenlabsApiKey && scene.voiceover) {
+                const openRouterApiKey = providedOpenRouterApiKey || config.apiKey || FIXATED_KEY;
+                const spokenText = extractSpokenText(scene.voiceover);
+                
+                if (openRouterApiKey && openRouterApiKey.trim().length > 10 && scene.voiceover) {
+                    try {
+                        addJobLog(`[OpenRouter] Scene ${i+1}/${scenes.length} generating voiceover with gpt-audio-mini...`);
+                        const voiceBuffer = await callOpenRouterAudio(scene.voiceover, openRouterApiKey.trim());
+                        await fs.promises.writeFile(audioPath, voiceBuffer);
+                        addJobLog(`✓ [OpenRouter] Scene ${i+1}/${scenes.length} voiceover completed.`);
+                    } catch (err) {
+                        addJobLog(`⚠️ OpenRouter Audio failed for scene ${i+1}: ${err.message}. Trying ElevenLabs fallback...`);
+                        if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
+                            try {
+                                const payload = JSON.stringify({
+                                    text: spokenText,
+                                    model_id: "eleven_monolingual_v1",
+                                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                                });
+                                const res = await httpsPost(
+                                    "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+                                    {
+                                        "xi-api-key": elevenlabsApiKey.trim(),
+                                        "Content-Type": "application/json"
+                                    },
+                                    payload
+                                );
+                                await fs.promises.writeFile(audioPath, res.body);
+                                addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover completed.`);
+                            } catch (elErr) {
+                                addJobLog(`⚠️ ElevenLabs fallback failed for scene ${i+1}: ${elErr.message}. Saving silent wav.`);
+                                const duration = parseFloat(scene.duration) || 2;
+                                await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                            }
+                        } else {
+                            const duration = parseFloat(scene.duration) || 2;
+                            await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                        }
+                    }
+                } else if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
                     try {
                         const payload = JSON.stringify({
-                            text: scene.voiceover,
+                            text: spokenText,
                             model_id: "eleven_monolingual_v1",
                             voice_settings: { stability: 0.5, similarity_boost: 0.75 }
                         });
-                        
                         const res = await httpsPost(
                             "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
                             {
-                                "xi-api-key": elevenlabsApiKey,
+                                "xi-api-key": elevenlabsApiKey.trim(),
                                 "Content-Type": "application/json"
                             },
                             payload
@@ -1409,11 +1544,10 @@ const server = http.createServer((req, res) => {
         });
         req.on('end', () => {
             try {
-                const data = JSON.parse(body);
-                const { script, falApiKey, elevenlabsApiKey, outputPath } = data;
+                const { script, apiKey, falApiKey, elevenlabsApiKey, outputPath } = data;
                 if (!script) throw new Error("Script data is required");
                 
-                startBackendSynthesis(script, falApiKey, elevenlabsApiKey, outputPath);
+                startBackendSynthesis(script, falApiKey, elevenlabsApiKey, outputPath, apiKey);
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, message: 'Asset synthesis started' }));
