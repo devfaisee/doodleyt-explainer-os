@@ -6,6 +6,7 @@ import CharactersView from './components/CharactersView';
 import SettingsView from './components/SettingsView';
 import VisualDNAView from './components/VisualDNAView';
 import QCView from './components/QCView';
+import VideosView from './components/VideosView';
 
 
 // --- PRESETS & HARDCODED BLUEPRINTS ---
@@ -1230,6 +1231,14 @@ ${currentScript.thumbnail}
                         <button onClick={() => { setActiveTab('sandbox'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'sandbox' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>📝</span> Script Sandbox
                         </button>
+                        <button onClick={() => { setActiveTab('videos'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'videos' ? 'bg-blue-600/10 text-blue-405 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                            <span>🎥</span> Generated Videos
+                            {scriptHistory.filter(s => s.videoPath).length > 0 && (
+                                <span className="ml-auto bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
+                                    {scriptHistory.filter(s => s.videoPath).length}
+                                </span>
+                            )}
+                        </button>
                         <button onClick={() => { setActiveTab('characters'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'characters' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>👥</span> Custom Character DNA
                         </button>
@@ -1319,6 +1328,16 @@ ${currentScript.thumbnail}
                             compileStatus={compileStatus}
                             runAssetSynthesis={runAssetSynthesis}
                             runVideoCompilation={runVideoCompilation}
+                        />
+                    )}
+
+                    {/* COMPILED VIDEOS HUB */}
+                    {activeTab === 'videos' && (
+                        <VideosView
+                            scriptHistory={scriptHistory}
+                            getAssetUrl={getAssetUrl}
+                            copiedField={copiedField}
+                            copyToClipboard={copyToClipboard}
                         />
                     )}
 

@@ -1167,6 +1167,16 @@ function startBackendAssembly(script, providedOutputPath) {
                         const indexStr = (sceneIndex + 1).toString().padStart(3, '0');
                         const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
                         const audioPath = path.join(audioDir, `scene_${indexStr}.wav`);
+                        
+                        // Dynamic check/write of fallback assets if missing
+                        if (!fs.existsSync(imgPath)) {
+                            fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                        }
+                        if (!fs.existsSync(audioPath)) {
+                            const duration = parseFloat(scene.duration) || 2;
+                            fs.writeFileSync(audioPath, getSilentWavBuffer(duration));
+                        }
+
                         const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                         const duration = parseFloat(scene.duration) || 2;
                         
