@@ -22,7 +22,8 @@ export default function TerminalView({
     runAssetSynthesis,
     runVideoCompilation,
     copiedField,
-    copyToClipboard
+    copyToClipboard,
+    getAssetUrl
 }) {
     return (
         <div className="space-y-6 max-w-5xl">
@@ -226,8 +227,50 @@ export default function TerminalView({
                                     </div>
 
                                     {compileStatus === 'completed' && (
-                                        <div className="bg-green-950/10 border border-green-500/20 text-green-400 p-3 rounded-xl text-[10px] font-mono flex items-center justify-between">
-                                            <span>🎉 MP4 Render successful! Saved in Safe Output Directory.</span>
+                                        <div className="space-y-4 animate-fadeIn w-full mt-4">
+                                            <div className="bg-green-950/15 border border-green-500/25 text-green-400 p-3.5 rounded-xl text-xs font-mono flex items-center gap-2">
+                                                <span>🎉</span>
+                                                <span><strong>Success!</strong> MP4 Render completed and saved in the output directory.</span>
+                                            </div>
+                                            
+                                            {currentScript?.videoPath && (
+                                                <div className="bg-neutral-900/90 border border-neutral-800 p-5 rounded-2xl shadow-xl space-y-4">
+                                                    <div className="flex justify-between items-center">
+                                                        <h3 className="text-sm font-bold text-neutral-200 flex items-center gap-2">
+                                                            <span>📺</span> Final Compilation Print
+                                                        </h3>
+                                                        <span className="text-[10px] bg-emerald-950/60 text-emerald-400 border border-emerald-900/40 px-2 py-0.5 rounded font-mono uppercase font-bold">Ready</span>
+                                                    </div>
+                                                    
+                                                    <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-neutral-850 group">
+                                                        <video 
+                                                            src={getAssetUrl(currentScript.videoPath)} 
+                                                            controls 
+                                                            className="w-full h-full object-contain"
+                                                        />
+                                                    </div>
+                                                    
+                                                    <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                                                        <a 
+                                                            href={getAssetUrl(currentScript.videoPath)} 
+                                                            download 
+                                                            className="flex-1 inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-xl text-xs transition duration-200 shadow-lg shadow-emerald-900/20 active:scale-98"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            <span>⬇️</span> Download Video (.mp4)
+                                                        </a>
+                                                        <a
+                                                            href={getAssetUrl(currentScript.videoPath)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center justify-center gap-2 bg-neutral-850 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 hover:border-neutral-600 font-semibold py-3 px-4 rounded-xl text-xs transition duration-200 active:scale-98"
+                                                        >
+                                                            <span>🔗</span> Open in New Tab
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

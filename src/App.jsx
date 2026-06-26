@@ -1218,6 +1218,7 @@ ${currentScript.thumbnail}
                             runVideoCompilation={runVideoCompilation}
                             copiedField={copiedField}
                             copyToClipboard={copyToClipboard}
+                            getAssetUrl={getAssetUrl}
                         />
                     )}
 
