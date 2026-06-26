@@ -1545,6 +1545,7 @@ const server = http.createServer((req, res) => {
         });
         req.on('end', () => {
             try {
+                const data = JSON.parse(body);
                 const { script, apiKey, falApiKey, elevenlabsApiKey, outputPath } = data;
                 if (!script) throw new Error("Script data is required");
                 
