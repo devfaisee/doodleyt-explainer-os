@@ -472,14 +472,34 @@ function extractSpokenText(voiceover) {
     return voiceover.replace(/^Read\s+[^:]+:\s*/i, '');
 }
 
+function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
+    const buffer = Buffer.alloc(44 + pcmBuffer.length);
+    buffer.write('RIFF', 0);
+    buffer.writeUInt32LE(36 + pcmBuffer.length, 4);
+    buffer.write('WAVE', 8);
+    buffer.write('fmt ', 12);
+    buffer.writeUInt32LE(16, 16);
+    buffer.writeUInt16LE(1, 20);
+    buffer.writeUInt16LE(numChannels, 22);
+    buffer.writeUInt32LE(sampleRate, 24);
+    buffer.writeUInt32LE((sampleRate * numChannels * bitsPerSample) / 8, 28);
+    buffer.writeUInt16LE((numChannels * bitsPerSample) / 8, 32);
+    buffer.writeUInt16LE(bitsPerSample, 34);
+    buffer.write('data', 36);
+    buffer.writeUInt32LE(pcmBuffer.length, 40);
+    pcmBuffer.copy(buffer, 44);
+    return buffer;
+}
+
 async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
     const payload = JSON.stringify({
         model: 'openai/gpt-audio-mini',
         modalities: ['text', 'audio'],
         audio: {
             voice: voice,
-            format: 'wav'
+            format: 'pcm16'
         },
+        stream: true,
         messages: [
             { role: 'user', content: textPrompt }
         ]
@@ -492,15 +512,38 @@ async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
     };
     try {
         const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload);
-        const data = JSON.parse(res.body.toString());
-        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-            throw new Error(data.error?.message || 'Invalid audio completions response structure');
+        const text = res.body.toString();
+        
+        // Parse SSE stream chunks
+        const lines = text.split('\n');
+        let base64Chunks = [];
+        
+        for (let line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('data: ')) {
+                const jsonStr = trimmed.slice(6).trim();
+                if (jsonStr === '[DONE]') continue;
+                try {
+                    const chunk = JSON.parse(jsonStr);
+                    if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta) {
+                        const delta = chunk.choices[0].delta;
+                        if (delta.audio && delta.audio.data) {
+                            base64Chunks.push(delta.audio.data);
+                        }
+                    }
+                } catch (jsonErr) {
+                    // Ignore parsing errors for partial or malformed chunks
+                }
+            }
         }
-        const message = data.choices[0].message;
-        if (!message.audio || !message.audio.data) {
-            throw new Error('No audio data returned in OpenRouter completions');
+        
+        if (base64Chunks.length === 0) {
+            throw new Error('No audio data found in OpenRouter stream response. Response body was: ' + text.substring(0, 500));
         }
-        return Buffer.from(message.audio.data, 'base64');
+        
+        const fullBase64 = base64Chunks.join('');
+        const rawPcm = Buffer.from(fullBase64, 'base64');
+        return pcmToWav(rawPcm, 24000, 1, 16);
     } catch (e) {
         throw new Error(`OpenRouter Audio Call Failed: ${e.message}`);
     }
