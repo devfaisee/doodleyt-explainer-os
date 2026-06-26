@@ -28,6 +28,17 @@ try {
     console.error('Error loading .env file:', e);
 }
 
+// Add winget FFmpeg to PATH dynamically if it exists
+try {
+    const wingetFfmpegBin = 'C:\\Users\\6thGen-Lenovo\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1.1-full_build\\bin';
+    if (fs.existsSync(wingetFfmpegBin)) {
+        process.env.PATH = wingetFfmpegBin + path.delimiter + process.env.PATH;
+        console.log('[System] Dynamically prepended winget FFmpeg to process.env.PATH');
+    }
+} catch (e) {
+    console.error('Failed to dynamically add winget FFmpeg to PATH:', e);
+}
+
 const PORT = process.env.PORT || 3000;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 const FIXATED_KEY = process.env.OPENROUTER_API_KEY || '';
@@ -437,13 +448,14 @@ function getEffectiveApiKey(providedKey) {
     return FIXATED_KEY;
 }
 
-async function callOpenRouter(systemPrompt, userPrompt, apiKey, model) {
+async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = false) {
     const payload = JSON.stringify({
         model: model || 'deepseek/deepseek-v4-flash',
         messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt }
-        ]
+        ],
+        response_format: isJson ? { type: 'json_object' } : undefined
     });
     const headers = {
         'Content-Type': 'application/json',
@@ -682,7 +694,7 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
                     designResponse = await callGeminiAPI(designSystemPrompt, designUserPrompt, geminiKey, geminiModelName, true);
                 } else {
                     addJobLog(`🧠 Routing Stage 1 Niche Design through OpenRouter...`);
-                    designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model);
+                    designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model, true);
                 }
                 if (activeJob.status === 'idle') return; // Cancelled
             // Robust JSON extraction: strip markdown code fences first, then fall back to regex
@@ -794,7 +806,7 @@ Return strictly a JSON object matching this schema:
                 if (useGemini) {
                     actResponse = await callGeminiAPI(actSystemPrompt, actUserPrompt, geminiKey, geminiModelName, true);
                 } else {
-                    actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model);
+                    actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model, true);
                 }
                 if (activeJob.status === 'idle') return; // Cancelled
                 // Robust JSON extraction: strip markdown code fences first, then fall back to regex
@@ -1253,7 +1265,7 @@ function startBackendAssembly(script, providedOutputPath) {
                         const duration = parseFloat(scene.duration) || 2;
                         
                         const scaleFilter = script.videoType === 'short' ? 'scale=720:1280' : 'scale=1280:720';
-                        const cmd = `ffmpeg -y -loop 1 -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -t ${duration} -pix_fmt yuv420p -vf "${scaleFilter}" -shortest "${tempSceneVideo}"`;
+                        const cmd = `ffmpeg -nostdin -y -loop 1 -t ${duration} -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -pix_fmt yuv420p -vf "${scaleFilter}" "${tempSceneVideo}"`;
                         
                         return new Promise((resolveScene, rejectScene) => {
                             exec(cmd, (sceneErr) => {
@@ -1288,7 +1300,7 @@ function startBackendAssembly(script, providedOutputPath) {
                 const finalVideoPath = path.join(videosDir, videoFilename);
                 
                 addJobLog(`⚡ Concatenating individual scene files into final master print...`);
-                const concatCmd = `ffmpeg -y -f concat -safe 0 -i "${inputsTxtPath}" -c copy "${finalVideoPath}"`;
+                const concatCmd = `ffmpeg -nostdin -y -f concat -safe 0 -i "${inputsTxtPath}" -c copy "${finalVideoPath}"`;
                 
                 exec(concatCmd, async (concatErr) => {
                     tempVideoFiles.forEach(file => {
@@ -1409,7 +1421,7 @@ function getSilentWavBuffer(durationSeconds = 2) {
     return buffer;
 }
 
-const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAoAAAAFACAIAAADUeu9RAAAAJ0lEQVR42u3BAQEAAACAkP6v7ggAAAAAAAAAAAAAAAAAAAAAgAcMDgAB91rO1gAAAABJRU5ErkJggg==";
+const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 const server = http.createServer((req, res) => {
     // Enable CORS
@@ -1764,7 +1776,7 @@ Format your response strictly as a JSON object:
   ]
 }`;
                 
-                const response = await callOpenRouter(systemPrompt, userPrompt, apiKey, model);
+                const response = await callOpenRouter(systemPrompt, userPrompt, apiKey, model, true);
                 
                 let raw = response;
                 const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
