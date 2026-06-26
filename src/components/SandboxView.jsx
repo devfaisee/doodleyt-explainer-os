@@ -10,7 +10,11 @@ export default function SandboxView({
     copiedField,
     copyToClipboard,
     getAssetUrl,
-    handleCellEdit
+    handleCellEdit,
+    synthesisStatus,
+    compileStatus,
+    runAssetSynthesis,
+    runVideoCompilation
 }) {
     return (
         <div className="space-y-6 max-w-7xl">
@@ -56,6 +60,57 @@ export default function SandboxView({
                 )}
             </div>
 
+            {currentScript && (
+                <div className="bg-neutral-900 border border-neutral-800 p-5 rounded-3xl space-y-4 shadow-lg animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg">⚙️</span>
+                            <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-neutral-400">Sandbox Media Pipeline</h3>
+                        </div>
+                        <div className="flex gap-2">
+                            {synthesisStatus === 'running' && (
+                                <span className="text-[9px] bg-blue-950 text-blue-400 border border-blue-900/40 px-2.5 py-1 rounded-lg font-mono font-bold uppercase animate-pulse">
+                                    ⚡ Synthesizing Assets
+                                </span>
+                            )}
+                            {compileStatus === 'running' && (
+                                <span className="text-[9px] bg-purple-950 text-purple-400 border border-purple-900/40 px-2.5 py-1 rounded-lg font-mono font-bold uppercase animate-pulse">
+                                    🎬 Assembling Video
+                                </span>
+                            )}
+                            {synthesisStatus === 'completed' && (
+                                <span className="text-[9px] bg-blue-950/60 text-blue-400 border border-blue-900/20 px-2.5 py-1 rounded-lg font-mono font-bold uppercase">
+                                    ✓ Assets Ready
+                                </span>
+                            )}
+                            {compileStatus === 'completed' && (
+                                <span className="text-[9px] bg-emerald-950/60 text-emerald-400 border border-emerald-900/20 px-2.5 py-1 rounded-lg font-mono font-bold uppercase">
+                                    ✓ Video Compiled
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                            onClick={runAssetSynthesis}
+                            disabled={isGenerating || synthesisStatus === 'running' || compileStatus === 'running'}
+                            className="flex-1 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            <span>🎨</span> Synthesize Media Assets (Fal.ai & OpenRouter/ElevenLabs)
+                        </button>
+
+                        <button
+                            onClick={runVideoCompilation}
+                            disabled={isGenerating || (synthesisStatus !== 'completed' && !currentScript?.assetsSynthesized) || compileStatus === 'running'}
+                            className="flex-1 bg-purple-650/10 hover:bg-purple-650/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            <span>🎬</span> Assemble Final Video (FFmpeg Compiler)
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {currentScript ? (
                 <div className="space-y-6">
 
@@ -64,9 +119,12 @@ export default function SandboxView({
                         {/* Compiled Video Player */}
                         {currentScript.videoPath && (
                             <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl space-y-4 shadow-xl col-span-1 lg:col-span-2">
-                                <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-blue-400 flex items-center gap-2">
-                                    <span>🎬</span> Generated Video Output
-                                </h3>
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-xs font-bold uppercase tracking-widest font-mono text-blue-400 flex items-center gap-2">
+                                        <span>🎬</span> Generated Video Output
+                                    </h3>
+                                    <span className="text-[10px] bg-emerald-950/60 text-emerald-400 border border-emerald-900/40 px-2 py-0.5 rounded font-mono uppercase font-bold">Ready</span>
+                                </div>
                                 <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-neutral-800 relative">
                                     <video 
                                         src={getAssetUrl(currentScript.videoPath)} 
@@ -74,17 +132,40 @@ export default function SandboxView({
                                         className="w-full h-full object-contain"
                                     />
                                 </div>
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2">
-                                    <span className="text-[10px] text-neutral-500 font-mono select-all">
-                                        Web URL: {getAssetUrl(currentScript.videoPath)}
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-2 w-full">
+                                    <span className="text-[10px] text-neutral-550 font-mono select-all truncate max-w-md">
+                                        Server URL: {getAssetUrl(currentScript.videoPath)}
                                     </span>
-                                    <a 
-                                        href={getAssetUrl(currentScript.videoPath)} 
-                                        download={`video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`}
-                                        className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 w-full sm:w-auto justify-center"
-                                    >
-                                        📥 Download Video
-                                    </a>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <button 
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await fetch(getAssetUrl(currentScript.videoPath));
+                                                    const blob = await res.blob();
+                                                    const blobUrl = URL.createObjectURL(blob);
+                                                    const link = document.createElement('a');
+                                                    link.href = blobUrl;
+                                                    link.download = `video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`;
+                                                    document.body.appendChild(link);
+                                                    link.click();
+                                                    document.body.removeChild(link);
+                                                } catch (err) {
+                                                    window.open(getAssetUrl(currentScript.videoPath), '_blank');
+                                                }
+                                            }}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 justify-center flex-1 sm:flex-none shadow-lg shadow-emerald-950/20 active:scale-98"
+                                        >
+                                            📥 Download Video
+                                        </button>
+                                        <a 
+                                            href={getAssetUrl(currentScript.videoPath)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-neutral-200 font-bold px-5 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 justify-center flex-1 sm:flex-none"
+                                        >
+                                            🔗 Open in New Tab
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         )}

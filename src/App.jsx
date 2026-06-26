@@ -1057,6 +1057,38 @@ ${currentScript.thumbnail}
                     </h1>
                 </div>
                 <div className="flex items-center gap-3 md:gap-4">
+                    {currentScript?.videoPath && (
+                        <div className="flex items-center gap-2 mr-2">
+                            <a 
+                                href={getAssetUrl(currentScript.videoPath)} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-450 border border-emerald-900/30 text-xs font-semibold py-1.5 px-3 rounded-xl transition flex items-center gap-1.5"
+                            >
+                                📺 Watch Active Video
+                            </a>
+                            <button 
+                                onClick={async () => {
+                                    try {
+                                        const res = await fetch(getAssetUrl(currentScript.videoPath));
+                                        const blob = await res.blob();
+                                        const blobUrl = URL.createObjectURL(blob);
+                                        const link = document.createElement('a');
+                                        link.href = blobUrl;
+                                        link.download = `video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                    } catch (err) {
+                                        window.open(getAssetUrl(currentScript.videoPath), '_blank');
+                                    }
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center gap-1.5 active:scale-98"
+                            >
+                                ⬇️ Download
+                            </button>
+                        </div>
+                    )}
                     <div className="flex items-center gap-2 text-xs">
                         <span className={`w-2.5 h-2.5 rounded-full ${serverStatus.includes('Online') ? 'bg-green-500' : 'bg-amber-500'}`}></span>
                         <span className="text-neutral-400 font-mono hidden sm:inline-block">Server: {serverStatus}</span>
@@ -1132,6 +1164,40 @@ ${currentScript.thumbnail}
                                                     <span className="text-[8px] bg-neutral-850 text-neutral-400 border border-neutral-800 px-1.5 py-0.5 rounded font-bold">Draft</span>
                                                 )}
                                             </div>
+                                            {entry.videoPath && (
+                                                <div className="flex items-center gap-2 mt-3 pt-2 border-t border-neutral-800/40">
+                                                    <a 
+                                                        href={getAssetUrl(entry.videoPath)} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="flex-1 bg-neutral-850 hover:bg-neutral-800 text-neutral-300 font-mono text-[9px] py-1 px-2 rounded-lg border border-neutral-750 hover:border-neutral-700 text-center transition-all flex items-center justify-center gap-1"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        <span>📺</span> Watch
+                                                    </a>
+                                                    <button 
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            try {
+                                                                const res = await fetch(getAssetUrl(entry.videoPath));
+                                                                const blob = await res.blob();
+                                                                const blobUrl = URL.createObjectURL(blob);
+                                                                const link = document.createElement('a');
+                                                                link.href = blobUrl;
+                                                                link.download = `video_${entry.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`;
+                                                                document.body.appendChild(link);
+                                                                link.click();
+                                                                document.body.removeChild(link);
+                                                            } catch (err) {
+                                                                window.open(getAssetUrl(entry.videoPath), '_blank');
+                                                            }
+                                                        }}
+                                                        className="flex-1 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-400 border border-emerald-900/30 hover:border-emerald-750 font-mono text-[9px] py-1 px-2 rounded-lg text-center transition-all flex items-center justify-center gap-1"
+                                                    >
+                                                        <span>⬇️</span> Download
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })
@@ -1249,6 +1315,10 @@ ${currentScript.thumbnail}
                             copyToClipboard={copyToClipboard}
                             getAssetUrl={getAssetUrl}
                             handleCellEdit={handleCellEdit}
+                            synthesisStatus={synthesisStatus}
+                            compileStatus={compileStatus}
+                            runAssetSynthesis={runAssetSynthesis}
+                            runVideoCompilation={runVideoCompilation}
                         />
                     )}
 
