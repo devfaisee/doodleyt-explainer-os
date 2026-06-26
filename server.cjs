@@ -928,13 +928,22 @@ Return only the corrected prompt text, nothing else.`;
 }
 
 async function callGeminiImagenAPI(promptText, apiKey, videoType) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
     const aspectRatio = videoType === 'short' ? '9:16' : '16:9';
     const payload = JSON.stringify({
-        prompt: promptText,
-        numberOfImages: 1,
-        outputMimeType: "image/jpeg",
-        aspectRatio: aspectRatio
+        contents: [
+            {
+                parts: [
+                    {
+                        text: promptText
+                    }
+                ]
+            }
+        ],
+        generationConfig: {
+            responseModalities: ["IMAGE"],
+            aspectRatio: aspectRatio
+        }
     });
     const headers = {
         'Content-Type': 'application/json'
@@ -943,14 +952,19 @@ async function callGeminiImagenAPI(promptText, apiKey, videoType) {
         const res = await httpsPost(url, headers, payload);
         const data = JSON.parse(res.body.toString());
         if (data.error) {
-            throw new Error(data.error.message || 'Gemini Imagen API error');
+            throw new Error(data.error.message || 'Gemini 2.5 Flash Image API error');
         }
-        if (data.generatedImages && data.generatedImages[0] && data.generatedImages[0].image && data.generatedImages[0].image.imageBytes) {
-            return Buffer.from(data.generatedImages[0].image.imageBytes, 'base64');
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+            const parts = data.candidates[0].content.parts;
+            for (const part of parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    return Buffer.from(part.inlineData.data, 'base64');
+                }
+            }
         }
-        throw new Error('Invalid Gemini Imagen API response structure');
+        throw new Error('Invalid Gemini 2.5 Flash Image API response structure');
     } catch (e) {
-        throw new Error(`Google Imagen Call Failed: ${e.message}`);
+        throw new Error(`Google Gemini Image Call Failed: ${e.message}`);
     }
 }
 
@@ -1340,7 +1354,7 @@ function startBackendAssembly(script, providedOutputPath) {
 }
 
 // Native HTTPS POST request helper
-function httpsPost(url, headers, body) {
+function httpsPost(url, headers, body, timeoutMs = 120000) {
     return new Promise((resolve, reject) => {
         const u = new URL(url);
         const options = {
@@ -1350,7 +1364,8 @@ function httpsPost(url, headers, body) {
             headers: {
                 ...headers,
                 'Content-Length': Buffer.byteLength(body)
-            }
+            },
+            timeout: timeoutMs
         };
 
         const req = https.request(options, (res) => {
@@ -1366,6 +1381,10 @@ function httpsPost(url, headers, body) {
             });
         });
 
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new Error(`Request timed out after ${timeoutMs / 1000}s: ${url}`));
+        });
         req.on('error', (e) => reject(e));
         req.write(body);
         req.end();
