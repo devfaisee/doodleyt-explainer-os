@@ -929,20 +929,20 @@ Return only the corrected prompt text, nothing else.`;
 
 async function callGeminiImagenAPI(promptText, apiKey, videoType) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
-    const aspectRatio = videoType === 'short' ? '9:16' : '16:9';
+    const aspectHint = videoType === 'short' ? 'vertical portrait 9:16 aspect ratio' : 'horizontal landscape 16:9 aspect ratio';
+    const fullPrompt = `${promptText}. Generate this image in ${aspectHint}.`;
     const payload = JSON.stringify({
         contents: [
             {
                 parts: [
                     {
-                        text: promptText
+                        text: fullPrompt
                     }
                 ]
             }
         ],
         generationConfig: {
-            responseModalities: ["IMAGE"],
-            aspectRatio: aspectRatio
+            responseModalities: ["IMAGE"]
         }
     });
     const headers = {
