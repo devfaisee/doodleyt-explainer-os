@@ -28,7 +28,7 @@ try {
     console.error('Error loading .env file:', e);
 }
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 const FIXATED_KEY = process.env.OPENROUTER_API_KEY || '';
 const MAX_BODY = 10 * 1024 * 1024; // 10 MB
