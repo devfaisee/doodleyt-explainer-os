@@ -1154,7 +1154,7 @@ function startBackendAssembly(script, providedOutputPath) {
                 
                 addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos...`);
                 
-                const batchSize = 4;
+                const batchSize = 1;
                 for (let i = 0; i < scenes.length; i += batchSize) {
                     if (activeJob.status === 'idle') {
                         addJobLog(`🛑 Compilation cancelled by user.`);
