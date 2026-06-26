@@ -202,23 +202,23 @@ export default function TerminalView({
                                             <h4 className="text-xs font-bold font-mono text-neutral-350 uppercase tracking-wide">Autonomous Production Control</h4>
                                             <p className="text-[10px] text-neutral-500 mt-0.5">Synthesize script media assets, then stitch them into an MP4 video.</p>
                                         </div>
-                                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${synthesisStatus === 'idle' ? 'bg-neutral-905 text-neutral-500' : synthesisStatus === 'running' ? 'bg-blue-900/30 text-blue-400 border border-blue-800/30 animate-pulse' : synthesisStatus === 'completed' ? 'bg-green-950/20 text-green-400 border border-green-900/30' : 'bg-red-950/20 text-red-400 border border-red-900/30'}`}>
-                                            {synthesisStatus === 'idle' ? 'Ready' : synthesisStatus === 'running' ? 'Synthesizing...' : synthesisStatus === 'completed' ? 'Assets Ready' : 'Synthesis Failed'}
+                                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded uppercase ${(synthesisStatus === 'completed' || currentScript?.assetsSynthesized) ? 'bg-green-950/20 text-green-400 border border-green-900/30' : synthesisStatus === 'running' ? 'bg-blue-900/30 text-blue-400 border border-blue-800/30 animate-pulse' : synthesisStatus === 'failed' ? 'bg-red-950/20 text-red-400 border border-red-900/30' : 'bg-neutral-905 text-neutral-500'}`}>
+                                            {(synthesisStatus === 'completed' || currentScript?.assetsSynthesized) ? 'Assets Ready' : synthesisStatus === 'running' ? 'Synthesizing...' : synthesisStatus === 'failed' ? 'Synthesis Failed' : 'Ready'}
                                         </span>
                                     </div>
-
+ 
                                     <div className="flex flex-col sm:flex-row gap-3">
                                         <button
                                             onClick={runAssetSynthesis}
                                             disabled={isGenerating || synthesisStatus === 'running'}
                                             className="flex-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 disabled:opacity-50 text-neutral-200 hover:text-white font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2"
                                         >
-                                            <span>🎨</span> Synthesize Media Assets (Fal.ai & ElevenLabs)
+                                            <span>🎨</span> Synthesize Media Assets (Fal.ai & OpenRouter/ElevenLabs)
                                         </button>
-
+ 
                                         <button
                                             onClick={runVideoCompilation}
-                                            disabled={isGenerating || synthesisStatus !== 'completed' || compileStatus === 'running'}
+                                            disabled={isGenerating || (synthesisStatus !== 'completed' && !currentScript?.assetsSynthesized) || compileStatus === 'running'}
                                             className="flex-1 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
                                             <span>🎬</span> Assemble Final Video (FFmpeg Compiler)

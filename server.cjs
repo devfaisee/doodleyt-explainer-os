@@ -1127,7 +1127,8 @@ function startBackendAssembly(script, providedOutputPath) {
                         const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                         const duration = parseFloat(scene.duration) || 2;
                         
-                        const cmd = `ffmpeg -y -loop 1 -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -t ${duration} -pix_fmt yuv420p -vf "scale=1280:720" -shortest "${tempSceneVideo}"`;
+                        const scaleFilter = script.videoType === 'short' ? 'scale=720:1280' : 'scale=1280:720';
+                        const cmd = `ffmpeg -y -loop 1 -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -t ${duration} -pix_fmt yuv420p -vf "${scaleFilter}" -shortest "${tempSceneVideo}"`;
                         
                         return new Promise((resolveScene, rejectScene) => {
                             exec(cmd, (sceneErr) => {

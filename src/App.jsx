@@ -515,7 +515,7 @@ function App() {
         setSynthesisStatus('running');
         setPipelineLogs(['[System] Triggering asset synthesis on the backend...']);
         addLog('⚡ Launching media asset synthesis pipeline (images & audio)...');
-        addLog(`🔑 Using configuration: Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), ElevenLabs (${elevenlabsApiKey ? 'Provided' : 'Mock Fallback'})`);
+        addLog(`🔑 Using configuration: Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), Voice (${apiKey || elevenlabsApiKey ? 'OpenRouter/ElevenLabs' : 'Mock Fallback'})`);
         
         try {
             const response = await apiFetch('/api/synthesize-assets', {
