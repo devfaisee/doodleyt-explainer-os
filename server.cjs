@@ -44,6 +44,37 @@ const CONFIG_FILE = path.join(__dirname, 'config.json');
 const FIXATED_KEY = process.env.OPENROUTER_API_KEY || '';
 const MAX_BODY = 10 * 1024 * 1024; // 10 MB
 
+// Generates a human-readable audio filename: first 2 words of title + padded scene index
+// e.g. title="Why Dinosaurs Don't Exist", index=0 → "why-dinosaurs-voiceover-01.mp3"
+function getAudioFileName(title, sceneIndex) {
+    const words = (title || 'audio scene')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 0)
+        .slice(0, 2);
+    const prefix = words.length > 0 ? words.join('-') : 'audio';
+    const padded = String(sceneIndex + 1).padStart(2, '0');
+    return `${prefix}-voiceover-${padded}.mp3`;
+}
+
+// Converts a WAV buffer to an MP3 file at destPath using FFmpeg.
+// Writes a temp WAV first, converts, then removes the temp.
+function saveAudioAsMP3(wavBuffer, destPath) {
+    return new Promise((resolve, reject) => {
+        const tempWav = destPath.replace(/\.mp3$/, '_tmp.wav');
+        fs.writeFile(tempWav, wavBuffer, (writeErr) => {
+            if (writeErr) return reject(writeErr);
+            const cmd = `ffmpeg -nostdin -y -i "${tempWav}" -codec:a libmp3lame -qscale:a 2 "${destPath}"`;
+            exec(cmd, (ffErr) => {
+                try { fs.unlinkSync(tempWav); } catch (_) {}
+                if (ffErr) return reject(new Error(`FFmpeg MP3 conversion failed: ${ffErr.message}`));
+                resolve();
+            });
+        });
+    });
+}
+
 // --- POSTGRESQL DATABASE FOR PERMANENT MEMORY ---
 let pgPool = null;
 if (process.env.DATABASE_URL) {
@@ -1071,10 +1102,12 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                 const scene = scenes[i];
                 const indexStr = (i + 1).toString().padStart(3, '0');
                 const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
-                const audioPath = path.join(audioDir, `scene_${indexStr}.wav`);
+                // Named MP3: first 2 words of title + zero-padded scene number
+                const audioFileName = getAudioFileName(script.title, i);
+                const audioPath = path.join(audioDir, audioFileName);
                 
                 scene.imagePath = `/output/images/scene_${indexStr}.png`;
-                scene.audioPath = `/output/audio/scene_${indexStr}.wav`;
+                scene.audioPath = `/output/audio/${audioFileName}`;
                 
                 // Image synthesis — skip entirely in audio_only mode
                 if (!audioOnly) {
@@ -1130,16 +1163,16 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                     }
                 }
                 
-                // Audio synthesis
+                // Audio synthesis — always generate, save as named MP3 via FFmpeg
                 const openRouterApiKey = providedOpenRouterApiKey || config.apiKey || FIXATED_KEY;
                 const spokenText = extractSpokenText(scene.voiceover);
                 
                 if (openRouterApiKey && openRouterApiKey.trim().length > 10 && scene.voiceover) {
                     try {
-                        addJobLog(`[OpenRouter] Scene ${i+1}/${scenes.length} generating voiceover with gpt-audio-mini...`);
+                        addJobLog(`[OpenRouter] Scene ${i+1}/${scenes.length} generating voiceover...`);
                         const voiceBuffer = await callOpenRouterAudio(scene.voiceover, openRouterApiKey.trim());
-                        await fs.promises.writeFile(audioPath, voiceBuffer);
-                        addJobLog(`✓ [OpenRouter] Scene ${i+1}/${scenes.length} voiceover completed.`);
+                        await saveAudioAsMP3(voiceBuffer, audioPath);
+                        addJobLog(`✓ [OpenRouter] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                     } catch (err) {
                         addJobLog(`⚠️ OpenRouter Audio failed for scene ${i+1}: ${err.message}. Trying ElevenLabs fallback...`);
                         if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
@@ -1157,16 +1190,16 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                                     },
                                     payload
                                 );
-                                await fs.promises.writeFile(audioPath, res.body);
-                                addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover completed.`);
+                                await saveAudioAsMP3(res.body, audioPath);
+                                addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                             } catch (elErr) {
-                                addJobLog(`⚠️ ElevenLabs fallback failed for scene ${i+1}: ${elErr.message}. Saving silent wav.`);
+                                addJobLog(`⚠️ ElevenLabs fallback failed for scene ${i+1}: ${elErr.message}. Saving silent fallback.`);
                                 const duration = parseFloat(scene.duration) || 2;
-                                await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                                await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                             }
                         } else {
                             const duration = parseFloat(scene.duration) || 2;
-                            await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                            await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                         }
                     }
                 } else if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
@@ -1184,16 +1217,16 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             },
                             payload
                         );
-                        await fs.promises.writeFile(audioPath, res.body);
-                        addJobLog(`[ElevenLabs] Scene ${i+1}/${scenes.length} voiceover completed.`);
+                        await saveAudioAsMP3(res.body, audioPath);
+                        addJobLog(`[ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                     } catch (err) {
-                        addJobLog(`⚠️ ElevenLabs failed for scene ${i+1}: ${err.message}. Saving silent wav.`);
+                        addJobLog(`⚠️ ElevenLabs failed for scene ${i+1}: ${err.message}. Saving silent fallback.`);
                         const duration = parseFloat(scene.duration) || 2;
-                        await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                        await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                     }
                 } else {
                     const duration = parseFloat(scene.duration) || 2;
-                    await fs.promises.writeFile(audioPath, getSilentWavBuffer(duration));
+                    await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                 }
             }
             
@@ -1876,20 +1909,22 @@ Return only the corrected prompt text, nothing else.`;
         return;
     }
 
-    // Audio download endpoint — serves a WAV file as a downloadable attachment
+    // Audio download endpoint — serves a WAV or MP3 file as a downloadable attachment
     if (pathname.startsWith('/api/audio-download/')) {
         const filename = path.basename(pathname);
         const config = readConfig();
         const targetDir = config.outputPath || path.join(__dirname, 'output');
         const filePath = path.join(targetDir, 'audio', filename);
-        if (!filename.endsWith('.wav') || !fs.existsSync(filePath)) {
+        const isAudio = filename.endsWith('.wav') || filename.endsWith('.mp3');
+        if (!isAudio || !fs.existsSync(filePath)) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Audio file not found' }));
             return;
         }
         const stat = fs.statSync(filePath);
+        const mimeType = filename.endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav';
         res.writeHead(200, {
-            'Content-Type': 'audio/wav',
+            'Content-Type': mimeType,
             'Content-Length': stat.size,
             'Content-Disposition': `attachment; filename="${filename}"`
         });
