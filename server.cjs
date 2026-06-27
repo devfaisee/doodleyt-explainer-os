@@ -80,12 +80,7 @@ let pgPool = null;
 if (process.env.DATABASE_URL) {
     try {
         const pg = require('pg');
-        const isInternal = process.env.DATABASE_URL.includes('.internal');
-        const poolConfig = { connectionString: process.env.DATABASE_URL };
-        if (!isInternal) {
-            poolConfig.ssl = { rejectUnauthorized: false };
-        }
-        pgPool = new pg.Pool(poolConfig);
+        pgPool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
         console.log('[Database] Connecting to PostgreSQL database...');
         
         // Initialize table
