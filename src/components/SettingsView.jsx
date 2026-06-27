@@ -95,17 +95,6 @@ export default function SettingsView({
                     </div>
 
                     <div>
-                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Safe Output Path Directory</label>
-                        <input 
-                            type="text" 
-                            placeholder="E:/doodleyt/output"
-                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
-                            value={outputPath}
-                            onChange={(e) => setOutputPath(e.target.value)}
-                        />
-                    </div>
-
-                    <div>
                         <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Visual DNA Guidelines String</label>
                         <textarea 
                             rows="3"
