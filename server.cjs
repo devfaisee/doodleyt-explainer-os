@@ -1320,8 +1320,11 @@ function startBackendAssembly(script, providedOutputPath) {
                         const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                         const duration = parseFloat(scene.duration) || 2;
                         
-                        const scaleFilter = script.videoType === 'short' ? 'scale=720:1280' : 'scale=1280:720';
-                        const cmd = `ffmpeg -nostdin -y -loop 1 -t ${duration} -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -pix_fmt yuv420p -vf "${scaleFilter}" "${tempSceneVideo}"`;
+                        const scaleFilter = script.videoType === 'short' 
+                            ? `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.0015,1.5)':d=25*${duration}:s=1080x1920:fps=25`
+                            : `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,zoompan=z='min(zoom+0.0015,1.5)':d=25*${duration}:s=1920x1080:fps=25`;
+                        
+                        const cmd = `ffmpeg -nostdin -y -loop 1 -t ${duration} -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset fast -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -shortest "${tempSceneVideo}"`;
                         
                         return new Promise((resolveScene, rejectScene) => {
                             exec(cmd, (sceneErr) => {
