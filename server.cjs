@@ -591,6 +591,44 @@ async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
     }
 }
 
+async function callReplicateWithRetry(payloadStr, apiKey, addJobLog) {
+    let retries = 5;
+    while (retries > 0) {
+        try {
+            const res = await httpsPost(
+                "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",
+                {
+                    "Authorization": `Bearer ${apiKey}`,
+                    "Content-Type": "application/json",
+                    "Prefer": "wait"
+                },
+                payloadStr
+            );
+            const resJson = JSON.parse(res.body.toString());
+            if (resJson.output && resJson.output[0]) {
+                return resJson.output[0];
+            } else {
+                throw new Error("No image URL returned: " + JSON.stringify(resJson));
+            }
+        } catch (err) {
+            if (err.message.includes('429')) {
+                let delayMs = 12000; // Default 12 seconds
+                try {
+                    const errorStr = err.message.substring(err.message.indexOf('{'));
+                    const errObj = JSON.parse(errorStr);
+                    if (errObj.retry_after) delayMs = (errObj.retry_after + 1) * 1000;
+                } catch(e) {}
+                addJobLog(`⏳ Replicate Rate Limit 429. Pacing requests... waiting ${Math.round(delayMs/1000)}s.`);
+                await new Promise(r => setTimeout(r, delayMs));
+                retries--;
+                if (retries === 0) throw new Error(`Replicate failed after 5 retries: ${err.message}`);
+            } else {
+                throw err;
+            }
+        }
+    }
+}
+
 async function callGeminiAPI(systemInstruction, userPrompt, apiKey, modelName = 'gemini-2.5-flash', isJson = true) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
     const payload = JSON.stringify({
@@ -1056,25 +1094,10 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                                 aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9'
                             }
                         });
-                        
-                        const res = await httpsPost(
-                            "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",
-                            {
-                                "Authorization": `Bearer ${replicateApiKey}`,
-                                "Content-Type": "application/json",
-                                "Prefer": "wait"
-                            },
-                            payload
-                        );
-                        
-                        const resJson = JSON.parse(res.body.toString());
-                        if (resJson.output && resJson.output[0]) {
-                            thumbBuffer = await httpsGet(resJson.output[0]);
-                            thumbGenerated = true;
-                            addJobLog(`✓ [Replicate] Custom thumbnail image completed.`);
-                        } else {
-                            throw new Error("No thumbnail URL returned: " + JSON.stringify(resJson));
-                        }
+                        const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
+                        thumbBuffer = await httpsGet(imgUrl);
+                        thumbGenerated = true;
+                        addJobLog(`✓ [Replicate] Custom thumbnail image completed.`);
                     } catch (err) {
                         addJobLog(`⚠️ [Replicate] Thumbnail synthesis failed: ${err.message}`);
                     }
@@ -1138,23 +1161,10 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                                     aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9'
                                 }
                             });
-                            const res = await httpsPost(
-                                "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",
-                                {
-                                    "Authorization": `Bearer ${replicateApiKey}`,
-                                    "Content-Type": "application/json",
-                                    "Prefer": "wait"
-                                },
-                                payload
-                            );
-                            const resJson = JSON.parse(res.body.toString());
-                            if (resJson.output && resJson.output[0]) {
-                                imgBuffer = await httpsGet(resJson.output[0]);
-                                imgGenerated = true;
-                                addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
-                            } else {
-                                throw new Error("No image URL returned: " + JSON.stringify(resJson));
-                            }
+                            const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
+                            imgBuffer = await httpsGet(imgUrl);
+                            imgGenerated = true;
+                            addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
                         } catch (err) {
                             addJobLog(`⚠️ [Replicate] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
                         }
