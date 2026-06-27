@@ -1,0 +1,5 @@
+[providers.node]
+node_version = "22"
+
+[phases.setup]
+nixPkgs = ["...", "ffmpeg"]

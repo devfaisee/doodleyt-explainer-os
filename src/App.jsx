@@ -59,7 +59,7 @@ function App() {
     const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
-    const API_SERVER_URL = 'https://doodleyt-explainer-os.onrender.com';
+    const API_SERVER_URL = 'https://node-app-production-d022.up.railway.app';
 
     const apiFetch = (url, options = {}) => {
         const baseUrl = API_SERVER_URL;
