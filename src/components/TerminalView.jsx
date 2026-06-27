@@ -210,11 +210,19 @@ export default function TerminalView({
  
                                     <div className="flex flex-col sm:flex-row gap-3">
                                         <button
-                                            onClick={runAssetSynthesis}
+                                            onClick={() => runAssetSynthesis('audio_only')}
+                                            disabled={isGenerating || synthesisStatus === 'running'}
+                                            className="flex-1 bg-green-600/10 hover:bg-green-600/20 border border-green-500/20 hover:border-green-500/40 text-green-400 hover:text-green-300 disabled:opacity-50 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2"
+                                        >
+                                            <span>🎙️</span> Voice Only (Audio)
+                                        </button>
+
+                                        <button
+                                            onClick={() => runAssetSynthesis('audio_and_images')}
                                             disabled={isGenerating || synthesisStatus === 'running'}
                                             className="flex-1 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 disabled:opacity-50 text-neutral-200 hover:text-white font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2"
                                         >
-                                            <span>🎨</span> Synthesize Media Assets (Fal.ai & OpenRouter/ElevenLabs)
+                                            <span>🎨</span> Audio + Images
                                         </button>
  
                                         <button

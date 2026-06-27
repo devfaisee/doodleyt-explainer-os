@@ -969,7 +969,7 @@ async function callGeminiImagenAPI(promptText, apiKey, videoType) {
     }
 }
 
-function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey, providedGeminiApiKey) {
+function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey, providedGeminiApiKey, synthesisMode = 'audio_and_images') {
     activeJob.status = 'running';
     activeJob.jobType = 'synthesis';
     activeJob.logs = [];
@@ -978,7 +978,9 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
     activeJob.stages = [];
     
     (async () => {
-        addJobLog(`⚡ Starting background asset synthesis for script: "${script.title}"`);
+        const audioOnly = synthesisMode === 'audio_only';
+        addJobLog(`⚡ Starting background ${audioOnly ? 'VOICE-ONLY' : 'full media'} synthesis for script: "${script.title}"`);
+        if (audioOnly) addJobLog(`🎙️ Mode: Audio Only — skipping image generation entirely.`);
         try {
             const config = readConfig();
             const geminiApiKey = providedGeminiApiKey || config.geminiApiKey || '';
@@ -995,9 +997,9 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
             const scenes = script.scenes || [];
             addJobLog(`⚙️ Synthesizing media for ${scenes.length} scenes...`);
             
-            // 1. Generate Thumbnail Image if prompt exists and Gemini key or Fal.ai key is available
+            // 1. Generate Thumbnail Image (skip in audio_only mode)
             let thumbnailPath = '';
-            if (script.thumbnail) {
+            if (script.thumbnail && !audioOnly) {
                 let thumbBuffer = null;
                 let thumbGenerated = false;
 
@@ -1074,58 +1076,58 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                 scene.imagePath = `/output/images/scene_${indexStr}.png`;
                 scene.audioPath = `/output/audio/scene_${indexStr}.wav`;
                 
-                // Image synthesis
-                let imgBuffer = null;
-                let imgGenerated = false;
+                // Image synthesis — skip entirely in audio_only mode
+                if (!audioOnly) {
+                    let imgBuffer = null;
+                    let imgGenerated = false;
 
-                if (geminiApiKey && geminiApiKey.trim().length > 10) {
-                    try {
-                        addJobLog(`[Gemini Imagen] Scene ${i+1}/${scenes.length} generating image...`);
-                        imgBuffer = await callGeminiImagenAPI(scene.prompt, geminiApiKey.trim(), script.videoType);
-                        imgGenerated = true;
-                        addJobLog(`✓ [Gemini Imagen] Scene ${i+1}/${scenes.length} image completed.`);
-                    } catch (geminiErr) {
-                        addJobLog(`⚠️ [Gemini Imagen] failed for scene ${i+1}: ${geminiErr.message}. Trying Fal.ai fallback...`);
-                    }
-                }
-
-                if (!imgGenerated && falApiKey) {
-                    try {
-                        addJobLog(`[Fal.ai] Scene ${i+1}/${scenes.length} generating image...`);
-                        const payload = JSON.stringify({
-                            prompt: scene.prompt,
-                            image_size: script.videoType === 'short' ? 'portrait_4_3' : 'landscape_16_9',
-                            num_inference_steps: 4,
-                            sync_mode: true
-                        });
-                        
-                        const res = await httpsPost(
-                            "https://fal.run/fal-ai/flux/schnell",
-                            {
-                                "Authorization": `Key ${falApiKey}`,
-                                "Content-Type": "application/json"
-                            },
-                            payload
-                        );
-                        
-                        const resJson = JSON.parse(res.body.toString());
-                        if (resJson.images && resJson.images[0]) {
-                            imgBuffer = await httpsGet(resJson.images[0].url);
+                    if (geminiApiKey && geminiApiKey.trim().length > 10) {
+                        try {
+                            addJobLog(`[Gemini Imagen] Scene ${i+1}/${scenes.length} generating image...`);
+                            imgBuffer = await callGeminiImagenAPI(scene.prompt, geminiApiKey.trim(), script.videoType);
                             imgGenerated = true;
-                            addJobLog(`✓ [Fal.ai] Scene ${i+1}/${scenes.length} image completed.`);
-                        } else {
-                            throw new Error("No image URL returned");
+                            addJobLog(`✓ [Gemini Imagen] Scene ${i+1}/${scenes.length} image completed.`);
+                        } catch (geminiErr) {
+                            addJobLog(`⚠️ [Gemini Imagen] failed for scene ${i+1}: ${geminiErr.message}. Trying Fal.ai fallback...`);
                         }
-                    } catch (err) {
-                        addJobLog(`⚠️ [Fal.ai] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
                     }
-                }
 
-                if (imgGenerated && imgBuffer) {
-                    await fs.promises.writeFile(imgPath, imgBuffer);
-                } else {
-                    addJobLog(`ℹ️ Saving mock canvas image for scene ${i+1}`);
-                    await fs.promises.writeFile(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                    if (!imgGenerated && falApiKey) {
+                        try {
+                            addJobLog(`[Fal.ai] Scene ${i+1}/${scenes.length} generating image...`);
+                            const payload = JSON.stringify({
+                                prompt: scene.prompt,
+                                image_size: script.videoType === 'short' ? 'portrait_4_3' : 'landscape_16_9',
+                                num_inference_steps: 4,
+                                sync_mode: true
+                            });
+                            const res = await httpsPost(
+                                "https://fal.run/fal-ai/flux/schnell",
+                                {
+                                    "Authorization": `Key ${falApiKey}`,
+                                    "Content-Type": "application/json"
+                                },
+                                payload
+                            );
+                            const resJson = JSON.parse(res.body.toString());
+                            if (resJson.images && resJson.images[0]) {
+                                imgBuffer = await httpsGet(resJson.images[0].url);
+                                imgGenerated = true;
+                                addJobLog(`✓ [Fal.ai] Scene ${i+1}/${scenes.length} image completed.`);
+                            } else {
+                                throw new Error("No image URL returned");
+                            }
+                        } catch (err) {
+                            addJobLog(`⚠️ [Fal.ai] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
+                        }
+                    }
+
+                    if (imgGenerated && imgBuffer) {
+                        await fs.promises.writeFile(imgPath, imgBuffer);
+                    } else {
+                        addJobLog(`ℹ️ Saving mock canvas image for scene ${i+1}`);
+                        await fs.promises.writeFile(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                    }
                 }
                 
                 // Audio synthesis
@@ -1703,10 +1705,10 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                const { script, apiKey, falApiKey, elevenlabsApiKey, geminiApiKey, outputPath } = data;
+                const { script, apiKey, falApiKey, elevenlabsApiKey, geminiApiKey, outputPath, synthesisMode } = data;
                 if (!script) throw new Error("Script data is required");
                 
-                startBackendSynthesis(script, falApiKey, elevenlabsApiKey, outputPath, apiKey, geminiApiKey);
+                startBackendSynthesis(script, falApiKey, elevenlabsApiKey, outputPath, apiKey, geminiApiKey, synthesisMode || 'audio_and_images');
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, message: 'Asset synthesis started' }));
@@ -1871,6 +1873,27 @@ Return only the corrected prompt text, nothing else.`;
                 res.end('index.html not found. Please build the application first (npm run build).');
             }
         }
+        return;
+    }
+
+    // Audio download endpoint — serves a WAV file as a downloadable attachment
+    if (pathname.startsWith('/api/audio-download/')) {
+        const filename = path.basename(pathname);
+        const config = readConfig();
+        const targetDir = config.outputPath || path.join(__dirname, 'output');
+        const filePath = path.join(targetDir, 'audio', filename);
+        if (!filename.endsWith('.wav') || !fs.existsSync(filePath)) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Audio file not found' }));
+            return;
+        }
+        const stat = fs.statSync(filePath);
+        res.writeHead(200, {
+            'Content-Type': 'audio/wav',
+            'Content-Length': stat.size,
+            'Content-Disposition': `attachment; filename="${filename}"`
+        });
+        fs.createReadStream(filePath).pipe(res);
         return;
     }
 

@@ -90,14 +90,23 @@ export default function SandboxView({
                             )}
                         </div>
                     </div>
-                    
                     <div className="flex flex-col sm:flex-row gap-3">
+                        {/* Voice Only button */}
                         <button
-                            onClick={runAssetSynthesis}
+                            onClick={() => runAssetSynthesis('audio_only')}
+                            disabled={isGenerating || synthesisStatus === 'running' || compileStatus === 'running'}
+                            className="flex-1 bg-green-600/10 hover:bg-green-600/20 border border-green-500/20 hover:border-green-500/40 text-green-400 hover:text-green-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            <span>🎙️</span> Voice Only (Audio)
+                        </button>
+
+                        {/* Full synthesis button */}
+                        <button
+                            onClick={() => runAssetSynthesis('audio_and_images')}
                             disabled={isGenerating || synthesisStatus === 'running' || compileStatus === 'running'}
                             className="flex-1 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            <span>🎨</span> Synthesize Media Assets (Fal.ai & OpenRouter/ElevenLabs)
+                            <span>🎨</span> Audio + Images
                         </button>
 
                         <button
@@ -105,7 +114,7 @@ export default function SandboxView({
                             disabled={isGenerating || (synthesisStatus !== 'completed' && !currentScript?.assetsSynthesized) || compileStatus === 'running'}
                             className="flex-1 bg-purple-650/10 hover:bg-purple-650/20 border border-purple-500/20 hover:border-purple-500/40 text-purple-400 hover:text-purple-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
                         >
-                            <span>🎬</span> Assemble Final Video (FFmpeg Compiler)
+                            <span>🎥</span> Assemble Final Video (FFmpeg Compiler)
                         </button>
                     </div>
                 </div>
@@ -423,6 +432,16 @@ export default function SandboxView({
                                                             {copiedField === `voiceover_${i}` ? '✓ Copied!' : '📋 Copy'}
                                                         </button>
                                                     </div>
+                                                    {/* Voiceover Audio Download — shown after synthesis */}
+                                                    {scene.audioPath && (
+                                                        <a
+                                                            href={`/api/audio-download/${scene.audioPath.split('/').pop()}`}
+                                                            download
+                                                            className="mt-2 flex items-center gap-2 w-full justify-center bg-green-950/30 hover:bg-green-950/60 border border-green-500/20 hover:border-green-500/50 text-green-400 hover:text-green-300 px-3 py-2 rounded-xl text-[11px] font-mono font-bold transition-all"
+                                                        >
+                                                            ⬇️ Download Scene {i + 1} VO Audio
+                                                        </a>
+                                                    )}
                                                 </td>
 
                                                 <td className="py-3.5 px-4">
@@ -511,9 +530,17 @@ export default function SandboxView({
                                             value={scene.voiceover}
                                             onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
                                         />
+                                        {/* Voiceover Audio Download */}
+                                        {scene.audioPath && (
+                                            <a
+                                                href={`/api/audio-download/${scene.audioPath.split('/').pop()}`}
+                                                download
+                                                className="mt-2 flex items-center gap-2 w-full justify-center bg-green-950/30 hover:bg-green-950/60 border border-green-500/20 hover:border-green-500/50 text-green-400 hover:text-green-300 px-3 py-2 rounded-xl text-[11px] font-mono font-bold transition-all"
+                                            >
+                                                ⬇️ Download Scene {i + 1} VO Audio
+                                            </a>
+                                        )}
                                     </div>
-                                    
-
 
                                     {/* Stateless Visual Prompt */}
                                     <div className="space-y-1">

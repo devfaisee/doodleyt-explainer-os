@@ -511,11 +511,12 @@ function App() {
         }
     };
 
-    const runAssetSynthesis = async () => {
+    const runAssetSynthesis = async (synthesisMode = 'audio_and_images') => {
         if (!currentScript) return;
         setSynthesisStatus('running');
-        setPipelineLogs(['[System] Triggering asset synthesis on the backend...']);
-        addLog('⚡ Launching media asset synthesis pipeline (images & audio)...');
+        const modeLabel = synthesisMode === 'audio_only' ? 'voice-only (audio)' : 'full media (audio + images)';
+        setPipelineLogs([`[System] Triggering ${modeLabel} synthesis on the backend...`]);
+        addLog(`⚡ Launching ${modeLabel} synthesis pipeline...`);
         addLog(`🔑 Using configuration: Gemini Image Gen (${geminiApiKey ? 'Provided' : 'Not Provided'}), Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), Voice (${apiKey || elevenlabsApiKey ? 'OpenRouter/ElevenLabs' : 'Mock Fallback'})`);
         
         try {
@@ -528,7 +529,8 @@ function App() {
                     falApiKey,
                     elevenlabsApiKey,
                     geminiApiKey,
-                    outputPath
+                    outputPath,
+                    synthesisMode
                 })
             });
 
