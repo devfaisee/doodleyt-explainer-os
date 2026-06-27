@@ -545,6 +545,7 @@ async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
         },
         stream: true,
         messages: [
+            { role: 'system', content: 'You are a professional voice actor. You will be given a performance instruction and a text in quotes. You must ONLY speak the text in the quotes. You must adopt the requested tone and emotion. DO NOT speak the instructions. DO NOT say "Sure", "Here it is", or add ANY conversational filler whatsoever. Begin speaking the quoted text immediately.' },
             { role: 'user', content: textPrompt }
         ]
     });
