@@ -80,9 +80,10 @@ let pgPool = null;
 if (process.env.DATABASE_URL) {
     try {
         const pg = require('pg');
+        const isInternal = process.env.DATABASE_URL.includes('.internal');
         pgPool = new pg.Pool({
             connectionString: process.env.DATABASE_URL,
-            ssl: {
+            ssl: isInternal ? false : {
                 rejectUnauthorized: false
             }
         });
