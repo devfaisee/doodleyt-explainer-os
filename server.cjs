@@ -1018,7 +1018,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
         try {
             const config = readConfig();
             const geminiApiKey = providedGeminiApiKey || config.geminiApiKey || '';
-            const targetDir = providedOutputPath || config.outputPath || path.join(__dirname, 'output');
+            const targetDir = config.outputPath || path.join(__dirname, 'output');
             const imagesDir = path.join(targetDir, 'images');
             const audioDir = path.join(targetDir, 'audio');
             const thumbnailsDir = path.join(targetDir, 'thumbnails');
@@ -1274,7 +1274,7 @@ function startBackendAssembly(script, providedOutputPath) {
             
             try {
                 const config = readConfig();
-                const targetDir = providedOutputPath || config.outputPath || path.join(__dirname, 'output');
+                const targetDir = config.outputPath || path.join(__dirname, 'output');
                 const imagesDir = path.join(targetDir, 'images');
                 const audioDir = path.join(targetDir, 'audio');
                 const videosDir = path.join(targetDir, 'videos');
