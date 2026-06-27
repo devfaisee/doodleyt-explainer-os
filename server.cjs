@@ -663,32 +663,33 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
                 const visualDNA = config.visualDNA || "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).";
                 const styleReferences = config.styleReferences || ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
     
-                const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and character designer for the channel "Doodle Theory".
-    The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using clean, hand-drawn 2D vector-style cartoon illustrations.
-    Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
-    Visual DNA: ${visualDNA}`;
-    
-                const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
-    ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, bizarre sub-niche.` : `Generate an extremely specific, weird niche topic.`}
-    
-    The topic must fit within our core 10 categories:
-    1. Evolutionary Anthropology & Ancient Human History
-    2. Behavioral Psychology & Famous Social Experiments
-    3. Biological Anomalies & Human Body Mysteries
-    4. Existential, Cognitive & Scientific Mysteries
-    5. Archaeological Mysteries & Lost Civilizations
-    6. Survival Psychology & Extreme Environment Biology
-    7. Bizarre Historical Events & Mass Hysteria
-    8. Military & Technological Blunders
-    9. Existential Space & Cosmic Anomalies
-    10. Psychology of Beliefs & Secret Societies
-    
-    VIRAL TITLE LAWS (Strictly Enforced):
-    - Short & Striking: Length must be 5 to 9 words maximum.
-    - Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
-    - Provocative Addressing: Speak directly to the viewer.
-    - Survival/Primal Shock: Highlight deep ancestral fears.
-    - Formatting: Use sentence case. Never use ending punctuation (no exclamation/question marks) or clickbait emojis.
+            const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and master storyteller for the channel "Doodle Theory".
+The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using clean, hand-drawn 2D vector-style cartoon illustrations.
+Your narratives are profound, gripping, existential, and cinematic. You do not use cheap humor; you captivate through deep curiosity and mesmerizing storytelling.
+Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
+Visual DNA: ${visualDNA}`;
+
+            const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
+${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, profound sub-niche.` : `Generate an extremely specific, deeply profound and weird niche topic.`}
+
+The topic must fit within our core 10 categories:
+1. Evolutionary Anthropology & Ancient Human History
+2. Behavioral Psychology & Famous Social Experiments
+3. Biological Anomalies & Human Body Mysteries
+4. Existential, Cognitive & Scientific Mysteries
+5. Archaeological Mysteries & Lost Civilizations
+6. Survival Psychology & Extreme Environment Biology
+7. Bizarre Historical Events & Mass Hysteria
+8. Military & Technological Blunders
+9. Existential Space & Cosmic Anomalies
+10. Psychology of Beliefs & Secret Societies
+
+VIRAL TITLE LAWS (Strictly Enforced):
+- Short & Striking: Length must be 5 to 9 words maximum.
+- Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
+- Provocative Addressing: Speak directly to the viewer (e.g., "Why Your Brain Fights Sleep at 3 AM").
+- Existential/Primal Shock: Highlight deep ancestral fears or reality-breaking facts.
+- Formatting: Use sentence case. Never use ending punctuation or clickbait emojis.
     
     CHARACTER DESIGN RULES:
     Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a cartoon character. Art style: clean hand-drawn 2D cartoon outlines, solid flat colors, white background.
@@ -770,28 +771,29 @@ ${charactersListString}`;
                 
                 const lastVoContext = j > 1 ? accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ') : '';
                 
-                const actSystemPrompt = `You are the Visual Director, scriptwriter, and retention engineer for "Doodle Theory".
+                const actSystemPrompt = `You are the master storyteller, scriptwriter, and visual director for "Doodle Theory".
 You write scripts in JSON format.
-Channel Tone: chaotic, humorous, mildly sarcastic, highly engaging. Feel like a friend with terrible drawing skills explaining something unbelievably interesting. Never sound like a teacher or documentary narrator. Entertain first, inform second.
-Art Style DNA: Crude whiteboard cartoon illustration style (similar to channel Zenn). Hand-drawn felt-pen black outlines, flat solid color fills, highly exaggerated comical expressions (wide eyes, sweating, gaping mouths). Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments (like soft blue ice, dark navy cave, or ocean floor). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.
-Visual Pacing: Fast-paced scenes of 1-3 seconds. Every few seconds must introduce a fresh visual element (zoom, expression change, arrows, highlight circles, motion lines, or visual joke) to maintain maximum retention.`;
+Channel Tone: Mesmerizing, cinematic, deeply existential, and profound. The narrator speaks with quiet authority, taking the viewer on a gripping psychological or scientific journey. No chaotic humor, no sarcasm—just pure, captivating fascination (think Vsauce, LEMMiNO, or Aperture).
+Narrative Arc: Start with a deeply relatable, grounded premise ("Look at your hand", "Tonight, you'll flip a switch"), then immediately pull the rug out with an existential shock ("But you can't prove any of it is real", "For 99.9% of history, that switch didn't exist"). Build the story step-by-step using short, punchy sentences.
+Art Style DNA: Crude whiteboard cartoon illustration style. Hand-drawn felt-pen black outlines, flat solid color fills. Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments. Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.
+Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every single frame must exactly depict what the narrator is talking about in that exact moment.`;
 
                 let actTitleText = `Act ${j}`;
                 let actFocusText = '';
                 
                 if (videoType === 'short') {
                     actTitleText = 'Full Video Hook & Story';
-                    actFocusText = 'This is a vertical Short. Keep pacing extremely fast and hook strength at maximum throughout.';
+                    actFocusText = 'This is a vertical Short. Start with an immediate grounded hook, twist it, and deliver a fast, mesmerizing narrative arc.';
                 } else {
                     if (j === 1) {
-                        actTitleText = 'Act 1 (Hook & Setup)';
-                        actFocusText = 'Focus on introducing the shocking hook and setting up the curiosity loop.';
+                        actTitleText = 'Act 1 (The Hook & The Existential Pivot)';
+                        actFocusText = 'Focus on introducing a profoundly relatable everyday concept, and then shatter the viewer’s perception of it (the pivot). Set up a mesmerizing mystery.';
                     } else if (j === numActs) {
-                        actTitleText = `Act ${j} (Resolution & Payoff)`;
-                        actFocusText = 'Focus on resolving the twists, delivering the final takeaway, and a funny or thought-provoking ending.';
+                        actTitleText = `Act ${j} (Resolution & The Profound Takeaway)`;
+                        actFocusText = 'Focus on delivering the final scientific/historical answer. End on a haunting, poetic, or deeply thought-provoking final thought that leaves the viewer staring into space.';
                     } else {
-                        actTitleText = `Act ${j} (Rising Conflict & Progression)`;
-                        actFocusText = 'Focus on escalating the narrative, introducing details, and opening sub-loops to keep the viewer watching.';
+                        actTitleText = `Act ${j} (The Deep Dive & Rising Fascination)`;
+                        actFocusText = 'Focus on escalating the narrative. Unpack the science, history, or psychology step-by-step using short, punchy sentences. Keep the atmosphere thick and gripping.';
                     }
                 }
                 
@@ -806,19 +808,20 @@ ${charactersPromptGuide}
 
 
 SCRIPTWRITING & PACING LAWS:
-1. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
+1. Mesmerizing Storytelling: Use short, punchy sentences. Ask profound questions, then answer them with mind-bending facts. The tone is cinematic and serious.
+2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 10 words, ideal is 5 to 8 words per scene).
    - If a sentence is long, you MUST split it across multiple consecutive scenes.
-   - Prefixed Emotional Performance (Tagging): Prefix the "voiceover" text for every single scene with an acting/tone instruction (e.g., 'Read with energy and enthusiasm: "..."', 'Read in a calm, documentary narrator voice: "..."', 'Read with quiet suspense: "..."'). Always wrap the spoken clause inside double quotes inside the string.
-   - Calculate duration strictly using only the spoken words inside the double quotes (ignore the length of the performance prefix like 'Read with...:').
-2. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Calculate duration strictly using only the spoken words inside the double quotes. Use these metrics:
+   - Prefixed Emotional Performance (Tagging): Prefix the "voiceover" text for every single scene with an acting instruction (e.g., 'Read with quiet, chilling authority: "..."', 'Read with profound fascination: "..."', 'Read softly and deliberately: "..."'). Always wrap the spoken clause inside double quotes inside the string.
+   - Calculate duration strictly using only the spoken words inside the double quotes.
+3. Literal Visual Syncing (CRITICAL): The "prompt" field MUST exactly match the words being spoken. The visuals must perfectly depict the literal concepts or metaphors the voiceover is describing in that exact moment.
+4. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Use these metrics:
    - 1 to 4 words = 2 seconds
    - 5 to 7 words = 3 seconds
    - 8 to 10 words = 4 seconds
    Never put more than 10 spoken words in a single scene.
-3. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format.
-4. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt that combines the visual action description (adhering to the Stateless Prompt Rule, white background, presets), the camera framing/editing guide, and the text overlay ONLY if/when absolutely necessary.
-5. Sparsely Used Text Overlays: Overlays are distracting and must be used extremely sparingly. If and only if a text overlay is needed, include it inside the prompt as: "with bold, hand-drawn uppercase text '...' written on screen". If no overlay is needed, do not mention any overlay text.
+5. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format.
+6. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt blending the camera direction, the EXACT literal action reflecting the voiceover (following the Stateless Prompt Rule), and text overlays ONLY if necessary.
 Never output the exact same visual prompt for different scenes.
 
 Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
