@@ -434,13 +434,27 @@ export default function SandboxView({
                                                     </div>
                                                     {/* Voiceover Audio Download — shown after synthesis */}
                                                     {scene.audioPath && (
-                                                        <a
-                                                            href={`/api/audio-download/${scene.audioPath.split('/').pop()}`}
-                                                            download
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const res = await fetch(getAssetUrl(`/api/audio-download/${scene.audioPath.split('/').pop()}`));
+                                                                    if (!res.ok) throw new Error('Audio file not found on server');
+                                                                    const blob = await res.blob();
+                                                                    const url = URL.createObjectURL(blob);
+                                                                    const link = document.createElement('a');
+                                                                    link.href = url;
+                                                                    link.download = scene.audioPath.split('/').pop();
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    document.body.removeChild(link);
+                                                                } catch(e) {
+                                                                    alert("Couldn't download audio: " + e.message);
+                                                                }
+                                                            }}
                                                             className="mt-2 flex items-center gap-2 w-full justify-center bg-green-950/30 hover:bg-green-950/60 border border-green-500/20 hover:border-green-500/50 text-green-400 hover:text-green-300 px-3 py-2 rounded-xl text-[11px] font-mono font-bold transition-all"
                                                         >
                                                             ⬇️ Download Scene {i + 1} VO Audio
-                                                        </a>
+                                                        </button>
                                                     )}
                                                 </td>
 
@@ -532,13 +546,27 @@ export default function SandboxView({
                                         />
                                         {/* Voiceover Audio Download */}
                                         {scene.audioPath && (
-                                            <a
-                                                href={`/api/audio-download/${scene.audioPath.split('/').pop()}`}
-                                                download
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        const res = await fetch(getAssetUrl(`/api/audio-download/${scene.audioPath.split('/').pop()}`));
+                                                        if (!res.ok) throw new Error('Audio file not found on server');
+                                                        const blob = await res.blob();
+                                                        const url = URL.createObjectURL(blob);
+                                                        const link = document.createElement('a');
+                                                        link.href = url;
+                                                        link.download = scene.audioPath.split('/').pop();
+                                                        document.body.appendChild(link);
+                                                        link.click();
+                                                        document.body.removeChild(link);
+                                                    } catch(e) {
+                                                        alert("Couldn't download audio: " + e.message);
+                                                    }
+                                                }}
                                                 className="mt-2 flex items-center gap-2 w-full justify-center bg-green-950/30 hover:bg-green-950/60 border border-green-500/20 hover:border-green-500/50 text-green-400 hover:text-green-300 px-3 py-2 rounded-xl text-[11px] font-mono font-bold transition-all"
                                             >
                                                 ⬇️ Download Scene {i + 1} VO Audio
-                                            </a>
+                                            </button>
                                         )}
                                     </div>
 

@@ -1,0 +1,55 @@
+{
+  "title": "Why your brain fights sleep at 3 AM",
+  "category": "1. Evolutionary Anthropology & Ancient Human History",
+  "nicheReason": "This taps into a universal, deeply personal experience (waking at 3 AM) and links it to an ancient survival mechanism—vigilance against nocturnal predators—making the viewer feel both understood and primal. It's bizarre because people think it's just insomnia, but the real reason is a prehistoric night watch.",
+  "thumbnail": "On a solid white background, a hand-drawn 2D cartoon character lies in bed with wide, bloodshot eyes, sweat drops flying, and a jaw dropped in shock. A bold red text overlay in uppercase reads 'PRIMAL WATCH'. The character's hand-drawn outline is thick black, with flat yellow skin and blue pajamas. No gradients.",
+  "characters": [
+    {
+      "name": "PALEOMAN",
+      "description": "A caveman character with messy dark hair, a thick brow, and wide, paranoid eyes. He wears a ragged brown tunic and clutches a carved stick like a weapon. Hand-drawn in thick black outlines, flat skin tone of tan, and a permanently nervous grimace."
+    },
+    {
+      "name": "SLEEPFIGHTER",
+      "description": "A modern human character lying in a messy bed. He has wild bedhead hair, dark circles under his eyes, and a face frozen in a mix of exhaustion and terror. He wears blue striped pajamas. His arm is reaching up as if to stop something. Flat white background, solid colors."
+    }
+  ],
+  "seoMetadata": {
+    "description": "Ever wonder why you always snap awake at 3 AM, heart racing, mind alert? It’s not just stress—it’s a leftover survival instinct from our ancient ancestors. In this Doodle Theory video, we reveal the bizarre evolutionary reason your brain turns into a paranoid watchman in the dead of night. Watch to uncover the hidden predator your body still fears.",
+    "hashtags": [
+      "#DoodleTheory",
+      "#ScienceFacts",
+      "#SleepScience",
+      "#Evolution",
+      "#Anthropology",
+      "#HumanBody",
+      "#MindBlown",
+      "#Insomnia",
+      "#3AM",
+      "#CircadianRhythm",
+      "#PrimalInstincts",
+      "#BrainMystery",
+      "#WeirdScience",
+      "#AnimatedExplainer",
+      "#PsychologyFacts"
+    ],
+    "tags": "doodle theory, animated explainer, science animation, sleep science, 3am wake up, why do I wake up at 3am, evolutionary psychology, human body mysteries, brain science, insomnia explained, sleep cycle, prehistoric humans, survival instinct, anxiety at night, viral science, educational animation, cartoon explanation, whiteboard animation, biology facts, anthropology, neuroscience, bizarre science, curiosity, sleep tips, viral video idea"
+  },
+  "scenes": [
+    {
+      "duration": 2,
+      "voiceover": "Read with manic energy: ",
+      "\\n    \"voiceover\": \"Read with manic energy: \\\"You wake up at 3 AM.\\\"\\n  ]\\n}\\n\\nSorry, I messed that up. Let me produce the first scene in the proper format.": " \\n    \"sfx\": \"Clock tick, heart thump\",",
+      "prompt": "A clean, hand-drawn 2D vector-style cartoon illustration with smooth black felt-pen outlines and flat color fills. SLEEPFIGHTER, a modern human with wild bedhead hair, dark circles under eyes, wearing blue striped pajamas in a messy bed, eyes snap wide open, pupils dilated, arm frozen mid-reach upward, face showing terror and confusion. Solid flat white background. 9:16 vertical.",
+      "time": "00:00",
+      "qcErrors": [],
+      "imagePath": "/output/images/scene_001.png",
+      "audioPath": "/output/audio/scene_001.wav"
+    }
+  ],
+  "timestamp": 1782501737203,
+  "videoType": "short",
+  "targetDuration": 1,
+  "historyFilename": "1782501726314_why_your_brain_fights_sleep_at_3_am.json",
+  "assetsSynthesized": true,
+  "videoPath": "/output/videos/video_1782501734096_why_your_brain_fights_sleep_at_3_am.mp4"
+}

@@ -1303,7 +1303,8 @@ function startBackendAssembly(script, providedOutputPath) {
                         const sceneIndex = i + batchIdx;
                         const indexStr = (sceneIndex + 1).toString().padStart(3, '0');
                         const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
-                        const audioPath = path.join(audioDir, `scene_${indexStr}.wav`);
+                        const audioFileName = getAudioFileName(script.title, sceneIndex);
+                        const audioPath = path.join(audioDir, audioFileName);
                         
                         // Dynamic check/write of fallback assets if missing
                         if (!fs.existsSync(imgPath)) {
