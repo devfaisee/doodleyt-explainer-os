@@ -475,6 +475,7 @@ function getEffectiveApiKey(providedKey) {
 }
 
 async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = false) {
+    apiKey = process.env.OPENROUTER_API_KEY || apiKey;
     const payload = JSON.stringify({
         model: model || 'deepseek/deepseek-v4-flash',
         messages: [
@@ -531,6 +532,7 @@ function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample 
 }
 
 async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
+    apiKey = process.env.OPENROUTER_API_KEY || apiKey;
     const payload = JSON.stringify({
         model: 'openai/gpt-audio-mini',
         modalities: ['text', 'audio'],
@@ -1044,35 +1046,37 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                     }
                 }
 
-                if (!thumbGenerated && falApiKey) {
-                    addJobLog(`🎨 [Fal.ai] Synthesizing custom thumbnail image...`);
+                if (!thumbGenerated) {
+                    addJobLog(`🎨 [Replicate] Synthesizing custom thumbnail image...`);
                     try {
+                        const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
                         const payload = JSON.stringify({
-                            prompt: script.thumbnail,
-                            image_size: script.videoType === 'short' ? 'portrait_4_3' : 'landscape_16_9',
-                            num_inference_steps: 4,
-                            sync_mode: true
+                            input: {
+                                prompt: script.thumbnail,
+                                aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9'
+                            }
                         });
                         
                         const res = await httpsPost(
-                            "https://fal.run/fal-ai/flux/schnell",
+                            "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",
                             {
-                                "Authorization": `Key ${falApiKey}`,
-                                "Content-Type": "application/json"
+                                "Authorization": `Bearer ${replicateApiKey}`,
+                                "Content-Type": "application/json",
+                                "Prefer": "wait"
                             },
                             payload
                         );
                         
                         const resJson = JSON.parse(res.body.toString());
-                        if (resJson.images && resJson.images[0]) {
-                            thumbBuffer = await httpsGet(resJson.images[0].url);
+                        if (resJson.output && resJson.output[0]) {
+                            thumbBuffer = await httpsGet(resJson.output[0]);
                             thumbGenerated = true;
-                            addJobLog(`✓ [Fal.ai] Custom thumbnail image completed.`);
+                            addJobLog(`✓ [Replicate] Custom thumbnail image completed.`);
                         } else {
-                            throw new Error("No thumbnail URL returned");
+                            throw new Error("No thumbnail URL returned: " + JSON.stringify(resJson));
                         }
                     } catch (err) {
-                        addJobLog(`⚠️ [Fal.ai] Thumbnail synthesis failed: ${err.message}`);
+                        addJobLog(`⚠️ [Replicate] Thumbnail synthesis failed: ${err.message}`);
                     }
                 }
 
@@ -1124,33 +1128,35 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         }
                     }
 
-                    if (!imgGenerated && falApiKey) {
+                    if (!imgGenerated) {
                         try {
-                            addJobLog(`[Fal.ai] Scene ${i+1}/${scenes.length} generating image...`);
+                            addJobLog(`[Replicate] Scene ${i+1}/${scenes.length} generating image...`);
+                            const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
                             const payload = JSON.stringify({
-                                prompt: scene.prompt,
-                                image_size: script.videoType === 'short' ? 'portrait_4_3' : 'landscape_16_9',
-                                num_inference_steps: 4,
-                                sync_mode: true
+                                input: {
+                                    prompt: scene.prompt,
+                                    aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9'
+                                }
                             });
                             const res = await httpsPost(
-                                "https://fal.run/fal-ai/flux/schnell",
+                                "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",
                                 {
-                                    "Authorization": `Key ${falApiKey}`,
-                                    "Content-Type": "application/json"
+                                    "Authorization": `Bearer ${replicateApiKey}`,
+                                    "Content-Type": "application/json",
+                                    "Prefer": "wait"
                                 },
                                 payload
                             );
                             const resJson = JSON.parse(res.body.toString());
-                            if (resJson.images && resJson.images[0]) {
-                                imgBuffer = await httpsGet(resJson.images[0].url);
+                            if (resJson.output && resJson.output[0]) {
+                                imgBuffer = await httpsGet(resJson.output[0]);
                                 imgGenerated = true;
-                                addJobLog(`✓ [Fal.ai] Scene ${i+1}/${scenes.length} image completed.`);
+                                addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
                             } else {
-                                throw new Error("No image URL returned");
+                                throw new Error("No image URL returned: " + JSON.stringify(resJson));
                             }
                         } catch (err) {
-                            addJobLog(`⚠️ [Fal.ai] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
+                            addJobLog(`⚠️ [Replicate] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
                         }
                     }
 
