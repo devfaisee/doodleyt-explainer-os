@@ -28,15 +28,15 @@ try {
     console.error('Error loading .env file:', e);
 }
 
-// Add winget FFmpeg to PATH dynamically if it exists
+// Add ffmpeg to PATH dynamically using ffmpeg-static
 try {
-    const wingetFfmpegBin = 'C:\\Users\\6thGen-Lenovo\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1.1-full_build\\bin';
-    if (fs.existsSync(wingetFfmpegBin)) {
-        process.env.PATH = wingetFfmpegBin + path.delimiter + process.env.PATH;
-        console.log('[System] Dynamically prepended winget FFmpeg to process.env.PATH');
+    const ffmpegPath = require('ffmpeg-static');
+    if (ffmpegPath) {
+        process.env.PATH = path.dirname(ffmpegPath) + path.delimiter + process.env.PATH;
+        console.log('[System] Dynamically prepended ffmpeg-static to process.env.PATH');
     }
 } catch (e) {
-    console.error('Failed to dynamically add winget FFmpeg to PATH:', e);
+    console.error('Failed to load ffmpeg-static:', e);
 }
 
 const PORT = process.env.PORT || 3000;
