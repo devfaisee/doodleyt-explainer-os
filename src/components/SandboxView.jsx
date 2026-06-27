@@ -379,7 +379,6 @@ export default function SandboxView({
                                         <th className="py-4 px-3">Time</th>
                                         <th className="py-4 px-3">Dur</th>
                                         <th className="py-4 px-4">Voiceover Script</th>
-                                        <th className="py-4 px-4">SFX</th>
                                         <th className="py-4 px-4">Stateless Visual Prompt</th>
                                     </tr>
                                 </thead>
@@ -425,27 +424,7 @@ export default function SandboxView({
                                                         </button>
                                                     </div>
                                                 </td>
-                                                <td className="py-3.5 px-4">
-                                                    <div className="relative group">
-                                                        <textarea 
-                                                            rows="3"
-                                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-3 pb-10 w-full rounded-2xl outline-none resize-y text-sm text-purple-400 font-semibold min-h-[85px]"
-                                                            value={scene.sfx}
-                                                            onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
-                                                        />
-                                                        <button 
-                                                            onClick={() => copyToClipboard(scene.sfx, `sfx_${i}`)}
-                                                            className={`absolute bottom-2.5 right-2.5 px-2.5 py-1.5 rounded-lg border text-[10px] font-mono font-bold transition-all z-10 ${
-                                                                copiedField === `sfx_${i}` 
-                                                                    ? 'bg-green-950 border-green-500 text-green-400' 
-                                                                    : 'bg-neutral-900 border-neutral-800 text-neutral-450 hover:text-white hover:border-neutral-700'
-                                                            }`}
-                                                            title="Copy SFX"
-                                                        >
-                                                            {copiedField === `sfx_${i}` ? '✓ Copied!' : '📋 Copy'}
-                                                        </button>
-                                                    </div>
-                                                </td>
+
                                                 <td className="py-3.5 px-4">
                                                     <div className="relative group">
                                                         <textarea 
@@ -534,28 +513,7 @@ export default function SandboxView({
                                         />
                                     </div>
                                     
-                                    {/* SFX */}
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between items-center">
-                                            <label className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider font-bold">SFX</label>
-                                            <button 
-                                                onClick={() => copyToClipboard(scene.sfx, `sfx_m_${i}`)}
-                                                className={`text-[9px] font-bold px-2 py-0.5 rounded border transition-all font-mono flex items-center gap-1 ${
-                                                    copiedField === `sfx_m_${i}` 
-                                                        ? 'bg-green-950 border-green-500 text-green-400' 
-                                                        : 'bg-neutral-950 border-neutral-800 text-neutral-400 hover:text-white'
-                                                }`}
-                                            >
-                                                {copiedField === `sfx_m_${i}` ? '✓ Copied!' : '📋 Copy'}
-                                            </button>
-                                        </div>
-                                        <textarea 
-                                            rows="3"
-                                            className="bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-2.5 w-full rounded-xl outline-none resize-y text-sm text-purple-400 font-semibold min-h-[80px]"
-                                            value={scene.sfx}
-                                            onChange={(e) => handleCellEdit(i, 'sfx', e.target.value)}
-                                        />
-                                    </div>
+
 
                                     {/* Stateless Visual Prompt */}
                                     <div className="space-y-1">

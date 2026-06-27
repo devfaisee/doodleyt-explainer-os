@@ -287,7 +287,6 @@ export default function TerminalView({
                                                  <div className="flex-1 space-y-2">
                                                      <div className="flex justify-between items-center text-xs">
                                                          <span className="bg-neutral-850 text-neutral-300 px-2 py-0.5 rounded font-mono font-bold">{scene.time} ({scene.duration}s)</span>
-                                                         <span className="text-purple-400 font-mono font-medium">SFX: {scene.sfx}</span>
                                                      </div>
                                                      <p className="text-sm text-neutral-200">"{scene.voiceover}"</p>
                                                      <div className="text-[10px] font-mono text-neutral-500 leading-relaxed bg-neutral-900/60 p-2.5 rounded-xl border border-neutral-800 relative">

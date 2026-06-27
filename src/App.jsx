@@ -562,7 +562,7 @@ ${currentScript.thumbnail}
 ===========================
 ` : '';
         const text = seoBlock + currentScript.scenes.map((s, idx) => {
-            return `Scene ${idx + 1} (${s.time} | ${s.duration}s)\nVO: "${s.voiceover}"\nSFX: ${s.sfx}\nPrompt: ${s.prompt}\n----------------------------------------`;
+            return `Scene ${idx + 1} (${s.time} | ${s.duration}s)\nVO: "${s.voiceover}"\nPrompt: ${s.prompt}\n----------------------------------------`;
         }).join('\n\n');
         copyToClipboard(text, 'full-script');
     };
@@ -694,12 +694,11 @@ ${currentScript.thumbnail}
         if (format === 'json') {
             content = JSON.stringify(currentScript, null, 2);
         } else if (format === 'csv') {
-            const headers = ['Time', 'Duration', 'Voiceover Script', 'SFX', 'Stateless Visual Prompt'];
+            const headers = ['Time', 'Duration', 'Voiceover Script', 'Stateless Visual Prompt'];
             const rows = currentScript.scenes.map(s => [
                 s.time || '',
                 s.duration || '',
                 s.voiceover || '',
-                s.sfx || '',
                 s.prompt || ''
             ]);
             const escapeCsv = (val) => {
@@ -740,12 +739,6 @@ ${currentScript.thumbnail}
                         </div>
                     </td>
                     <td class="py-5 px-5 vertical-align-top">
-                        <div class="relative bg-neutral-950 border border-neutral-850 p-4 pb-12 rounded-2xl min-h-[90px] text-purple-400 font-semibold text-sm">
-                            ${escapeHtml(scene.sfx || 'None')}
-                            <button id="sfx_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.sfx || '')}'), 'sfx_copy_${idx}')" class="absolute bottom-2.5 right-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-450 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all">📋 Copy</button>
-                        </div>
-                    </td>
-                    <td class="py-5 px-5 vertical-align-top">
                         <div class="relative bg-neutral-950 border border-neutral-850 p-4 pb-12 rounded-2xl min-h-[140px] text-neutral-350 font-mono text-xs leading-normal">
                             ${escapeHtml(scene.prompt)}
                             <button id="prompt_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.prompt || '')}'), 'prompt_copy_${idx}')" class="absolute bottom-2.5 right-2.5 bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-neutral-455 hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold transition-all">📋 Copy</button>
@@ -772,13 +765,7 @@ ${currentScript.thumbnail}
                         <div class="bg-neutral-950 border border-neutral-850 p-3.5 rounded-2xl text-neutral-300 text-sm leading-relaxed">${escapeHtml(scene.voiceover)}</div>
                     </div>
 
-                    <div class="space-y-1">
-                        <div class="flex justify-between items-center">
-                            <label class="text-[10px] font-mono text-neutral-450 uppercase tracking-wider font-bold">SFX</label>
-                            <button id="m_sfx_copy_${idx}" onclick="copyToClipboard(decodeURIComponent('${encodeURIComponent(scene.sfx || '')}'), 'm_sfx_copy_${idx}')" class="bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-neutral-455 px-2 py-0.5 rounded text-[9px] font-mono font-bold transition-all">📋 Copy</button>
-                        </div>
-                        <div class="bg-neutral-950 border border-neutral-850 p-3 rounded-2xl text-purple-400 font-semibold text-sm">${escapeHtml(scene.sfx || 'None')}</div>
-                    </div>
+
 
                     <div class="space-y-1">
                         <div class="flex justify-between items-center">
@@ -914,7 +901,6 @@ ${currentScript.thumbnail}
                             <th class="py-4 px-4 text-center">Time</th>
                             <th class="py-4 px-4 text-center">Dur</th>
                             <th class="py-4 px-5">Voiceover Script</th>
-                            <th class="py-4 px-5">SFX</th>
                             <th class="py-4 px-5">Stateless Visual Prompt</th>
                         </tr>
                     </thead>

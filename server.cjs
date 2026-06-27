@@ -798,7 +798,6 @@ Return strictly a JSON object matching this schema:
     {
       "duration": [2, 3, or 4],
       "voiceover": "[Voice performance instruction followed by spoken clause inside double quotes, e.g. 'Read with energy and enthusiasm: \"Hey everyone!\"']",
-      "sfx": "[Sound effect]",
       "prompt": "[Complete, unified stateless visual prompt blending camera direction, action, and extremely rare text overlay instructions. Follow Stateless Prompt Rule. White background]"
     }
   ]
