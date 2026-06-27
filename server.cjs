@@ -1936,6 +1936,29 @@ Return only the corrected prompt text, nothing else.`;
         return;
     }
 
+    // DEBUG ENDPOINT to see what is actually in the audio folder
+    if (pathname === '/api/debug-audio') {
+        const config = readConfig();
+        const targetDir = config.outputPath || path.join(__dirname, 'output');
+        const audioDir = path.join(targetDir, 'audio');
+        let files = [];
+        let exists = fs.existsSync(audioDir);
+        if (exists) {
+            files = fs.readdirSync(audioDir).map(file => {
+                const stat = fs.statSync(path.join(audioDir, file));
+                return { name: file, size: stat.size, time: stat.mtime };
+            });
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            targetDir,
+            audioDir,
+            exists,
+            files
+        }));
+        return;
+    }
+
     // Block sensitive files from being served statically
     const sensitiveFiles = ['config.json', 'latest_script.json', 'package.json', 'package-lock.json'];
     const requestedBasename = path.basename(pathname);
