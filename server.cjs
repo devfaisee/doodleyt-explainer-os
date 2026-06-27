@@ -173,8 +173,8 @@ function ensureDir(dirPath) {
 }
 
 // --- BACKEND ORCHESTRATOR STATE & PIPELINE ---
-const LATEST_SCRIPT_FILE = path.join(__dirname, 'latest_script.json');
-const SCRIPTS_HISTORY_DIR = path.join(__dirname, 'scripts_history');
+const LATEST_SCRIPT_FILE = path.join(__dirname, 'output', 'latest_script.json');
+const SCRIPTS_HISTORY_DIR = path.join(__dirname, 'output', 'scripts_history');
 const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
 
 function readLatestScript() {
