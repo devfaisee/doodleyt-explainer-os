@@ -985,6 +985,16 @@ Return only the corrected prompt text, nothing else.`;
             finalScriptData.videoType = videoType;
             finalScriptData.targetDuration = targetDuration;
             
+            // --- COST CALCULATOR (LLM BASE) ---
+            finalScriptData.estimatedCost = {
+                images: 0,
+                audio: 0,
+                llm: 0.005,
+                total: 0.005
+            };
+            addJobLog(`💰 Base LLM Scripting Cost: $0.005`);
+            // ---------------------------------
+            
             writeLatestScript(finalScriptData);
             // Save permanently to history database
             const savedFilename = await saveScriptToHistory(finalScriptData);
@@ -1288,6 +1298,21 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
             script.assetsSynthesized = true;
             if (thumbnailPath) script.thumbnailPath = thumbnailPath;
             script.timestamp = Date.now();
+            
+            // --- COST CALCULATOR ---
+            const costPerImage = 0.003;
+            const costPerAudio = 0.01;
+            const baseLLMCost = 0.005;
+            const numScenes = scenes.length;
+            
+            script.estimatedCost = {
+                images: Number((numScenes * costPerImage).toFixed(3)),
+                audio: Number((numScenes * costPerAudio).toFixed(3)),
+                llm: baseLLMCost,
+                total: Number(((numScenes * costPerImage) + (numScenes * costPerAudio) + baseLLMCost).toFixed(3))
+            };
+            addJobLog(`💰 Estimated API Cost for this video: $${script.estimatedCost.total.toFixed(3)}`);
+            // -----------------------
             
             writeLatestScript(script);
             if (script.historyFilename) {
