@@ -1145,6 +1145,11 @@ ${currentScript.thumbnail}
                                             </div>
                                             <div className="text-[9px] text-neutral-600 font-mono mt-1">{date}</div>
                                             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                                {entry.estimatedCost && (
+                                                    <span className="text-[8px] bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-1.5 py-0.5 rounded font-bold" title={`Images: $${entry.estimatedCost.images} | Audio: $${entry.estimatedCost.audio}`}>
+                                                        💰 ${entry.estimatedCost.total.toFixed(3)}
+                                                    </span>
+                                                )}
                                                 {entry.seoMetadata && <span className="text-[8px] bg-green-950/40 text-green-400 border border-green-900/30 px-1.5 py-0.5 rounded font-bold">SEO ✓</span>}
                                                 {entry.videoPath ? (
                                                     <span className="text-[8px] bg-emerald-950/40 text-emerald-400 border border-emerald-900/30 px-1.5 py-0.5 rounded font-bold">Video ✓</span>

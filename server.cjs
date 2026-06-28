@@ -1371,8 +1371,8 @@ function startBackendAssembly(script, providedOutputPath) {
                         const duration = parseFloat(scene.duration) || 2;
                         
                         const scaleFilter = script.videoType === 'short' 
-                            ? `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.0015,1.5)':d=25*${duration}:s=1080x1920:fps=25`
-                            : `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,zoompan=z='min(zoom+0.0015,1.5)':d=25*${duration}:s=1920x1080:fps=25`;
+                            ? `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=25`
+                            : `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=25`;
                         
                         const cmd = `ffmpeg -nostdin -y -loop 1 -t ${duration} -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset fast -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -shortest "${tempSceneVideo}"`;
                         
@@ -1425,7 +1425,27 @@ function startBackendAssembly(script, providedOutputPath) {
                         const stats = fs.statSync(finalVideoPath);
                         
                         script.videoPath = `/output/videos/${videoFilename}`;
+                        script.assetsSynthesized = true;
+                        if (thumbnailPath) script.thumbnailPath = thumbnailPath;
                         script.timestamp = Date.now();
+                        
+                        // --- COST CALCULATOR ---
+                        // Image (Flux Schnell): ~$0.003 per scene
+                        // Audio (Gemini TTS): ~$0.01 per scene (based on ~$0.04/1k tokens for average length)
+                        // LLM Script Generation: ~$0.005 flat rate per run
+                        const costPerImage = 0.003;
+                        const costPerAudio = 0.01;
+                        const baseLLMCost = 0.005;
+                        const numScenes = scenes.length;
+                        
+                        script.estimatedCost = {
+                            images: Number((numScenes * costPerImage).toFixed(3)),
+                            audio: Number((numScenes * costPerAudio).toFixed(3)),
+                            llm: baseLLMCost,
+                            total: Number(((numScenes * costPerImage) + (numScenes * costPerAudio) + baseLLMCost).toFixed(3))
+                        };
+                        addJobLog(`💰 Estimated API Cost for this video: $${script.estimatedCost.total.toFixed(3)}`);
+                        // -----------------------
                         
                         writeLatestScript(script);
                         if (script.historyFilename) {
