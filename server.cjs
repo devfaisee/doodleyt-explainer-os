@@ -588,12 +588,12 @@ async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
     }
 }
 
-async function callReplicateWithRetry(payloadStr, apiKey, addJobLog) {
+async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl = "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions") {
     let retries = 5;
     while (retries > 0) {
         try {
             const res = await httpsPost(
-                "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions",
+                endpointUrl,
                 {
                     "Authorization": `Bearer ${apiKey}`,
                     "Content-Type": "application/json",
@@ -602,8 +602,17 @@ async function callReplicateWithRetry(payloadStr, apiKey, addJobLog) {
                 payloadStr
             );
             const resJson = JSON.parse(res.body.toString());
-            if (resJson.output && resJson.output[0]) {
-                return resJson.output[0];
+            
+            // Replicate sometimes returns audio outputs as a string (URI) or array.
+            if (resJson.output) {
+                // If the output is an array (like images often are), return the first item
+                if (Array.isArray(resJson.output) && resJson.output.length > 0) {
+                    return resJson.output[0];
+                }
+                // If it's a direct string (like audio URIs often are), return it
+                if (typeof resJson.output === 'string') {
+                    return resJson.output;
+                }
             } else {
                 throw new Error("No image URL returned: " + JSON.stringify(resJson));
             }
@@ -1191,32 +1200,61 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         await saveAudioAsMP3(voiceBuffer, audioPath);
                         addJobLog(`✓ [OpenRouter] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                     } catch (err) {
-                        addJobLog(`⚠️ OpenRouter Audio failed for scene ${i+1}: ${err.message}. Trying ElevenLabs fallback...`);
-                        if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
+                        addJobLog(`⚠️ OpenRouter Audio failed for scene ${i+1}: ${err.message}. Trying Replicate Gemini TTS...`);
+                        
+                        const replicateApiKey = process.env.REPLICATE_API_KEY || config.apiKey || FIXATED_KEY;
+                        let geminiSuccess = false;
+                        if (replicateApiKey && replicateApiKey.trim().length > 10) {
                             try {
                                 const payload = JSON.stringify({
-                                    text: spokenText,
-                                    model_id: "eleven_monolingual_v1",
-                                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                                    input: {
+                                        text: spokenText,
+                                        voice: "Kore",
+                                        prompt: scene.voiceover.replace(/"[^"]+"/g, '').trim() || "Say the following with professional documentary tone."
+                                    }
                                 });
-                                const res = await httpsPost(
-                                    "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
-                                    {
-                                        "xi-api-key": elevenlabsApiKey.trim(),
-                                        "Content-Type": "application/json"
-                                    },
-                                    payload
+                                const audioUrl = await callReplicateWithRetry(
+                                    payload, 
+                                    replicateApiKey.trim(), 
+                                    addJobLog, 
+                                    "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                                 );
-                                await saveAudioAsMP3(res.body, audioPath);
-                                addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
-                            } catch (elErr) {
-                                addJobLog(`⚠️ ElevenLabs fallback failed for scene ${i+1}: ${elErr.message}. Saving silent fallback.`);
+                                const audioBuffer = await httpsGet(audioUrl);
+                                await saveAudioAsMP3(audioBuffer, audioPath);
+                                addJobLog(`✓ [Replicate Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                                geminiSuccess = true;
+                            } catch (geminiErr) {
+                                addJobLog(`⚠️ Replicate Gemini TTS failed for scene ${i+1}: ${geminiErr.message}.`);
+                            }
+                        }
+                        
+                        if (!geminiSuccess) {
+                            if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
+                                try {
+                                    const payload = JSON.stringify({
+                                        text: spokenText,
+                                        model_id: "eleven_monolingual_v1",
+                                        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                                    });
+                                    const res = await httpsPost(
+                                        "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+                                        {
+                                            "xi-api-key": elevenlabsApiKey.trim(),
+                                            "Content-Type": "application/json"
+                                        },
+                                        payload
+                                    );
+                                    await saveAudioAsMP3(res.body, audioPath);
+                                    addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                                } catch (elErr) {
+                                    addJobLog(`⚠️ ElevenLabs fallback failed for scene ${i+1}: ${elErr.message}. Saving silent fallback.`);
+                                    const duration = parseFloat(scene.duration) || 2;
+                                    await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
+                                }
+                            } else {
                                 const duration = parseFloat(scene.duration) || 2;
                                 await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                             }
-                        } else {
-                            const duration = parseFloat(scene.duration) || 2;
-                            await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                         }
                     }
                 } else if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
