@@ -77,6 +77,11 @@ export default function VideosView({
                                                 onClick={async () => {
                                                     try {
                                                         const res = await fetch(getAssetUrl(script.videoPath));
+                                                        if (!res.ok) {
+                                                            // If fetch fails, open in new tab as fallback
+                                                            window.open(getAssetUrl(script.videoPath), '_blank');
+                                                            return;
+                                                        }
                                                         const blob = await res.blob();
                                                         const blobUrl = URL.createObjectURL(blob);
                                                         const link = document.createElement('a');

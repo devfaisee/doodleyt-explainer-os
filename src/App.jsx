@@ -205,6 +205,17 @@ function App() {
                 if (data.status !== 'running') {
                     clearInterval(pollIntervalRef.current);
                     pollIntervalRef.current = null;
+                    const finalStatus = data.status; // 'completed' or 'failed'
+                    const jobType = data.jobType; // 'synthesis' or 'assembly'
+                    if (jobType === 'synthesis') {
+                        // Use 'completed' to match component checks (they look for 'completed')
+                        setSynthesisStatus(finalStatus === 'completed' ? 'completed' : 'failed');
+                    } else if (jobType === 'assembly') {
+                        setCompileStatus(finalStatus === 'completed' ? 'completed' : 'failed');
+                    }
+                    if (finalStatus === 'failed') {
+                        addLog(`❌ Job failed: ${data.error || 'Unknown error'}`);
+                    }
                     // Refresh history list after any job completes
                     syncScriptHistory();
                 }
@@ -1062,6 +1073,7 @@ ${currentScript.thumbnail}
                                 onClick={async () => {
                                     try {
                                         const res = await fetch(getAssetUrl(currentScript.videoPath));
+                                        if (!res.ok) throw new Error(`Server returned ${res.status}: ${res.statusText}`);
                                         const blob = await res.blob();
                                         const blobUrl = URL.createObjectURL(blob);
                                         const link = document.createElement('a');
@@ -1085,10 +1097,14 @@ ${currentScript.thumbnail}
                             <span className={`w-2.5 h-2.5 rounded-full ${serverStatus.includes('Online') ? 'bg-green-500' : 'bg-amber-500'}`}></span>
                             <span>Server: {serverStatus}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-2 py-1 rounded-lg cursor-help" title="Total estimated cost of all your generated scripts in history">
+                        <button
+                            onClick={() => setShowCostPanel(true)}
+                            title="Click to view detailed Cost Analytics"
+                            className="flex items-center gap-1.5 bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-2 py-1 rounded-lg cursor-pointer hover:scale-105 transition-transform"
+                        >
                             <span className="font-bold">💰 Total API Spend:</span>
                             <span>${scriptHistory.reduce((sum, script) => sum + (script.estimatedCost?.total || 0), 0).toFixed(3)}</span>
-                        </div>
+                        </button>
                         <div className="hidden sm:block">
                             {apiKey ? '🔐 Configured' : '🔓 API Required'}
                         </div>
@@ -1127,20 +1143,20 @@ ${currentScript.thumbnail}
                                         <div className="text-sm font-bold text-white leading-snug line-clamp-1 mb-3">{entry.title}</div>
                                         <div className="space-y-2 text-xs font-mono text-neutral-400">
                                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
-                                                <span>🖼️ Replicate Images (Flux)</span>
-                                                <span className="text-white">${entry.estimatedCost.images?.toFixed(3)}</span>
+                                                <span>🖼️ Flux Schnell (Images)</span>
+                                                <span className="text-white">${(entry.estimatedCost.images ?? 0).toFixed(3)}</span>
                                             </div>
                                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
-                                                <span>🎙️ Replicate TTS (Gemini)</span>
-                                                <span className="text-white">${entry.estimatedCost.audio?.toFixed(3)}</span>
+                                                <span>🎙️ Gemini TTS (Voiceover)</span>
+                                                <span className="text-white">${(entry.estimatedCost.audio ?? 0).toFixed(3)}</span>
                                             </div>
                                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
-                                                <span>🧠 OpenRouter LLM</span>
-                                                <span className="text-white">${entry.estimatedCost.llm?.toFixed(3)}</span>
+                                                <span>🧠 DeepSeek LLM (Script)</span>
+                                                <span className="text-white">${(entry.estimatedCost.llm ?? 0).toFixed(3)}</span>
                                             </div>
                                             <div className="flex justify-between items-center pt-1 font-bold">
                                                 <span className="text-yellow-500">💰 Total Cost</span>
-                                                <span className="text-yellow-400">${entry.estimatedCost.total?.toFixed(3)}</span>
+                                                <span className="text-yellow-400">${(entry.estimatedCost.total ?? 0).toFixed(3)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1161,9 +1177,20 @@ ${currentScript.thumbnail}
                                 <h2 className="text-base font-black text-white">🗂️ Script History</h2>
                                 <p className="text-[10px] text-neutral-500 font-mono mt-0.5">All generated scripts — saved permanently on server</p>
                             </div>
-                            <button onClick={() => setShowHistoryPanel(false)} className="text-neutral-500 hover:text-white p-2 rounded-xl hover:bg-neutral-900 transition-colors">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => syncScriptHistory()}
+                                    className="text-neutral-500 hover:text-white p-2 rounded-xl hover:bg-neutral-900 transition-colors"
+                                    title="Refresh History"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </button>
+                                <button onClick={() => setShowHistoryPanel(false)} className="text-neutral-500 hover:text-white p-2 rounded-xl hover:bg-neutral-900 transition-colors">
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {historyLoading ? (
@@ -1208,8 +1235,8 @@ ${currentScript.thumbnail}
                                             <div className="text-[9px] text-neutral-600 font-mono mt-1">{date}</div>
                                             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                                                 {entry.estimatedCost && (
-                                                    <span className="text-[8px] bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-1.5 py-0.5 rounded font-bold" title={`Images: $${entry.estimatedCost.images} | Audio: $${entry.estimatedCost.audio}`}>
-                                                        💰 ${entry.estimatedCost.total.toFixed(3)}
+                                                    <span className="text-[8px] bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-1.5 py-0.5 rounded font-bold" title={`Images: $${entry.estimatedCost.images ?? 0} | Audio: $${entry.estimatedCost.audio ?? 0}`}>
+                                                        💰 ${(entry.estimatedCost.total ?? 0).toFixed(3)}
                                                     </span>
                                                 )}
                                                 {entry.seoMetadata && <span className="text-[8px] bg-green-950/40 text-green-400 border border-green-900/30 px-1.5 py-0.5 rounded font-bold">SEO ✓</span>}
@@ -1237,6 +1264,7 @@ ${currentScript.thumbnail}
                                                             e.stopPropagation();
                                                             try {
                                                                 const res = await fetch(getAssetUrl(entry.videoPath));
+                                                                if (!res.ok) throw new Error(`Server returned ${res.status}: ${res.statusText}`);
                                                                 const blob = await res.blob();
                                                                 const blobUrl = URL.createObjectURL(blob);
                                                                 const link = document.createElement('a');

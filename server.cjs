@@ -212,6 +212,18 @@ async function saveScriptToHistory(script) {
                     filename, timestamp, title, category, video_type, scene_count, 
                     thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, full_script
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                ON CONFLICT (filename) DO UPDATE SET
+                    timestamp = EXCLUDED.timestamp,
+                    title = EXCLUDED.title,
+                    category = EXCLUDED.category,
+                    video_type = EXCLUDED.video_type,
+                    scene_count = EXCLUDED.scene_count,
+                    thumbnail = EXCLUDED.thumbnail,
+                    seo_metadata = EXCLUDED.seo_metadata,
+                    assets_synthesized = EXCLUDED.assets_synthesized,
+                    video_path = EXCLUDED.video_path,
+                    thumbnail_path = EXCLUDED.thumbnail_path,
+                    full_script = EXCLUDED.full_script
             `, [
                 filename,
                 script.timestamp || Date.now(),
@@ -1223,7 +1235,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                     } catch (err) {
                         addJobLog(`⚠️ OpenRouter Audio failed for scene ${i+1}: ${err.message}. Trying Replicate Gemini TTS...`);
                         
-                        const replicateApiKey = process.env.REPLICATE_API_KEY || config.apiKey || FIXATED_KEY;
+                        const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
                         let geminiSuccess = false;
                         if (replicateApiKey && replicateApiKey.trim().length > 10) {
                             try {
@@ -1453,49 +1465,71 @@ function startBackendAssembly(script, providedOutputPath) {
                 addJobLog(`⚡ Concatenating individual scene files into final master print...`);
                 const concatCmd = `ffmpeg -nostdin -y -f concat -safe 0 -i "${inputsTxtPath}" -c copy "${finalVideoPath}"`;
                 
-                exec(concatCmd, async (concatErr) => {
-                    tempVideoFiles.forEach(file => {
-                        try { fs.unlinkSync(file); } catch(e){}
-                    });
-                    try { fs.unlinkSync(inputsTxtPath); } catch(e){}
-                    
-                    if (concatErr) {
-                        activeJob.status = 'failed';
-                        activeJob.error = `Concatenation failed: ${concatErr.message}`;
-                        addJobLog(`❌ Concatenation failed: ${concatErr.message}`);
-                    } else {
-                        const stats = fs.statSync(finalVideoPath);
-                        script.videoPath = `/output/videos/${videoFilename}`;
-                        script.timestamp = Date.now();
-                        
-                        // --- COST CALCULATOR ---
-                        // Image (Flux Schnell): ~$0.003 per scene
-                        // Audio (Gemini TTS): ~$0.01 per scene (based on ~$0.04/1k tokens for average length)
-                        // LLM Script Generation: ~$0.005 flat rate per run
-                        const costPerImage = 0.003;
-                        const costPerAudio = 0.01;
-                        const baseLLMCost = 0.005;
-                        const numScenes = scenes.length;
-                        
-                        script.estimatedCost = {
-                            images: Number((numScenes * costPerImage).toFixed(3)),
-                            audio: Number((numScenes * costPerAudio).toFixed(3)),
-                            llm: baseLLMCost,
-                            total: Number(((numScenes * costPerImage) + (numScenes * costPerAudio) + baseLLMCost).toFixed(3))
-                        };
-                        addJobLog(`💰 Estimated API Cost for this video: $${script.estimatedCost.total.toFixed(3)}`);
-                        // -----------------------
-                        
-                        writeLatestScript(script);
-                        if (script.historyFilename) {
-                            await updateScriptInHistory(script.historyFilename, script);
+                exec(concatCmd, (concatErr) => {
+                    // Use an async IIFE so we can await inside and catch errors cleanly
+                    (async () => {
+                        try {
+                            tempVideoFiles.forEach(file => {
+                                try { fs.unlinkSync(file); } catch(e){}
+                            });
+                            try { fs.unlinkSync(inputsTxtPath); } catch(e){}
+                            
+                            if (concatErr) {
+                                activeJob.status = 'failed';
+                                activeJob.error = `Concatenation failed: ${concatErr.message}`;
+                                addJobLog(`❌ Concatenation failed: ${concatErr.message}`);
+                                return;
+                            }
+
+                            const stats = fs.statSync(finalVideoPath);
+                            script.videoPath = `/output/videos/${videoFilename}`;
+                            script.timestamp = Date.now();
+
+                            // --- COST CALCULATOR (MERGE WITH EXISTING) ---
+                            const costPerImage = 0.003;
+                            const costPerAudio = 0.01;
+                            const numScenes = Array.isArray(scenes) ? scenes.length : 0;
+
+                            const imagesCost = Number((numScenes * costPerImage).toFixed(3));
+                            const audioCost = Number((numScenes * costPerAudio).toFixed(3));
+                            const existingLlm = script.estimatedCost && typeof script.estimatedCost.llm === 'number' ? script.estimatedCost.llm : 0.005;
+                            const totalCost = Number((imagesCost + audioCost + existingLlm).toFixed(3));
+
+                            // Preserve previously computed fields where appropriate and merge
+                            script.estimatedCost = {
+                                images: imagesCost,
+                                audio: audioCost,
+                                llm: existingLlm,
+                                total: totalCost
+                            };
+
+                            addJobLog(`💰 Estimated API Cost for this video: $${script.estimatedCost.total.toFixed(3)}`);
+                            // -----------------------
+
+                            writeLatestScript(script);
+                            if (script.historyFilename) {
+                                try {
+                                    await updateScriptInHistory(script.historyFilename, script);
+                                } catch (uErr) {
+                                    addJobLog(`⚠️ Failed to update history after concat: ${uErr.message}`);
+                                }
+                            }
+
+                            activeJob.script = script;
+                            activeJob.status = 'completed';
+                            addJobLog(`🎉 Master video compilation finished successfully!`);
+                            addJobLog(`💾 File saved: ${script.videoPath} (${stats.size} bytes)`);
+
+                        } catch (e) {
+                            addJobLog(`❌ Error in concatenation handler: ${e.message}`);
+                            activeJob.status = 'failed';
+                            activeJob.error = e.message;
                         }
-                        
-                        activeJob.script = script;
-                        activeJob.status = 'completed';
-                        addJobLog(`🎉 Master video compilation finished successfully!`);
-                        addJobLog(`💾 File saved: ${script.videoPath} (${stats.size} bytes)`);
-                    }
+                    })().catch(e => {
+                        addJobLog(`❌ Unexpected concat handler failure: ${e.message}`);
+                        activeJob.status = 'failed';
+                        activeJob.error = e.message;
+                    });
                 });
                 
             } catch (innerErr) {
@@ -1826,8 +1860,10 @@ const server = http.createServer((req, res) => {
                 const targetDir = config.outputPath || path.join(__dirname, 'output');
                 ensureDir(targetDir);
 
-                const filePath = path.join(targetDir, filename);
-                fs.writeFileSync(filePath, typeof content === 'object' ? JSON.stringify(content, null, 2) : content, 'utf8');
+                const safeFilename = path.basename(filename || 'untitled.json');
+                                // Prevent path traversal by only allowing the basename
+                                const filePath = path.join(targetDir, safeFilename);
+                                fs.writeFileSync(filePath, typeof content === 'object' ? JSON.stringify(content, null, 2) : content, 'utf8');
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, filePath }));
@@ -2005,6 +2041,13 @@ Return only the corrected prompt text, nothing else.`;
                 res.end(JSON.stringify({ error: e.message }));
             }
         });
+        return;
+    }
+
+    // Health endpoint
+    if (pathname === '/api/health' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', uptime: process.uptime(), activeJob: activeJob.status, timestamp: Date.now() }));
         return;
     }
 
