@@ -780,18 +780,23 @@ Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every sing
                 let actFocusText = '';
                 
                 if (videoType === 'short') {
-                    actTitleText = 'Full Video Hook & Story';
-                    actFocusText = 'This is a vertical Short. Start with an immediate grounded hook, twist it, and deliver a fast, mesmerizing narrative arc.';
+                    actTitleText = 'Full Video Hook & Story (Psychological Short Framework)';
+                    actFocusText = `This is a vertical Short. You MUST strictly follow this psychological pacing:
+1. 0:00-0:03 (The Pattern Interrupt): A highly relatable, grounded hook paired with a jarring concept.
+2. 0:03-0:15 (The Existential Rug-Pull): Subvert the premise immediately.
+3. 0:15-0:45 (The Escalating Descent): High information density. Rapid-fire, escalating facts.
+4. 0:45-0:55 (The Mind-Bending Reveal): The ultimate climax of the awe.
+5. 0:55-0:60 (The Seamless Loop): End on an ambiguous or perfectly circular final thought that flawlessly bleeds back into the opening hook to maximize re-watches.`;
                 } else {
                     if (j === 1) {
-                        actTitleText = 'Act 1 (The Hook & The Existential Pivot)';
-                        actFocusText = 'Focus on introducing a profoundly relatable everyday concept, and then shatter the viewer’s perception of it (the pivot). Set up a mesmerizing mystery.';
+                        actTitleText = 'Act 1 (The Cold Open & The Thesis)';
+                        actFocusText = 'The Cold Open (0:00-0:45): Do not introduce yourself. Start immediately in the middle of a gripping, strange, or terrifying concept. The Thesis (0:45-1:30): Introduce the core impossible question the video will answer.';
                     } else if (j === numActs) {
-                        actTitleText = `Act ${j} (Resolution & The Profound Takeaway)`;
-                        actFocusText = 'Focus on delivering the final scientific/historical answer. End on a haunting, poetic, or deeply thought-provoking final thought that leaves the viewer staring into space.';
+                        actTitleText = `Act ${j} (The Grand Unification & Poetic Exit)`;
+                        actFocusText = 'The Grand Unification: Bring every loose thread and scientific fact together into one cohesive, jaw-dropping conclusion. The Poetic Exit (Final 30 Seconds): Do not ask them to subscribe. Deliver a haunting, poetic, or deeply thought-provoking final statement that leaves them staring in silence.';
                     } else {
-                        actTitleText = `Act ${j} (The Deep Dive & Rising Fascination)`;
-                        actFocusText = 'Focus on escalating the narrative. Unpack the science, history, or psychology step-by-step using short, punchy sentences. Keep the atmosphere thick and gripping.';
+                        actTitleText = `Act ${j} (The Deep Dive & False Climax)`;
+                        actFocusText = `The False Climax: About halfway through this act, provide an answer that seems satisfying, and then immediately destroy it ("But that theory has one massive flaw..."). The Deep Descent: Unpack the science or psychology step-by-step using short, punchy sentences. Keep the atmosphere thick and gripping. Inject a new paradigm shift every 4-5 minutes to reset dopamine.`;
                     }
                 }
                 
