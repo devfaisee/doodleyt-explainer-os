@@ -3,7 +3,16 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
+
+// Structured logger
+let logger = console;
+try {
+    logger = require('pino')();
+} catch (e) {
+    // pino not installed — fall back to console
+    logger = console;
+}
 
 // Load environment variables from .env file if it exists
 try {
@@ -470,7 +479,7 @@ let activeJob = {
 function addJobLog(msg) {
     const logLine = `[${new Date().toLocaleTimeString()}] ${msg}`;
     activeJob.logs.push(logLine);
-    console.log(logLine);
+    try { logger.info(logLine); } catch(e) { console.log(logLine); }
 }
 
 function updateJobStageStatus(stageId, status, labelUpdate = null) {
@@ -493,6 +502,18 @@ function getEffectiveApiKey(providedKey) {
         return config.apiKey.trim();
     }
     return FIXATED_KEY;
+}
+
+// Simple admin auth check for sensitive endpoints
+function isAuthorized(req) {
+    const headerKey = (req.headers['x-api-key'] || req.headers['x-api'] || '').toString().trim();
+    if (!headerKey || headerKey.length < 8) return false;
+    // compare against explicit ADMIN_API_KEY env, or stored config apiKey, or FIXATED_KEY
+    if (process.env.ADMIN_API_KEY && process.env.ADMIN_API_KEY === headerKey) return true;
+    const cfg = readConfig();
+    if (cfg.apiKey && cfg.apiKey === headerKey) return true;
+    if (FIXATED_KEY && FIXATED_KEY === headerKey) return true;
+    return false;
 }
 
 async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = false) {
@@ -1752,6 +1773,11 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/delete-script' && req.method === 'DELETE') {
+        if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
+            return;
+        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -1778,6 +1804,11 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/update-script-history' && req.method === 'POST') {
         // Updates an existing history entry (e.g. after sandbox edits)
+        if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
+            return;
+        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -1816,6 +1847,11 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/config' && req.method === 'POST') {
+        if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
+            return;
+        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -1842,6 +1878,11 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/save' && req.method === 'POST') {
+        if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
+            return;
+        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -1875,6 +1916,11 @@ const server = http.createServer((req, res) => {
         return;
     }
     if (pathname === '/api/synthesize-assets' && req.method === 'POST') {
+        if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
+            return;
+        }
         if (activeJob.status === 'running') {
             res.writeHead(409, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'A background job is already in progress.' }));
@@ -1908,6 +1954,11 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/assemble-video' && req.method === 'POST') {
+        if (!isAuthorized(req)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
+            return;
+        }
         if (activeJob.status === 'running') {
             res.writeHead(409, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'A background job is already in progress.' }));
