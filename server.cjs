@@ -251,11 +251,19 @@ async function listScriptHistory() {
         if (pgPool) {
             const res = await pgPool.query(`
                 SELECT filename, timestamp, title, category, video_type, scene_count, 
-                       thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path 
+                       thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, full_script 
                 FROM scripts_history 
                 ORDER BY timestamp DESC
             `);
-            return res.rows.map(row => mapRowToScriptSummary(row));
+            return res.rows.map(row => {
+                const summary = mapRowToScriptSummary(row);
+                // Extract estimatedCost from full_script JSON blob
+                try {
+                    const full = typeof row.full_script === 'string' ? JSON.parse(row.full_script) : row.full_script;
+                    if (full && full.estimatedCost) summary.estimatedCost = full.estimatedCost;
+                } catch(e) {}
+                return summary;
+            });
         }
     } catch (e) {
         console.error('[History] Failed to list scripts from PostgreSQL database, falling back to files:', e);
@@ -282,7 +290,8 @@ async function listScriptHistory() {
                     seoMetadata: data.seoMetadata || null,
                     assetsSynthesized: data.assetsSynthesized || false,
                     videoPath: data.videoPath || '',
-                    thumbnailPath: data.thumbnailPath || ''
+                    thumbnailPath: data.thumbnailPath || '',
+                    estimatedCost: data.estimatedCost || null
                 };
             } catch (e) {
                 return { filename, title: filename, timestamp: 0, sceneCount: 0 };
@@ -986,13 +995,15 @@ Return only the corrected prompt text, nothing else.`;
             finalScriptData.targetDuration = targetDuration;
             
             // --- COST CALCULATOR (LLM BASE) ---
+            // DeepSeek V4 Flash via OpenRouter: ~$0.09/$0.18 per 1M tokens
+            // Avg script gen: ~5k input + 8k output = (5000*0.09 + 8000*0.18) / 1,000,000 = $0.00189 ≈ $0.002
             finalScriptData.estimatedCost = {
                 images: 0,
                 audio: 0,
-                llm: 0.005,
-                total: 0.005
+                llm: 0.002,
+                total: 0.002
             };
-            addJobLog(`💰 Base LLM Scripting Cost: $0.005`);
+            addJobLog(`💰 Base LLM Scripting Cost: $0.002`);
             // ---------------------------------
             
             writeLatestScript(finalScriptData);
@@ -1300,18 +1311,24 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
             script.timestamp = Date.now();
             
             // --- COST CALCULATOR ---
-            const costPerImage = 0.003;
-            const costPerAudio = 0.01;
-            const baseLLMCost = 0.005;
+            // Exact pricing from official API pages:
+            // Flux Schnell (Replicate): $3 per 1000 images = $0.003/image
+            // Gemini TTS (Replicate): $2/M input + $0.04/1k output tokens
+            //   Avg scene: ~200 input tokens + ~80 output tokens
+            //   = (200*2 + 80*40) / 1,000,000 = $0.0004 + $0.0032 = $0.0036 ≈ $0.004/scene
+            // DeepSeek V4 Flash LLM: already counted in script gen base cost ($0.002)
+            const costPerImage = 0.003;  // Exact: Flux Schnell $3/1000 images
+            const costPerAudio = 0.004;  // Exact: Gemini TTS ~$0.004 per scene average
+            const baseLLMCost = script.estimatedCost ? (script.estimatedCost.llm || 0.002) : 0.002;
             const numScenes = scenes.length;
             
             script.estimatedCost = {
-                images: Number((numScenes * costPerImage).toFixed(3)),
-                audio: Number((numScenes * costPerAudio).toFixed(3)),
+                images: Number((numScenes * costPerImage).toFixed(4)),
+                audio: Number((numScenes * costPerAudio).toFixed(4)),
                 llm: baseLLMCost,
-                total: Number(((numScenes * costPerImage) + (numScenes * costPerAudio) + baseLLMCost).toFixed(3))
+                total: Number(((numScenes * costPerImage) + (numScenes * costPerAudio) + baseLLMCost).toFixed(4))
             };
-            addJobLog(`💰 Estimated API Cost for this video: $${script.estimatedCost.total.toFixed(3)}`);
+            addJobLog(`💰 Estimated API Cost for this video: $${script.estimatedCost.total.toFixed(4)} (${numScenes} scenes × $0.003 img + $0.004 audio + $${baseLLMCost} LLM)`);
             // -----------------------
             
             writeLatestScript(script);
