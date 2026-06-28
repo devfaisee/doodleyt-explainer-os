@@ -1423,10 +1423,7 @@ function startBackendAssembly(script, providedOutputPath) {
                         addJobLog(`❌ Concatenation failed: ${concatErr.message}`);
                     } else {
                         const stats = fs.statSync(finalVideoPath);
-                        
                         script.videoPath = `/output/videos/${videoFilename}`;
-                        script.assetsSynthesized = true;
-                        if (thumbnailPath) script.thumbnailPath = thumbnailPath;
                         script.timestamp = Date.now();
                         
                         // --- COST CALCULATOR ---
