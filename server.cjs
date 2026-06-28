@@ -534,17 +534,10 @@ function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample 
 async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
     apiKey = process.env.OPENROUTER_API_KEY || apiKey;
     const payload = JSON.stringify({
-        model: 'openai/gpt-audio-mini',
-        modalities: ['text', 'audio'],
-        audio: {
-            voice: voice,
-            format: 'pcm16'
-        },
-        stream: true,
-        messages: [
-            { role: 'system', content: 'You are a professional voice actor. You will be given a performance instruction and a text in quotes. You must ONLY speak the text in the quotes. You must adopt the requested tone and emotion. DO NOT speak the instructions. DO NOT say "Sure", "Here it is", or add ANY conversational filler whatsoever. Begin speaking the quoted text immediately.' },
-            { role: 'user', content: textPrompt }
-        ]
+        model: 'openai/gpt-4o-mini-tts-2025-12-15',
+        input: textPrompt,
+        voice: voice,
+        response_format: 'mp3'
     });
     const headers = {
         'Content-Type': 'application/json',
@@ -553,41 +546,10 @@ async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
         'X-Title': 'Doodle Theory OS'
     };
     try {
-        const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload);
-        const text = res.body.toString();
-        
-        // Parse SSE stream chunks
-        const lines = text.split('\n');
-        let base64Chunks = [];
-        
-        for (let line of lines) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith('data: ')) {
-                const jsonStr = trimmed.slice(6).trim();
-                if (jsonStr === '[DONE]') continue;
-                try {
-                    const chunk = JSON.parse(jsonStr);
-                    if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta) {
-                        const delta = chunk.choices[0].delta;
-                        if (delta.audio && delta.audio.data) {
-                            base64Chunks.push(delta.audio.data);
-                        }
-                    }
-                } catch (jsonErr) {
-                    // Ignore parsing errors for partial or malformed chunks
-                }
-            }
-        }
-        
-        if (base64Chunks.length === 0) {
-            throw new Error('No audio data found in OpenRouter stream response. Response body was: ' + text.substring(0, 500));
-        }
-        
-        const fullBase64 = base64Chunks.join('');
-        const rawPcm = Buffer.from(fullBase64, 'base64');
-        return pcmToWav(rawPcm, 24000, 1, 16);
+        const res = await httpsPost('https://openrouter.ai/api/v1/audio/speech', headers, payload);
+        return res.body;
     } catch (e) {
-        throw new Error(`OpenRouter Audio Call Failed: ${e.message}`);
+        throw new Error(`OpenRouter Audio TTS Call Failed: ${e.message}`);
     }
 }
 
@@ -1185,8 +1147,8 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                 if (openRouterApiKey && openRouterApiKey.trim().length > 10 && scene.voiceover) {
                     try {
                         addJobLog(`[OpenRouter] Scene ${i+1}/${scenes.length} generating voiceover...`);
-                        const voiceBuffer = await callOpenRouterAudio(scene.voiceover, openRouterApiKey.trim());
-                        await saveAudioAsMP3(voiceBuffer, audioPath);
+                        const voiceBuffer = await callOpenRouterAudio(spokenText, openRouterApiKey.trim());
+                        await fs.promises.writeFile(audioPath, voiceBuffer);
                         addJobLog(`✓ [OpenRouter] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                     } catch (err) {
                         addJobLog(`⚠️ OpenRouter Audio failed for scene ${i+1}: ${err.message}. Trying ElevenLabs fallback...`);
@@ -1205,7 +1167,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                                     },
                                     payload
                                 );
-                                await saveAudioAsMP3(res.body, audioPath);
+                                await fs.promises.writeFile(audioPath, res.body);
                                 addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                             } catch (elErr) {
                                 addJobLog(`⚠️ ElevenLabs fallback failed for scene ${i+1}: ${elErr.message}. Saving silent fallback.`);
