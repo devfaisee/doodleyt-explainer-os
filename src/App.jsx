@@ -101,6 +101,7 @@ function App() {
     const [historyLoading, setHistoryLoading] = useState(false);
     const [activeHistoryFilename, setActiveHistoryFilename] = useState(null);
     const [showHistoryPanel, setShowHistoryPanel] = useState(false);
+    const [showCostPanel, setShowCostPanel] = useState(false);
     const [copiedField, setCopiedField] = useState(null);
 
     // Copy to clipboard with visual feedback
@@ -1095,6 +1096,61 @@ ${currentScript.thumbnail}
                 </div>
             </nav>
 
+            {/* COST ANALYTICS PANEL OVERLAY */}
+            {showCostPanel && (
+                <div className="fixed inset-0 z-50 flex">
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowCostPanel(false)} />
+                    <div className="relative ml-auto w-full max-w-md bg-neutral-950 border-l border-neutral-800 h-full flex flex-col shadow-2xl z-50">
+                        <div className="flex items-center justify-between p-5 border-b border-neutral-800">
+                            <div>
+                                <h2 className="text-base font-black text-white">💰 Cost Analytics</h2>
+                                <p className="text-[10px] text-neutral-500 font-mono mt-0.5">Detailed breakdown of API expenditure</p>
+                            </div>
+                            <button onClick={() => setShowCostPanel(false)} className="text-neutral-500 hover:text-white p-2 rounded-xl hover:bg-neutral-900 transition-colors">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            <div className="bg-yellow-950/20 border border-yellow-900/30 p-4 rounded-2xl flex flex-col items-center justify-center mb-6">
+                                <span className="text-[10px] font-mono text-yellow-500/80 uppercase tracking-widest mb-1">Total API Spend</span>
+                                <span className="text-3xl font-black text-yellow-400">${scriptHistory.reduce((sum, script) => sum + (script.estimatedCost?.total || 0), 0).toFixed(3)}</span>
+                            </div>
+                            
+                            {scriptHistory.length === 0 ? (
+                                <div className="text-center py-12 text-neutral-600">
+                                    <span className="text-4xl block mb-3">💸</span>
+                                    <p className="text-sm">No cost data available yet.</p>
+                                </div>
+                            ) : (
+                                scriptHistory.filter(s => s.estimatedCost).map((entry) => (
+                                    <div key={entry.filename} className="p-4 rounded-2xl bg-neutral-900 border border-neutral-800">
+                                        <div className="text-sm font-bold text-white leading-snug line-clamp-1 mb-3">{entry.title}</div>
+                                        <div className="space-y-2 text-xs font-mono text-neutral-400">
+                                            <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
+                                                <span>🖼️ Replicate Images (Flux)</span>
+                                                <span className="text-white">${entry.estimatedCost.images?.toFixed(3)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
+                                                <span>🎙️ Replicate TTS (Gemini)</span>
+                                                <span className="text-white">${entry.estimatedCost.audio?.toFixed(3)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
+                                                <span>🧠 OpenRouter LLM</span>
+                                                <span className="text-white">${entry.estimatedCost.llm?.toFixed(3)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center pt-1 font-bold">
+                                                <span className="text-yellow-500">💰 Total Cost</span>
+                                                <span className="text-yellow-400">${entry.estimatedCost.total?.toFixed(3)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* SCRIPT HISTORY PANEL OVERLAY */}
             {showHistoryPanel && (
                 <div className="fixed inset-0 z-50 flex">
@@ -1256,6 +1312,9 @@ ${currentScript.thumbnail}
                             {scriptHistory.length > 0 && (
                                 <span className="ml-auto bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{scriptHistory.length}</span>
                             )}
+                        </button>
+                        <button onClick={() => { setShowCostPanel(true); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent relative`}>
+                            <span>💰</span> Cost Analytics
                         </button>
                     </div>
                     <div className="bg-neutral-900/60 p-3 rounded-2xl border border-neutral-800 text-[10px] text-neutral-500 leading-relaxed font-mono">
