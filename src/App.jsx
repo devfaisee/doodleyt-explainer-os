@@ -1079,12 +1079,18 @@ ${currentScript.thumbnail}
                             </button>
                         </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs">
-                        <span className={`w-2.5 h-2.5 rounded-full ${serverStatus.includes('Online') ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                        <span className="text-neutral-400 font-mono hidden sm:inline-block">Server: {serverStatus}</span>
-                    </div>
-                    <div className="text-xs font-mono text-neutral-500">
-                        {apiKey ? '🔐 API Configured' : '🔓 API Key Required'}
+                    <div className="flex items-center gap-4 text-xs font-mono text-neutral-400">
+                        <div className="flex items-center gap-2 hidden sm:flex">
+                            <span className={`w-2.5 h-2.5 rounded-full ${serverStatus.includes('Online') ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                            <span>Server: {serverStatus}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-2 py-1 rounded-lg cursor-help" title="Total estimated cost of all your generated scripts in history">
+                            <span className="font-bold">💰 Total API Spend:</span>
+                            <span>${scriptHistory.reduce((sum, script) => sum + (script.estimatedCost?.total || 0), 0).toFixed(3)}</span>
+                        </div>
+                        <div className="hidden sm:block">
+                            {apiKey ? '🔐 Configured' : '🔓 API Required'}
+                        </div>
                     </div>
                 </div>
             </nav>
