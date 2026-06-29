@@ -1625,6 +1625,13 @@ const server = http.createServer((req, res) => {
         'Access-Control-Allow-Headers': 'Content-Type, X-API-KEY'
     };
 
+    // Auto-inject CORS headers into every response safely
+    const originalWriteHead = res.writeHead;
+    res.writeHead = function(statusCode, headers) {
+        const mergedHeaders = Object.assign({}, headers || {}, corsHeaders);
+        return originalWriteHead.call(res, statusCode, mergedHeaders);
+    };
+
     if (req.method === 'OPTIONS') {
         res.writeHead(204, corsHeaders);
         res.end();
