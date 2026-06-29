@@ -179,6 +179,109 @@ function App() {
     const logEndRef = useRef(null);
     const pollIntervalRef = useRef(null);
 
+    const addLog = (msg) => {
+        setPipelineLogs(prev => [...prev.slice(-499), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    };
+
+    const syncScriptHistory = async () => {
+        try {
+            const res = await apiFetch('/api/scripts-history');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const serverScripts = data.scripts || [];
+            
+            // Get local backup summaries
+            let localBackup = [];
+            try {
+                const backupStr = localStorage.getItem('doodleyt_history_backup');
+                if (backupStr) localBackup = JSON.parse(backupStr);
+            } catch(e) {}
+            
+            // Get full scripts cache
+            let fullCache = {};
+            try {
+                const cacheStr = localStorage.getItem('doodleyt_full_scripts_cache');
+                if (cacheStr) fullCache = JSON.parse(cacheStr);
+            } catch(e) {}
+
+            if (serverScripts.length === 0 && localBackup.length > 0) {
+                addLog('⚠️ Server history was empty (Render container was likely restarted). Auto-restoring backup history from browser...');
+                let restoredCount = 0;
+                for (const entry of localBackup) {
+                    const fullScript = fullCache[entry.filename];
+                    if (fullScript) {
+                        try {
+                            await apiFetch('/api/update-script-history', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ filename: entry.filename, script: fullScript })
+                            });
+                            restoredCount++;
+                        } catch (err) {
+                            console.error('Failed to restore script:', entry.filename, err);
+                        }
+                    } else {
+                        addLog('⚠️ Skipping "' + entry.title + '" — not in browser cache (cannot restore).');
+                    }
+                }
+                if (restoredCount > 0) {
+                    addLog(`✓ Successfully restored ${restoredCount} scripts from browser backup!`);
+                    // Fetch history from server again now that it has been restored
+                    const res2 = await apiFetch('/api/scripts-history');
+                    if (res2.ok) {
+                        const data2 = await res2.json();
+                        const finalScripts = data2.scripts || [];
+                        setScriptHistory(finalScripts);
+                        localStorage.setItem('doodleyt_history_backup', JSON.stringify(finalScripts));
+                    }
+                }
+            } else {
+                setScriptHistory(serverScripts);
+                if (serverScripts.length > 0) {
+                    localStorage.setItem('doodleyt_history_backup', JSON.stringify(serverScripts));
+                    
+                    // Pre-cache full scripts in the background for any scripts we don't have cached yet
+                    let updatedCache = false;
+                    const scriptsToFetch = serverScripts.filter(entry => !fullCache[entry.filename]);
+                    
+                    if (scriptsToFetch.length > 0) {
+                        await Promise.allSettled(
+                            scriptsToFetch.map(entry => 
+                                apiFetch(`/api/load-script?filename=${encodeURIComponent(entry.filename)}`)
+                                    .then(res => {
+                                        if (!res.ok) throw new Error('Failed to load');
+                                        return res.json();
+                                    })
+                                    .then(loadData => {
+                                        if (loadData.script) {
+                                            fullCache[entry.filename] = loadData.script;
+                                            updatedCache = true;
+                                        }
+                                    })
+                                    .catch(e => {
+                                        console.error('Failed to pre-cache script:', entry.filename, e);
+                                    })
+                            )
+                        );
+                    }
+                    
+                    if (updatedCache) {
+                        localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(fullCache));
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to sync script history:', err);
+            // Fallback to local storage backup if backend is entirely offline
+            try {
+                const backupStr = localStorage.getItem('doodleyt_history_backup');
+                if (backupStr) {
+                    setScriptHistory(JSON.parse(backupStr));
+                }
+            } catch(e) {}
+        }
+    };
+
     const startPollingStatus = useCallback(() => {
         if (pollIntervalRef.current) return;
         
@@ -331,104 +434,7 @@ function App() {
         }
     }, [pipelineLogs]);
 
-    const syncScriptHistory = async () => {
-        try {
-            const res = await apiFetch('/api/scripts-history');
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            const serverScripts = data.scripts || [];
-            
-            // Get local backup summaries
-            let localBackup = [];
-            try {
-                const backupStr = localStorage.getItem('doodleyt_history_backup');
-                if (backupStr) localBackup = JSON.parse(backupStr);
-            } catch(e) {}
-            
-            // Get full scripts cache
-            let fullCache = {};
-            try {
-                const cacheStr = localStorage.getItem('doodleyt_full_scripts_cache');
-                if (cacheStr) fullCache = JSON.parse(cacheStr);
-            } catch(e) {}
 
-            if (serverScripts.length === 0 && localBackup.length > 0) {
-                addLog('⚠️ Server history was empty (Render container was likely restarted). Auto-restoring backup history from browser...');
-                let restoredCount = 0;
-                for (const entry of localBackup) {
-                    const fullScript = fullCache[entry.filename];
-                    if (fullScript) {
-                        try {
-                            await apiFetch('/api/update-script-history', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ filename: entry.filename, script: fullScript })
-                            });
-                            restoredCount++;
-                        } catch (err) {
-                            console.error('Failed to restore script:', entry.filename, err);
-                        }
-                    } else {
-                        addLog('⚠️ Skipping "' + entry.title + '" — not in browser cache (cannot restore).');
-                    }
-                }
-                if (restoredCount > 0) {
-                    addLog(`✓ Successfully restored ${restoredCount} scripts from browser backup!`);
-                    // Fetch history from server again now that it has been restored
-                    const res2 = await apiFetch('/api/scripts-history');
-                    if (res2.ok) {
-                        const data2 = await res2.json();
-                        const finalScripts = data2.scripts || [];
-                        setScriptHistory(finalScripts);
-                        localStorage.setItem('doodleyt_history_backup', JSON.stringify(finalScripts));
-                    }
-                }
-            } else {
-                setScriptHistory(serverScripts);
-                if (serverScripts.length > 0) {
-                    localStorage.setItem('doodleyt_history_backup', JSON.stringify(serverScripts));
-                    
-                    // Pre-cache full scripts in the background for any scripts we don't have cached yet
-                    let updatedCache = false;
-                    const scriptsToFetch = serverScripts.filter(entry => !fullCache[entry.filename]);
-                    
-                    if (scriptsToFetch.length > 0) {
-                        await Promise.allSettled(
-                            scriptsToFetch.map(entry => 
-                                apiFetch(`/api/load-script?filename=${encodeURIComponent(entry.filename)}`)
-                                    .then(res => {
-                                        if (!res.ok) throw new Error('Failed to load');
-                                        return res.json();
-                                    })
-                                    .then(loadData => {
-                                        if (loadData.script) {
-                                            fullCache[entry.filename] = loadData.script;
-                                            updatedCache = true;
-                                        }
-                                    })
-                                    .catch(e => {
-                                        console.error('Failed to pre-cache script:', entry.filename, e);
-                                    })
-                            )
-                        );
-                    }
-                    
-                    if (updatedCache) {
-                        localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(fullCache));
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Failed to sync script history:', err);
-            // Fallback to local storage backup if backend is entirely offline
-            try {
-                const backupStr = localStorage.getItem('doodleyt_history_backup');
-                if (backupStr) {
-                    setScriptHistory(JSON.parse(backupStr));
-                }
-            } catch(e) {}
-        }
-    };
 
     const saveConfig = async (updatedFields) => {
         if (updatedFields.apiKey !== undefined) localStorage.setItem('doodleyt_api_key', updatedFields.apiKey);
@@ -453,9 +459,7 @@ function App() {
         }
     };
 
-    const addLog = (msg) => {
-        setPipelineLogs(prev => [...prev.slice(-499), `[${new Date().toLocaleTimeString()}] ${msg}`]);
-    };
+
 
     // Helper to format timestamps dynamically
     const formatTime = (seconds) => {
