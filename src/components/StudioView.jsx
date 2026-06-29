@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function StudioView({ script, runVideoCompilation, compileStatus, isGenerating }) {
+export default function StudioView({ script, runVideoCompilation, compileStatus, isGenerating, getAssetUrl }) {
     const [editedPrompts, setEditedPrompts] = useState({});
     const [editedVoiceovers, setEditedVoiceovers] = useState({});
     const [assetTimestamps, setAssetTimestamps] = useState({});
@@ -66,7 +66,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                     return (
                         <div key={idx} className="flex gap-4 items-start bg-neutral-950 p-4 rounded-xl border border-neutral-800">
                             <img 
-                                src={`http://localhost:3000/output/images/scene_${sceneNum}.png?t=${assetTimestamps[idx] || ''}`} 
+                                src={`${getAssetUrl(`/output/images/scene_${sceneNum}.png`)}?t=${assetTimestamps[idx] || ''}`} 
                                 alt={`Scene ${sceneNum}`} 
                                 className="w-32 h-auto rounded-lg border border-neutral-700 object-cover mt-1" 
                             />
@@ -83,7 +83,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                                         />
                                         <audio 
                                             controls 
-                                            src={`http://localhost:3000/output/audio/${getAudioFileName(script.title, idx)}?t=${assetTimestamps[idx] || ''}`} 
+                                            src={`${getAssetUrl(`/output/audio/${getAudioFileName(script.title, idx)}`)}?t=${assetTimestamps[idx] || ''}`} 
                                             className="h-8 w-full mt-2" 
                                         />
                                     </div>

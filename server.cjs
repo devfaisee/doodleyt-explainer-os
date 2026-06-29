@@ -1744,101 +1744,64 @@ const server = http.createServer((req, res) => {
                     const audioFileName = getAudioFileName(scriptTitle, sceneIndex);
                     const audioPath = path.join(audioDir, audioFileName);
                     
-                    const openRouterApiKey = apiKey || config.apiKey || FIXATED_KEY;
                     const spokenText = extractSpokenText(text);
+                    const falApiKey = readConfig().falApiKey || '';
+                    const replicateApiKey = process.env.REPLICATE_API_KEY || (readConfig().replicateApiKey) || falApiKey;
+                    const elevenlabsApiKey = config.elevenlabsApiKey || '';
                     const mockLog = (msg) => console.log(msg);
-                    
-                    if (openRouterApiKey && openRouterApiKey.trim().length > 10 && text) {
+                    let audioGenerated = false;
+
+                    if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                         try {
-                            console.log(`[Regenerate] OpenRouter generating voiceover for scene ${sceneIndex + 1}...`);
-                            const voiceBuffer = await callOpenRouterAudio(spokenText, openRouterApiKey.trim());
-                            await saveAudioAsMP3(voiceBuffer, audioPath);
-                            console.log(`✓ [Regenerate] OpenRouter voiceover saved.`);
-                        } catch (err) {
-                            console.log(`⚠️ [Regenerate] OpenRouter Audio failed: ${err.message}. Trying Replicate Gemini TTS...`);
-                            
-                            const falApiKey = readConfig().falApiKey || '';
-                            const replicateApiKey = process.env.REPLICATE_API_KEY || (readConfig().replicateApiKey) || falApiKey;
-                            let geminiSuccess = false;
-                            
-                            if (replicateApiKey && replicateApiKey.trim().length > 10) {
-                                try {
-                                    const payload = JSON.stringify({
-                                        input: {
-                                            text: spokenText,
-                                            voice: "Kore",
-                                            prompt: text.replace(/"[^"]+"/g, '').trim() || "Say the following with professional documentary tone."
-                                        }
-                                    });
-                                    const audioUrl = await callReplicateWithRetry(
-                                        payload, 
-                                        replicateApiKey.trim(), 
-                                        mockLog, 
-                                        "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
-                                    );
-                                    const audioBuffer = await httpsGet(audioUrl);
-                                    await fs.promises.writeFile(audioPath, audioBuffer);
-                                    console.log(`✓ [Regenerate] Replicate Gemini TTS voiceover saved.`);
-                                    geminiSuccess = true;
-                                } catch (geminiErr) {
-                                    console.log(`⚠️ [Regenerate] Replicate Gemini TTS failed: ${geminiErr.message}.`);
-                                }
-                            }
-                            
-                            if (!geminiSuccess) {
-                                const elevenlabsApiKey = config.elevenlabsApiKey || '';
-                                if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
-                                    try {
-                                        const payload = JSON.stringify({
-                                            text: spokenText,
-                                            model_id: "eleven_monolingual_v1",
-                                            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-                                        });
-                                        const res = await httpsPost(
-                                            "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
-                                            {
-                                                "xi-api-key": elevenlabsApiKey.trim(),
-                                                "Content-Type": "application/json"
-                                            },
-                                            payload
-                                        );
-                                        await fs.promises.writeFile(audioPath, res.body);
-                                        console.log(`✓ [Regenerate] ElevenLabs voiceover saved.`);
-                                    } catch (elErr) {
-                                        console.log(`⚠️ [Regenerate] ElevenLabs fallback failed: ${elErr.message}.`);
-                                        throw new Error(`Voiceover generation failed: ${elErr.message}`);
-                                    }
-                                } else {
-                                    throw new Error("Voiceover generation failed, no fallback available.");
-                                }
-                            }
-                        }
-                    } else if (spokenText) {
-                        const elevenlabsApiKey = config.elevenlabsApiKey || '';
-                        if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
-                            try {
-                                const payload = JSON.stringify({
+                            console.log(`[Regenerate] Chatterbox TTS generating voiceover for scene ${sceneIndex + 1}...`);
+                            const payload = JSON.stringify({
+                                input: {
                                     text: spokenText,
-                                    model_id: "eleven_monolingual_v1",
-                                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-                                });
-                                const res = await httpsPost(
-                                    "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
-                                    {
-                                        "xi-api-key": elevenlabsApiKey.trim(),
-                                        "Content-Type": "application/json"
-                                    },
-                                    payload
-                                );
-                                await fs.promises.writeFile(audioPath, res.body);
-                                console.log(`✓ [Regenerate] ElevenLabs voiceover saved.`);
-                            } catch (elErr) {
-                                console.log(`⚠️ [Regenerate] ElevenLabs fallback failed: ${elErr.message}.`);
-                                throw new Error(`Voiceover generation failed: ${elErr.message}`);
-                            }
-                        } else {
-                            throw new Error("Voiceover generation failed, no api key available.");
+                                    voice: "Andy", // Hardcoded high-quality default voice
+                                    temperature: 0.3 // Low temperature for maximum robotic consistency
+                                }
+                            });
+                            const audioUrl = await callReplicateWithRetry(
+                                payload, 
+                                replicateApiKey.trim(), 
+                                mockLog, 
+                                "https://api.replicate.com/v1/models/resemble-ai/chatterbox-turbo/predictions"
+                            );
+                            const audioBuffer = await httpsGet(audioUrl);
+                            await fs.promises.writeFile(audioPath, audioBuffer);
+                            console.log(`✓ [Regenerate] Chatterbox TTS voiceover saved.`);
+                            audioGenerated = true;
+                        } catch (cbErr) {
+                            console.log(`⚠️ [Regenerate] Chatterbox TTS failed: ${cbErr.message}. Trying ElevenLabs fallback...`);
                         }
+                    }
+
+                    if (!audioGenerated && elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
+                        try {
+                            const payload = JSON.stringify({
+                                text: spokenText,
+                                model_id: "eleven_monolingual_v1",
+                                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                            });
+                            const res = await httpsPost(
+                                "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+                                {
+                                    "xi-api-key": elevenlabsApiKey.trim(),
+                                    "Content-Type": "application/json"
+                                },
+                                payload
+                            );
+                            await fs.promises.writeFile(audioPath, res.body);
+                            console.log(`✓ [Regenerate] ElevenLabs voiceover saved.`);
+                            audioGenerated = true;
+                        } catch (elErr) {
+                            console.log(`⚠️ [Regenerate] ElevenLabs fallback failed: ${elErr.message}.`);
+                        }
+                    }
+
+                    if (!audioGenerated) {
+                        console.log(`⚠️ [Regenerate] Voiceover generation failed or no text. Saving silent fallback.`);
+                        await saveAudioAsMP3(getSilentWavBuffer(2), audioPath);
                     }
                 }
                 
