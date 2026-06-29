@@ -1616,9 +1616,8 @@ function getSilentWavBuffer(durationSeconds = 2) {
 const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 const server = http.createServer((req, res) => {
-    const origin = req.headers.origin || '';
-    const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:5173'];
-    const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : 'http://localhost:3000';
+    const origin = req.headers.origin || '*';
+    const safeOrigin = origin; // Allow all origins (e.g. Vercel production)
     
     const corsHeaders = {
         'Access-Control-Allow-Origin': safeOrigin,
