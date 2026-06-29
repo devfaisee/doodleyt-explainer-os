@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { exec, spawn } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 
 // Structured logger
 let logger = console;
@@ -52,6 +54,24 @@ const PORT = process.env.PORT || 3000;
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 const FIXATED_KEY = process.env.OPENROUTER_API_KEY || '';
 const MAX_BODY = 10 * 1024 * 1024; // 10 MB
+
+const jobQueue = [];
+function processQueue() {
+    if (jobQueue.length > 0) {
+        const nextJob = jobQueue.shift();
+        console.log(`[Queue] Processing next job. Remaining in queue: ${jobQueue.length}`);
+        const { topicTheme, videoType, targetDuration, apiKey, model } = nextJob;
+        startBackendScriptGeneration(topicTheme, videoType, targetDuration, apiKey, model);
+    }
+}
+const STYLE_REFS_DIR = 'E:/doodleyt/style_references';
+try {
+    if (!fs.existsSync(STYLE_REFS_DIR)) {
+        fs.mkdirSync(STYLE_REFS_DIR, { recursive: true });
+    }
+} catch (e) {
+    console.error('Error creating style_references dir:', e);
+}
 
 // Generates a human-readable audio filename: first 2 words of title + padded scene index
 // e.g. title="Why Dinosaurs Don't Exist", index=0 → "why-dinosaurs-voiceover-01.mp3"
@@ -109,9 +129,11 @@ if (process.env.DATABASE_URL) {
                 full_script JSONB
             );
         `).then(() => {
+            return pgPool.query(`ALTER TABLE scripts_history ADD COLUMN IF NOT EXISTS estimated_cost JSONB;`);
+        }).then(() => {
             console.log('[Database] PostgreSQL table scripts_history is ready.');
         }).catch(err => {
-            console.error('[Database] Failed to create table scripts_history:', err);
+            console.error('[Database] Failed to initialize table:', err);
         });
     } catch (e) {
         console.error('[Database] Failed to initialize pg Pool:', e);
@@ -130,7 +152,8 @@ function mapRowToScriptSummary(row) {
         seoMetadata: row.seo_metadata || null,
         assetsSynthesized: row.assets_synthesized || false,
         videoPath: row.video_path || '',
-        thumbnailPath: row.thumbnail_path || ''
+        thumbnailPath: row.thumbnail_path || '',
+        estimatedCost: row.estimated_cost || null
     };
 }
 
@@ -219,8 +242,8 @@ async function saveScriptToHistory(script) {
             await pgPool.query(`
                 INSERT INTO scripts_history (
                     filename, timestamp, title, category, video_type, scene_count, 
-                    thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, full_script
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                    thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, estimated_cost, full_script
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 ON CONFLICT (filename) DO UPDATE SET
                     timestamp = EXCLUDED.timestamp,
                     title = EXCLUDED.title,
@@ -232,6 +255,7 @@ async function saveScriptToHistory(script) {
                     assets_synthesized = EXCLUDED.assets_synthesized,
                     video_path = EXCLUDED.video_path,
                     thumbnail_path = EXCLUDED.thumbnail_path,
+                    estimated_cost = EXCLUDED.estimated_cost,
                     full_script = EXCLUDED.full_script
             `, [
                 filename,
@@ -245,6 +269,7 @@ async function saveScriptToHistory(script) {
                 script.assetsSynthesized || false,
                 script.videoPath || '',
                 script.thumbnailPath || '',
+                script.estimatedCost ? JSON.stringify(script.estimatedCost) : null,
                 JSON.stringify(script)
             ]);
             console.log(`[History] Script saved to PostgreSQL: ${filename}`);
@@ -272,19 +297,11 @@ async function listScriptHistory() {
         if (pgPool) {
             const res = await pgPool.query(`
                 SELECT filename, timestamp, title, category, video_type, scene_count, 
-                       thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, full_script 
+                       thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, estimated_cost 
                 FROM scripts_history 
                 ORDER BY timestamp DESC
             `);
-            return res.rows.map(row => {
-                const summary = mapRowToScriptSummary(row);
-                // Extract estimatedCost from full_script JSON blob
-                try {
-                    const full = typeof row.full_script === 'string' ? JSON.parse(row.full_script) : row.full_script;
-                    if (full && full.estimatedCost) summary.estimatedCost = full.estimatedCost;
-                } catch(e) {}
-                return summary;
-            });
+            return res.rows.map(row => mapRowToScriptSummary(row));
         }
     } catch (e) {
         console.error('[History] Failed to list scripts from PostgreSQL database, falling back to files:', e);
@@ -398,8 +415,8 @@ async function updateScriptInHistory(filename, script) {
             await pgPool.query(`
                 INSERT INTO scripts_history (
                     filename, timestamp, title, category, video_type, scene_count, 
-                    thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, full_script
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                    thumbnail, seo_metadata, assets_synthesized, video_path, thumbnail_path, estimated_cost, full_script
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 ON CONFLICT (filename) DO UPDATE SET
                     timestamp = EXCLUDED.timestamp,
                     title = EXCLUDED.title,
@@ -411,6 +428,7 @@ async function updateScriptInHistory(filename, script) {
                     assets_synthesized = EXCLUDED.assets_synthesized,
                     video_path = EXCLUDED.video_path,
                     thumbnail_path = EXCLUDED.thumbnail_path,
+                    estimated_cost = EXCLUDED.estimated_cost,
                     full_script = EXCLUDED.full_script
             `, [
                 filename,
@@ -424,6 +442,7 @@ async function updateScriptInHistory(filename, script) {
                 script.assetsSynthesized || false,
                 script.videoPath || '',
                 script.thumbnailPath || '',
+                script.estimatedCost ? JSON.stringify(script.estimatedCost) : null,
                 JSON.stringify(script)
             ]);
             console.log(`[History] Database entry updated/upserted: ${filename}`);
@@ -518,12 +537,16 @@ function isAuthorized(req) {
 
 async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = false) {
     apiKey = process.env.OPENROUTER_API_KEY || apiKey;
+    const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+    ];
+    if (isJson) {
+        messages.push({ role: "assistant", content: "{\n  \"title\":" });
+    }
     const payload = JSON.stringify({
         model: model || 'deepseek/deepseek-v4-flash',
-        messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt }
-        ],
+        messages,
         response_format: isJson ? { type: 'json_object' } : undefined
     });
     const headers = {
@@ -539,7 +562,20 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
         if (!data.choices || !data.choices[0] || !data.choices[0].message) {
             throw new Error(data.error?.message || 'Invalid completions response structure');
         }
-        return data.choices[0].message.content;
+        if (activeJob && activeJob.status === 'running' && data.usage) {
+            activeJob.llmTokens = activeJob.llmTokens || { input: 0, output: 0 };
+            activeJob.llmTokens.input += data.usage.prompt_tokens || 0;
+            activeJob.llmTokens.output += data.usage.completion_tokens || 0;
+        }
+        let textResponse = data.choices[0].message.content;
+        const match = textResponse.match(/<final_answer>([\s\S]*?)<\/final_answer>/);
+        if (match) {
+            textResponse = match[1];
+        }
+        if (isJson && !textResponse.startsWith("{")) {
+            textResponse = "{\n  \"title\":" + textResponse;
+        }
+        return textResponse;
     } catch (e) {
         throw new Error(`OpenRouter Call Failed: ${e.message}`);
     }
@@ -547,11 +583,9 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
 
 function extractSpokenText(voiceover) {
     if (!voiceover) return '';
-    const match = voiceover.match(/"([^"]+)"/);
-    if (match) {
-        return match[1];
-    }
-    return voiceover.replace(/^Read\s+[^:]+:\s*/i, '');
+    const matches = [...voiceover.matchAll(/"([^"]+)"/g)];
+    if (matches.length > 0) return matches[matches.length - 1][1];
+    return voiceover.replace(/^Read\s+[^:]+:\s*/i, '').trim();
 }
 
 function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
@@ -571,63 +605,6 @@ function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample 
     buffer.writeUInt32LE(pcmBuffer.length, 40);
     pcmBuffer.copy(buffer, 44);
     return buffer;
-}
-
-async function callOpenRouterAudio(textPrompt, apiKey, voice = 'alloy') {
-    apiKey = process.env.OPENROUTER_API_KEY || apiKey;
-    const payload = JSON.stringify({
-        model: 'openai/gpt-audio-mini',
-        modalities: ['text', 'audio'],
-        audio: {
-            voice: voice,
-            format: 'pcm16'
-        },
-        stream: true,
-        messages: [
-            { role: 'system', content: 'You are a raw TTS engine. You MUST output ONLY the exact text provided by the user. Do not add any filler words, do not acknowledge the request, do not elaborate. Just read the text verbatim.' },
-            { role: 'user', content: `TEXT TO READ VERBATIM: ${textPrompt}` }
-        ]
-    });
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': 'http://localhost:3000',
-        'X-Title': 'Doodle Theory OS'
-    };
-    try {
-        const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload);
-        const text = res.body.toString();
-        
-        const lines = text.split('\n');
-        let base64Chunks = [];
-        
-        for (let line of lines) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith('data: ')) {
-                const jsonStr = trimmed.slice(6).trim();
-                if (jsonStr === '[DONE]') continue;
-                try {
-                    const chunk = JSON.parse(jsonStr);
-                    if (chunk.choices && chunk.choices[0] && chunk.choices[0].delta) {
-                        const delta = chunk.choices[0].delta;
-                        if (delta.audio && delta.audio.data) {
-                            base64Chunks.push(delta.audio.data);
-                        }
-                    }
-                } catch (jsonErr) {}
-            }
-        }
-        
-        if (base64Chunks.length === 0) {
-            throw new Error('No audio data found in OpenRouter stream response. Response body was: ' + text.substring(0, 500));
-        }
-        
-        const fullBase64 = base64Chunks.join('');
-        const rawPcm = Buffer.from(fullBase64, 'base64');
-        return pcmToWav(rawPcm, 24000, 1, 16);
-    } catch (e) {
-        throw new Error(`OpenRouter Audio TTS Call Failed: ${e.message}`);
-    }
 }
 
 async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl = "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions") {
@@ -747,11 +724,26 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
                 const visualDNA = config.visualDNA || "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).";
                 const styleReferences = config.styleReferences || ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
     
-            const designSystemPrompt = `You are an elite YouTube strategist, visual architect, and master storyteller for the channel "Doodle Theory".
+            let dynamicStyleInjection = '';
+            try {
+                if (fs.existsSync(STYLE_REFS_DIR)) {
+                    const txtFiles = fs.readdirSync(STYLE_REFS_DIR).filter(f => f.endsWith('.txt'));
+                    if (txtFiles.length > 0) {
+                        const randomFile = txtFiles[Math.floor(Math.random() * txtFiles.length)];
+                        const content = fs.readFileSync(path.join(STYLE_REFS_DIR, randomFile), 'utf8');
+                        dynamicStyleInjection = `\n\nUse this transcript as a style reference for pacing and tone:\n${content}`;
+                    }
+                }
+            } catch(e) {
+                addJobLog(`⚠️ Style reference injection failed: ${e.message}`);
+            }
+
+            let designSystemPrompt = `You are an elite YouTube strategist, visual architect, and master storyteller for the channel "Doodle Theory".
 The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using clean, hand-drawn 2D vector-style cartoon illustrations.
 Your narratives are profound, gripping, existential, and cinematic. You do not use cheap humor; you captivate through deep curiosity and mesmerizing storytelling.
 Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
 Visual DNA: ${visualDNA}`;
+            designSystemPrompt += dynamicStyleInjection;
 
             const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
 ${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, profound sub-niche.` : `Generate an extremely specific, deeply profound and weird niche topic.`}
@@ -855,12 +847,13 @@ ${charactersListString}`;
                 
                 const lastVoContext = j > 1 ? accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ') : '';
                 
-                const actSystemPrompt = `You are the master storyteller, scriptwriter, and visual director for "Doodle Theory".
+                let actSystemPrompt = `You are the master storyteller, scriptwriter, and visual director for "Doodle Theory".
 You write scripts in JSON format.
 Channel Tone: Mesmerizing, cinematic, deeply existential, and profound. The narrator speaks with quiet authority, taking the viewer on a gripping psychological or scientific journey. No chaotic humor, no sarcasm—just pure, captivating fascination (think Vsauce, LEMMiNO, or Aperture).
 Narrative Arc: Start with a deeply relatable, grounded premise ("Look at your hand", "Tonight, you'll flip a switch"), then immediately pull the rug out with an existential shock ("But you can't prove any of it is real", "For 99.9% of history, that switch didn't exist"). Build the story step-by-step using short, punchy sentences.
 Art Style DNA: Crude whiteboard cartoon illustration style. Hand-drawn felt-pen black outlines, flat solid color fills. Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments. Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.
 Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every single frame must exactly depict what the narrator is talking about in that exact moment.`;
+                actSystemPrompt += dynamicStyleInjection;
 
                 let actTitleText = `Act ${j}`;
                 let actFocusText = '';
@@ -1028,17 +1021,45 @@ Return only the corrected prompt text, nothing else.`;
             finalScriptData.targetDuration = targetDuration;
             
             // --- COST CALCULATOR (LLM BASE) ---
-            // DeepSeek V4 Flash via OpenRouter: ~$0.09/$0.18 per 1M tokens
-            // Avg script gen: ~5k input + 8k output = (5000*0.09 + 8000*0.18) / 1,000,000 = $0.00189 ≈ $0.002
+            const MODEL_RATES = {
+                'deepseek/deepseek-v4-flash': { input: 0.09, output: 0.18 },
+                'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
+                'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 }
+            };
+            const rates = MODEL_RATES[model] || { input: 0.5, output: 1.5 };
+            const tokens = activeJob.llmTokens || { input: 0, output: 0 };
+            const llmCost = (tokens.input * rates.input + tokens.output * rates.output) / 1000000;
+            
             finalScriptData.estimatedCost = {
                 images: 0,
                 audio: 0,
-                llm: 0.002,
-                total: 0.002
+                llm: Number(llmCost.toFixed(4)),
+                total: Number(llmCost.toFixed(4))
             };
             addJobLog(`💰 Base LLM Scripting Cost: $0.002`);
             // ---------------------------------
             
+            if (finalScriptData.scenes && finalScriptData.scenes[0] && finalScriptData.scenes[0].voiceover) {
+                try {
+                    const originalHook = finalScriptData.scenes[0].voiceover;
+                    const systemPrompt = "You are an expert hook writer. Reply with ONLY the raw rewritten text. NO conversational filler, NO quotes around the text, NO explanations.";
+                    const prompt = `Original: "${originalHook}"\nRewrite this to be an extremely aggressive, curiosity-inducing opening hook for a YouTube short.`;
+                    const newHook = await callOpenRouter(systemPrompt, prompt, apiKey, model, false);
+                    const cleanHook = newHook.replace(/^["']|["']$/g, '').trim();
+                    const refusalWords = ['kindly provide', 'sure', 'here is the', 'i cannot', 'as an ai', 'i can help', "i'm here to help", "im here to help", "here's"];
+                    const isRefusal = refusalWords.some(w => cleanHook.toLowerCase().includes(w));
+                    
+                    if (cleanHook && cleanHook.length > 5 && !isRefusal) {
+                        finalScriptData.scenes[0].voiceover = cleanHook;
+                        addJobLog(`🔥 Optimized Opening Hook via LLM`);
+                    } else {
+                        addJobLog(`⚠️ Hook optimization returned invalid response or refusal. Keeping original hook.`);
+                    }
+                } catch(e) {
+                    addJobLog(`⚠️ Hook optimization failed: ${e.message}`);
+                }
+            }
+
             writeLatestScript(finalScriptData);
             // Save permanently to history database
             const savedFilename = await saveScriptToHistory(finalScriptData);
@@ -1243,75 +1264,37 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                     }
                 }
                 
-                // Audio synthesis — always generate, save as named MP3 via FFmpeg
-                const openRouterApiKey = providedOpenRouterApiKey || config.apiKey || FIXATED_KEY;
+                // Audio synthesis — Chatterbox Turbo (Primary) -> ElevenLabs (Fallback) -> Silent (Final Fallback)
+                const replicateApiKey = process.env.REPLICATE_API_KEY || (readConfig().replicateApiKey) || falApiKey;
                 const spokenText = extractSpokenText(scene.voiceover);
-                
-                if (openRouterApiKey && openRouterApiKey.trim().length > 10 && scene.voiceover) {
+                let audioGenerated = false;
+
+                if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                     try {
-                        addJobLog(`[OpenRouter] Scene ${i+1}/${scenes.length} generating voiceover...`);
-                        const voiceBuffer = await callOpenRouterAudio(spokenText, openRouterApiKey.trim());
-                        await saveAudioAsMP3(voiceBuffer, audioPath);
-                        addJobLog(`✓ [OpenRouter] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
-                    } catch (err) {
-                        addJobLog(`⚠️ OpenRouter Audio failed for scene ${i+1}: ${err.message}. Trying Replicate Gemini TTS...`);
-                        
-                        const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
-                        let geminiSuccess = false;
-                        if (replicateApiKey && replicateApiKey.trim().length > 10) {
-                            try {
-                                const payload = JSON.stringify({
-                                    input: {
-                                        text: spokenText,
-                                        voice: "Kore",
-                                        prompt: scene.voiceover.replace(/"[^"]+"/g, '').trim() || "Say the following with professional documentary tone."
-                                    }
-                                });
-                                const audioUrl = await callReplicateWithRetry(
-                                    payload, 
-                                    replicateApiKey.trim(), 
-                                    addJobLog, 
-                                    "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
-                                );
-                                const audioBuffer = await httpsGet(audioUrl);
-                                await saveAudioAsMP3(audioBuffer, audioPath);
-                                addJobLog(`✓ [Replicate Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
-                                geminiSuccess = true;
-                            } catch (geminiErr) {
-                                addJobLog(`⚠️ Replicate Gemini TTS failed for scene ${i+1}: ${geminiErr.message}.`);
+                        addJobLog(`[Chatterbox TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
+                        const payload = JSON.stringify({
+                            input: {
+                                text: spokenText,
+                                voice: "Andy", // Hardcoded high-quality default voice
+                                temperature: 0.3 // Low temperature for maximum robotic consistency
                             }
-                        }
-                        
-                        if (!geminiSuccess) {
-                            if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
-                                try {
-                                    const payload = JSON.stringify({
-                                        text: spokenText,
-                                        model_id: "eleven_monolingual_v1",
-                                        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-                                    });
-                                    const res = await httpsPost(
-                                        "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
-                                        {
-                                            "xi-api-key": elevenlabsApiKey.trim(),
-                                            "Content-Type": "application/json"
-                                        },
-                                        payload
-                                    );
-                                    await saveAudioAsMP3(res.body, audioPath);
-                                    addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
-                                } catch (elErr) {
-                                    addJobLog(`⚠️ ElevenLabs fallback failed for scene ${i+1}: ${elErr.message}. Saving silent fallback.`);
-                                    const duration = parseFloat(scene.duration) || 2;
-                                    await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
-                                }
-                            } else {
-                                const duration = parseFloat(scene.duration) || 2;
-                                await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
-                            }
-                        }
+                        });
+                        const audioUrl = await callReplicateWithRetry(
+                            payload, 
+                            replicateApiKey.trim(), 
+                            addJobLog, 
+                            "https://api.replicate.com/v1/models/resemble-ai/chatterbox-turbo/predictions"
+                        );
+                        const audioBuffer = await httpsGet(audioUrl);
+                        await fs.promises.writeFile(audioPath, audioBuffer);
+                        addJobLog(`✓ [Chatterbox TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                        audioGenerated = true;
+                    } catch (cbErr) {
+                        addJobLog(`⚠️ Chatterbox TTS failed for scene ${i+1}: ${cbErr.message}. Trying ElevenLabs fallback...`);
                     }
-                } else if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
+                }
+
+                if (!audioGenerated && elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
                     try {
                         const payload = JSON.stringify({
                             text: spokenText,
@@ -1326,16 +1309,22 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             },
                             payload
                         );
-                        await saveAudioAsMP3(res.body, audioPath);
-                        addJobLog(`[ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
-                    } catch (err) {
-                        addJobLog(`⚠️ ElevenLabs failed for scene ${i+1}: ${err.message}. Saving silent fallback.`);
-                        const duration = parseFloat(scene.duration) || 2;
-                        await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
+                        await fs.promises.writeFile(audioPath, res.body);
+                        addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                        audioGenerated = true;
+                    } catch (elErr) {
+                        addJobLog(`⚠️ ElevenLabs failed for scene ${i+1}: ${elErr.message}. Saving silent fallback.`);
                     }
-                } else {
+                }
+
+                if (!audioGenerated) {
                     const duration = parseFloat(scene.duration) || 2;
                     await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
+                    if (!spokenText) {
+                        addJobLog(`ℹ️ Scene ${i+1} has no spoken text. Saved silent block.`);
+                    } else {
+                        addJobLog(`ℹ️ Saved silent fallback for Scene ${i+1} due to API failures.`);
+                    }
                 }
             }
             
@@ -1370,12 +1359,18 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
             }
             
             activeJob.script = script;
-            activeJob.status = 'completed';
-            addJobLog(`🎉 Asset synthesis finished successfully!`);
+            if (jobQueue.length > 0) {
+                addJobLog(`⚡ Bulk queue detected. Bypassing storyboard and auto-assembling...`);
+                startBackendAssembly(script, null);
+            } else {
+                activeJob.status = 'synthesis_complete';
+                addJobLog(`🎉 Asset synthesis finished successfully! Waiting for manual assembly...`);
+            }
         } catch (e) {
             activeJob.status = 'failed';
             activeJob.error = e.message;
             addJobLog(`❌ Asset synthesis failed: ${e.message}`);
+            processQueue();
         }
     })();
 }
@@ -1391,174 +1386,140 @@ function startBackendAssembly(script, providedOutputPath) {
     (async () => {
         addJobLog(`🎬 Starting background video compilation for: "${script.title}"`);
         
-        exec('ffmpeg -version', async (err, stdout, stderr) => {
-            if (err) {
-                activeJob.status = 'failed';
-                activeJob.error = "FFmpeg is not installed or not in system PATH. Final compilation requires FFmpeg.";
-                addJobLog(`❌ FFmpeg check failed: FFmpeg is not installed or not in system PATH.`);
-                return;
-            }
-            
-            try {
-                const config = readConfig();
-                const targetDir = config.outputPath || path.join(__dirname, 'output');
-                const imagesDir = path.join(targetDir, 'images');
-                const audioDir = path.join(targetDir, 'audio');
-                const videosDir = path.join(targetDir, 'videos');
-                
-                ensureDir(targetDir);
-                ensureDir(imagesDir);
-                ensureDir(audioDir);
-                ensureDir(videosDir);
-                
-                const scenes = script.scenes || [];
-                const tempVideoFiles = [];
-                const inputsTxtPath = path.join(targetDir, 'inputs.txt');
-                let inputsTxtContent = '';
-                
-                addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos...`);
-                
-                const batchSize = 1;
-                for (let i = 0; i < scenes.length; i += batchSize) {
-                    if (activeJob.status === 'idle') {
-                        addJobLog(`🛑 Compilation cancelled by user.`);
-                        return;
-                    }
-                    
-                    const batch = scenes.slice(i, i + batchSize);
-                    const batchPromises = batch.map((scene, batchIdx) => {
-                        const sceneIndex = i + batchIdx;
-                        const indexStr = (sceneIndex + 1).toString().padStart(3, '0');
-                        const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
-                        const audioFileName = getAudioFileName(script.title, sceneIndex);
-                        const audioPath = path.join(audioDir, audioFileName);
-                        
-                        // Dynamic check/write of fallback assets if missing
-                        if (!fs.existsSync(imgPath)) {
-                            fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
-                        }
-                        if (!fs.existsSync(audioPath)) {
-                            const duration = parseFloat(scene.duration) || 2;
-                            fs.writeFileSync(audioPath, getSilentWavBuffer(duration));
-                        }
+        try {
+            await execAsync('ffmpeg -version');
+        } catch (err) {
+            activeJob.status = 'failed';
+            activeJob.error = "FFmpeg is not installed or not in system PATH. Final compilation requires FFmpeg.";
+            addJobLog(`❌ FFmpeg check failed: FFmpeg is not installed or not in system PATH.`);
+            return;
+        }
 
-                        const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
-                        const duration = parseFloat(scene.duration) || 2;
-                        
-                        const scaleFilter = script.videoType === 'short' 
-                            ? `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=25`
-                            : `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=25`;
-                        
-                        const cmd = `ffmpeg -nostdin -y -loop 1 -t ${duration} -framerate 25 -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset fast -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -shortest "${tempSceneVideo}"`;
-                        
-                        return new Promise((resolveScene, rejectScene) => {
-                            exec(cmd, (sceneErr) => {
-                                if (sceneErr) {
-                                    rejectScene(sceneErr);
-                                } else {
-                                    tempVideoFiles.push(tempSceneVideo);
-                                    resolveScene();
-                                }
-                            });
-                        });
-                    });
-                    
-                    try {
-                        await Promise.all(batchPromises);
-                        addJobLog(`✓ Compiled scenes ${i + 1} to ${Math.min(i + batchSize, scenes.length)} of ${scenes.length}`);
-                    } catch (batchErr) {
-                        throw new Error(`Scene compilation failed at batch ${i + 1}: ${batchErr.message}`);
-                    }
+        const config = readConfig();
+        const targetDir = config.outputPath || path.join(__dirname, 'output');
+        const imagesDir = path.join(targetDir, 'images');
+        const audioDir = path.join(targetDir, 'audio');
+        const videosDir = path.join(targetDir, 'videos');
+        
+        ensureDir(targetDir);
+        ensureDir(imagesDir);
+        ensureDir(audioDir);
+        ensureDir(videosDir);
+        
+        const scenes = script.scenes || [];
+        const tempVideoFiles = [];
+        const inputsTxtPath = path.join(targetDir, 'inputs.txt');
+        let inputsTxtContent = '';
+        
+        addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos...`);
+        
+        try {
+            const batchSize = 10;
+            for (let i = 0; i < scenes.length; i += batchSize) {
+                if (activeJob.status === 'idle') {
+                    addJobLog(`🛑 Compilation cancelled by user.`);
+                    throw new Error('Cancelled by user');
                 }
                 
-                tempVideoFiles.sort();
-                
-                tempVideoFiles.forEach(file => {
-                    const escapedPath = file.replace(/\\/g, '/');
-                    inputsTxtContent += `file '${escapedPath}'\n`;
-                });
-                await fs.promises.writeFile(inputsTxtPath, inputsTxtContent, 'utf8');
-                
-                const slug = (script.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 50);
-                const videoFilename = `video_${script.timestamp || Date.now()}_${slug}.mp4`;
-                const finalVideoPath = path.join(videosDir, videoFilename);
-                
-                addJobLog(`⚡ Concatenating individual scene files into final master print...`);
-                const concatCmd = `ffmpeg -nostdin -y -f concat -safe 0 -i "${inputsTxtPath}" -c copy "${finalVideoPath}"`;
-                
-                exec(concatCmd, (concatErr) => {
-                    // Use an async IIFE so we can await inside and catch errors cleanly
-                    (async () => {
-                        try {
-                            tempVideoFiles.forEach(file => {
-                                try { fs.unlinkSync(file); } catch(e){}
-                            });
-                            try { fs.unlinkSync(inputsTxtPath); } catch(e){}
-                            
-                            if (concatErr) {
-                                activeJob.status = 'failed';
-                                activeJob.error = `Concatenation failed: ${concatErr.message}`;
-                                addJobLog(`❌ Concatenation failed: ${concatErr.message}`);
-                                return;
-                            }
+                const batch = scenes.slice(i, i + batchSize);
+                const batchPromises = batch.map(async (scene, batchIdx) => {
+                    const sceneIndex = i + batchIdx;
+                    const indexStr = (sceneIndex + 1).toString().padStart(3, '0');
+                    const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
+                    const audioFileName = getAudioFileName(script.title, sceneIndex);
+                    const audioPath = path.join(audioDir, audioFileName);
+                    
+                    // Dynamic check/write of fallback assets if missing
+                    if (!fs.existsSync(imgPath)) {
+                        fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                    }
+                    if (!fs.existsSync(audioPath)) {
+                        const duration = parseFloat(scene.duration) || 2;
+                        // Use saveAudioAsMP3 to ensure it's a valid format for ffmpeg, instead of raw WAV bytes in an MP3 file
+                        await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
+                    }
 
-                            const stats = fs.statSync(finalVideoPath);
-                            script.videoPath = `/output/videos/${videoFilename}`;
-                            script.timestamp = Date.now();
-
-                            // --- COST CALCULATOR (MERGE WITH EXISTING) ---
-                            const costPerImage = 0.003;
-                            const costPerAudio = 0.01;
-                            const numScenes = Array.isArray(scenes) ? scenes.length : 0;
-
-                            const imagesCost = Number((numScenes * costPerImage).toFixed(3));
-                            const audioCost = Number((numScenes * costPerAudio).toFixed(3));
-                            const existingLlm = script.estimatedCost && typeof script.estimatedCost.llm === 'number' ? script.estimatedCost.llm : 0.005;
-                            const totalCost = Number((imagesCost + audioCost + existingLlm).toFixed(3));
-
-                            // Preserve previously computed fields where appropriate and merge
-                            script.estimatedCost = {
-                                images: imagesCost,
-                                audio: audioCost,
-                                llm: existingLlm,
-                                total: totalCost
-                            };
-
-                            addJobLog(`💰 Estimated API Cost for this video: $${script.estimatedCost.total.toFixed(3)}`);
-                            // -----------------------
-
-                            writeLatestScript(script);
-                            if (script.historyFilename) {
-                                try {
-                                    await updateScriptInHistory(script.historyFilename, script);
-                                } catch (uErr) {
-                                    addJobLog(`⚠️ Failed to update history after concat: ${uErr.message}`);
-                                }
-                            }
-
-                            activeJob.script = script;
-                            activeJob.status = 'completed';
-                            addJobLog(`🎉 Master video compilation finished successfully!`);
-                            addJobLog(`💾 File saved: ${script.videoPath} (${stats.size} bytes)`);
-
-                        } catch (e) {
-                            addJobLog(`❌ Error in concatenation handler: ${e.message}`);
-                            activeJob.status = 'failed';
-                            activeJob.error = e.message;
-                        }
-                    })().catch(e => {
-                        addJobLog(`❌ Unexpected concat handler failure: ${e.message}`);
-                        activeJob.status = 'failed';
-                        activeJob.error = e.message;
-                    });
+                    const getDurationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`;
+                    let exactAudioDur = 2.0;
+                    try {
+                        const { stdout } = await execAsync(getDurationCmd);
+                        exactAudioDur = parseFloat(stdout.trim());
+                        if (isNaN(exactAudioDur)) exactAudioDur = 2.0;
+                    } catch(e) {}
+                    
+                    // Add 0.3s padding to ensure the final TTS word naturally fades out and never gets cropped
+                    const paddedDuration = (exactAudioDur + 0.3).toFixed(3);
+                    const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
+                    
+                    const scaleFilter = script.videoType === 'short' 
+                        ? `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=25`
+                        : `scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=25`;
+                    
+                    // -t strictly forces the duration.
+                    // -af apad pads the audio stream with silence so the audio track perfectly matches the video track duration.
+                    // This prevents the "creepy distortion" (audio sync popping) during the final concat.
+                    const cmd = `ffmpeg -nostdin -y -loop 1 -framerate 25 -t ${paddedDuration} -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset fast -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -af "apad" "${tempSceneVideo}"`;
+                    
+                    await execAsync(cmd);
+                    tempVideoFiles.push(tempSceneVideo);
                 });
                 
-            } catch (innerErr) {
+                await Promise.all(batchPromises);
+                addJobLog(`✓ Compiled scenes ${i + 1} to ${Math.min(i + batchSize, scenes.length)} of ${scenes.length}`);
+            }
+            
+            tempVideoFiles.sort();
+            
+            tempVideoFiles.forEach(file => {
+                const escapedPath = file.replace(/\\/g, '/');
+                inputsTxtContent += `file '${escapedPath}'\n`;
+            });
+            await fs.promises.writeFile(inputsTxtPath, inputsTxtContent, 'utf8');
+            
+            const slug = (script.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 50);
+            const videoFilename = `video_${script.timestamp || Date.now()}_${slug}.mp4`;
+            const finalVideoPath = path.join(videosDir, videoFilename);
+            
+            addJobLog(`⚡ Concatenating individual scene files into final master print...`);
+            const concatCmd = `ffmpeg -nostdin -y -f concat -safe 0 -i "${inputsTxtPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:v libx264 -c:a aac "${finalVideoPath}"`;
+            
+            await execAsync(concatCmd);
+
+            // Cleanup temp files on success
+            tempVideoFiles.forEach(file => { try { fs.unlinkSync(file); } catch(e){} });
+            try { fs.unlinkSync(inputsTxtPath); } catch(e){}
+            
+            const stats = fs.statSync(finalVideoPath);
+            script.videoPath = `/output/videos/${videoFilename}`;
+            script.timestamp = Date.now();
+
+            writeLatestScript(script);
+            if (script.historyFilename) {
+                try {
+                    await updateScriptInHistory(script.historyFilename, script);
+                } catch (uErr) {
+                    addJobLog(`⚠️ Failed to update history after concat: ${uErr.message}`);
+                }
+            }
+
+            activeJob.script = script;
+            activeJob.status = 'completed';
+            addJobLog(`🎉 Master video compilation finished successfully!`);
+            addJobLog(`💾 File saved: ${script.videoPath} (${stats.size} bytes)`);
+
+        } catch (innerErr) {
+            // Cleanup temp files on any failure or cancellation
+            tempVideoFiles.forEach(file => { try { fs.unlinkSync(file); } catch(_) {} });
+            try { fs.unlinkSync(inputsTxtPath); } catch(_) {}
+            
+            if (innerErr.message !== 'Cancelled by user') {
                 activeJob.status = 'failed';
                 activeJob.error = innerErr.message;
                 addJobLog(`❌ Compilation failed: ${innerErr.message}`);
+            } else {
+                activeJob.status = 'idle';
             }
-        });
+        }
     })();
 }
 
@@ -1601,9 +1562,12 @@ function httpsPost(url, headers, body, timeoutMs = 120000) {
 }
 
 // Native HTTPS GET request helper
-function httpsGet(url) {
+function httpsGet(url, maxRedirects = 5) {
     return new Promise((resolve, reject) => {
         https.get(url, (res) => {
+            if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location && maxRedirects > 0) {
+                return resolve(httpsGet(res.headers.location, maxRedirects - 1));
+            }
             let data = [];
             res.on('data', (chunk) => data.push(chunk));
             res.on('end', () => {
@@ -1652,13 +1616,18 @@ function getSilentWavBuffer(durationSeconds = 2) {
 const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 const server = http.createServer((req, res) => {
-    // Enable CORS
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    const origin = req.headers.origin || '';
+    const ALLOWED_ORIGINS = ['http://localhost:3000', 'http://localhost:5173'];
+    const safeOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : 'http://localhost:3000';
+    
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': safeOrigin,
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, X-API-KEY'
+    };
 
     if (req.method === 'OPTIONS') {
-        res.writeHead(204);
+        res.writeHead(204, corsHeaders);
         res.end();
         return;
     }
@@ -1668,36 +1637,215 @@ const server = http.createServer((req, res) => {
 
     // API Routes
     if (pathname === '/api/generation-status' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
         res.end(JSON.stringify(activeJob));
         return;
     }
 
     if (pathname === '/api/generate-script' && req.method === 'POST') {
-        // Concurrent generation guard
-        if (activeJob.status === 'running') {
-            res.writeHead(409, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'A generation job is already in progress.' }));
-            return;
-        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
             if (body.length > MAX_BODY) {
                 req.destroy();
-                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.writeHead(413, { 'Content-Type': 'application/json', ...corsHeaders });
                 res.end(JSON.stringify({ error: 'Request body too large.' }));
             }
         });
         req.on('end', () => {
             try {
                 const params = JSON.parse(body);
+                if (activeJob.status === 'running') {
+                    jobQueue.push(params);
+                    console.log(`[Queue] Pushed job to queue. Queue length: ${jobQueue.length}`);
+                    res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
+                    res.end(JSON.stringify({ success: true, message: 'Job queued', queueLength: jobQueue.length }));
+                    return;
+                }
                 const { topicTheme, videoType, targetDuration, apiKey, model } = params;
                 startBackendScriptGeneration(topicTheme, videoType, targetDuration, apiKey, model);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
                 res.end(JSON.stringify({ success: true, message: 'Script generation started' }));
             } catch (e) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.writeHead(400, { 'Content-Type': 'application/json', ...corsHeaders });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/regenerate-asset' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json', ...corsHeaders });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
+        req.on('end', async () => {
+            try {
+                const params = JSON.parse(body);
+                const { sceneIndex, type, text, videoType, scriptTitle, apiKey } = params;
+                const config = readConfig();
+                const targetDir = config.outputPath || path.join(__dirname, 'output');
+                const imagesDir = path.join(targetDir, 'images');
+                const audioDir = path.join(targetDir, 'audio');
+                
+                ensureDir(targetDir);
+                
+                if (type === 'image') {
+                    ensureDir(imagesDir);
+                    const indexStr = String(sceneIndex + 1).padStart(3, '0');
+                    const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
+                    let imgBuffer = null;
+                    let imgGenerated = false;
+
+                    const geminiApiKey = apiKey || config.geminiApiKey || '';
+                    if (geminiApiKey && geminiApiKey.trim().length > 10) {
+                        try {
+                            console.log(`[Regenerate] Gemini Imagen generating image for scene ${sceneIndex + 1}...`);
+                            imgBuffer = await callGeminiImagenAPI(text, geminiApiKey.trim(), videoType);
+                            imgGenerated = true;
+                            console.log(`✓ [Regenerate] Gemini Imagen image completed.`);
+                        } catch (geminiErr) {
+                            console.log(`⚠️ [Regenerate] Gemini Imagen failed: ${geminiErr.message}. Trying Fal.ai fallback...`);
+                        }
+                    }
+
+                    if (!imgGenerated) {
+                        try {
+                            console.log(`[Regenerate] Replicate generating image for scene ${sceneIndex + 1}...`);
+                            const falApiKey = readConfig().falApiKey || '';
+                            const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                            const payload = JSON.stringify({
+                                input: {
+                                    prompt: text,
+                                    aspect_ratio: videoType === 'short' ? '9:16' : '16:9'
+                                }
+                            });
+                            const mockLog = (msg) => console.log(msg);
+                            const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, mockLog);
+                            imgBuffer = await httpsGet(imgUrl);
+                            imgGenerated = true;
+                            console.log(`✓ [Regenerate] Replicate image completed.`);
+                        } catch (err) {
+                            console.log(`⚠️ [Regenerate] Replicate failed: ${err.message}.`);
+                            throw new Error(`Image generation failed: ${err.message}`);
+                        }
+                    }
+
+                    if (imgGenerated && imgBuffer) {
+                        await fs.promises.writeFile(imgPath, imgBuffer);
+                    }
+                } else if (type === 'audio') {
+                    ensureDir(audioDir);
+                    const audioFileName = getAudioFileName(scriptTitle, sceneIndex);
+                    const audioPath = path.join(audioDir, audioFileName);
+                    
+                    const openRouterApiKey = apiKey || config.apiKey || FIXATED_KEY;
+                    const spokenText = extractSpokenText(text);
+                    const mockLog = (msg) => console.log(msg);
+                    
+                    if (openRouterApiKey && openRouterApiKey.trim().length > 10 && text) {
+                        try {
+                            console.log(`[Regenerate] OpenRouter generating voiceover for scene ${sceneIndex + 1}...`);
+                            const voiceBuffer = await callOpenRouterAudio(spokenText, openRouterApiKey.trim());
+                            await saveAudioAsMP3(voiceBuffer, audioPath);
+                            console.log(`✓ [Regenerate] OpenRouter voiceover saved.`);
+                        } catch (err) {
+                            console.log(`⚠️ [Regenerate] OpenRouter Audio failed: ${err.message}. Trying Replicate Gemini TTS...`);
+                            
+                            const falApiKey = readConfig().falApiKey || '';
+                            const replicateApiKey = process.env.REPLICATE_API_KEY || (readConfig().replicateApiKey) || falApiKey;
+                            let geminiSuccess = false;
+                            
+                            if (replicateApiKey && replicateApiKey.trim().length > 10) {
+                                try {
+                                    const payload = JSON.stringify({
+                                        input: {
+                                            text: spokenText,
+                                            voice: "Kore",
+                                            prompt: text.replace(/"[^"]+"/g, '').trim() || "Say the following with professional documentary tone."
+                                        }
+                                    });
+                                    const audioUrl = await callReplicateWithRetry(
+                                        payload, 
+                                        replicateApiKey.trim(), 
+                                        mockLog, 
+                                        "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
+                                    );
+                                    const audioBuffer = await httpsGet(audioUrl);
+                                    await fs.promises.writeFile(audioPath, audioBuffer);
+                                    console.log(`✓ [Regenerate] Replicate Gemini TTS voiceover saved.`);
+                                    geminiSuccess = true;
+                                } catch (geminiErr) {
+                                    console.log(`⚠️ [Regenerate] Replicate Gemini TTS failed: ${geminiErr.message}.`);
+                                }
+                            }
+                            
+                            if (!geminiSuccess) {
+                                const elevenlabsApiKey = config.elevenlabsApiKey || '';
+                                if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
+                                    try {
+                                        const payload = JSON.stringify({
+                                            text: spokenText,
+                                            model_id: "eleven_monolingual_v1",
+                                            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                                        });
+                                        const res = await httpsPost(
+                                            "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+                                            {
+                                                "xi-api-key": elevenlabsApiKey.trim(),
+                                                "Content-Type": "application/json"
+                                            },
+                                            payload
+                                        );
+                                        await fs.promises.writeFile(audioPath, res.body);
+                                        console.log(`✓ [Regenerate] ElevenLabs voiceover saved.`);
+                                    } catch (elErr) {
+                                        console.log(`⚠️ [Regenerate] ElevenLabs fallback failed: ${elErr.message}.`);
+                                        throw new Error(`Voiceover generation failed: ${elErr.message}`);
+                                    }
+                                } else {
+                                    throw new Error("Voiceover generation failed, no fallback available.");
+                                }
+                            }
+                        }
+                    } else if (spokenText) {
+                        const elevenlabsApiKey = config.elevenlabsApiKey || '';
+                        if (elevenlabsApiKey && elevenlabsApiKey.trim().length > 10) {
+                            try {
+                                const payload = JSON.stringify({
+                                    text: spokenText,
+                                    model_id: "eleven_monolingual_v1",
+                                    voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+                                });
+                                const res = await httpsPost(
+                                    "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+                                    {
+                                        "xi-api-key": elevenlabsApiKey.trim(),
+                                        "Content-Type": "application/json"
+                                    },
+                                    payload
+                                );
+                                await fs.promises.writeFile(audioPath, res.body);
+                                console.log(`✓ [Regenerate] ElevenLabs voiceover saved.`);
+                            } catch (elErr) {
+                                console.log(`⚠️ [Regenerate] ElevenLabs fallback failed: ${elErr.message}.`);
+                                throw new Error(`Voiceover generation failed: ${elErr.message}`);
+                            }
+                        } else {
+                            throw new Error("Voiceover generation failed, no api key available.");
+                        }
+                    }
+                }
+                
+                res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
+                res.end(JSON.stringify({ success: true }));
+            } catch (e) {
+                res.writeHead(500, { 'Content-Type': 'application/json', ...corsHeaders });
                 res.end(JSON.stringify({ error: e.message }));
             }
         });
@@ -1710,7 +1858,7 @@ const server = http.createServer((req, res) => {
             body += chunk;
             if (body.length > MAX_BODY) {
                 req.destroy();
-                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.writeHead(413, { 'Content-Type': 'application/json', ...corsHeaders });
                 res.end(JSON.stringify({ error: 'Request body too large.' }));
             }
         });
@@ -1719,10 +1867,10 @@ const server = http.createServer((req, res) => {
                 const data = JSON.parse(body);
                 activeJob.script = data.script;
                 writeLatestScript(data.script);
-                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.writeHead(200, { 'Content-Type': 'application/json', ...corsHeaders });
                 res.end(JSON.stringify({ success: true }));
             } catch (e) {
-                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.writeHead(500, { 'Content-Type': 'application/json', ...corsHeaders });
                 res.end(JSON.stringify({ error: e.message }));
             }
         });
@@ -1841,8 +1989,17 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/config' && req.method === 'GET') {
+        const config = readConfig();
+        const safeConfig = {
+            ...config,
+            apiKey: config.apiKey ? '***' + config.apiKey.slice(-4) : '',
+            geminiApiKey: config.geminiApiKey ? '***' + config.geminiApiKey.slice(-4) : '',
+            elevenlabsApiKey: config.elevenlabsApiKey ? '***' + config.elevenlabsApiKey.slice(-4) : '',
+            falApiKey: config.falApiKey ? '***' + config.falApiKey.slice(-4) : '',
+            replicateApiKey: config.replicateApiKey ? '***' + config.replicateApiKey.slice(-4) : ''
+        };
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(readConfig()));
+        res.end(JSON.stringify(safeConfig));
         return;
     }
 
@@ -1902,9 +2059,20 @@ const server = http.createServer((req, res) => {
                 ensureDir(targetDir);
 
                 const safeFilename = path.basename(filename || 'untitled.json');
-                                // Prevent path traversal by only allowing the basename
-                                const filePath = path.join(targetDir, safeFilename);
-                                fs.writeFileSync(filePath, typeof content === 'object' ? JSON.stringify(content, null, 2) : content, 'utf8');
+                if (!safeFilename || safeFilename !== filename) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Invalid filename' }));
+                    return;
+                }
+
+                const filePath = path.join(targetDir, safeFilename);
+                if (!path.resolve(filePath).startsWith(path.resolve(targetDir))) {
+                    res.writeHead(403, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Forbidden.' }));
+                    return;
+                }
+
+                fs.writeFileSync(filePath, typeof content === 'object' ? JSON.stringify(content, null, 2) : content, 'utf8');
 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: true, filePath }));
@@ -2106,7 +2274,12 @@ Return only the corrected prompt text, nothing else.`;
     if (pathname === '/' || pathname === '/index.html') {
         const indexPath = path.join(__dirname, 'dist', 'index.html');
         if (fs.existsSync(indexPath)) {
-            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.writeHead(200, { 
+                'Content-Type': 'text/html',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            });
             res.end(fs.readFileSync(indexPath));
         } else {
             const rootIndexPath = path.join(__dirname, 'index.html');
@@ -2197,7 +2370,19 @@ Return only the corrected prompt text, nothing else.`;
             '.mp4': 'video/mp4',
         };
         const contentType = mimeTypes[ext] || 'application/octet-stream';
-        res.writeHead(200, { 'Content-Type': contentType });
+        const mediaExts = ['.mp4', '.mp3', '.wav'];
+        if (mediaExts.includes(ext)) {
+            const stat = fs.statSync(filePath);
+            res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': stat.size });
+            fs.createReadStream(filePath).pipe(res);
+            return;
+        }
+        const isImmutable = filePath.includes('assets') && (ext === '.js' || ext === '.css');
+        if (isImmutable) {
+            res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000, immutable' });
+        } else {
+            res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache' });
+        }
         res.end(fs.readFileSync(filePath));
         return;
     }

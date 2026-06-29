@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+
 
 export default function TerminalView({
     customNicheInput,
@@ -35,8 +36,8 @@ export default function TerminalView({
                 
                 <div className="space-y-3">
                     <label className="text-xs font-semibold text-neutral-400 block font-mono">Niche Theme or Topic Keyword (Optional)</label>
-                    <input 
-                        type="text"
+                    <textarea 
+                        rows={3}
                         placeholder="e.g. Banned left handed spies, weird medieval trials, or leave blank for autonomous niche..."
                         className="w-full bg-neutral-950 border border-neutral-800 focus:border-blue-500 p-4 rounded-xl text-sm text-neutral-200 outline-none font-mono"
                         value={customNicheInput}
@@ -225,13 +226,7 @@ export default function TerminalView({
                                             <span>🎨</span> Audio + Images
                                         </button>
  
-                                        <button
-                                            onClick={runVideoCompilation}
-                                            disabled={isGenerating || (synthesisStatus !== 'completed' && !currentScript?.assetsSynthesized) || compileStatus === 'running'}
-                                            className="flex-1 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/20 hover:border-blue-500/40 text-blue-400 hover:text-blue-300 font-semibold py-3 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 disabled:opacity-50"
-                                        >
-                                            <span>🎬</span> Assemble Final Video (FFmpeg Compiler)
-                                        </button>
+
                                     </div>
 
                                     {compileStatus === 'completed' && (
@@ -281,6 +276,8 @@ export default function TerminalView({
                                             )}
                                         </div>
                                     )}
+
+
                                 </div>
                                 
                                 <div className="bg-amber-500/5 px-4 py-3 rounded-2xl border border-amber-500/20 mb-4 text-xs">

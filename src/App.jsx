@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import TerminalView from './components/TerminalView';
 import TopicsView from './components/TopicsView';
 import SandboxView from './components/SandboxView';
@@ -7,6 +7,7 @@ import SettingsView from './components/SettingsView';
 import VisualDNAView from './components/VisualDNAView';
 import QCView from './components/QCView';
 import VideosView from './components/VideosView';
+import StudioView from './components/StudioView';
 
 
 // --- PRESETS & HARDCODED BLUEPRINTS ---
@@ -45,6 +46,22 @@ const validatePromptText = (promptText) => {
 
 const FALLBACK_API_KEY = '';
 
+const API_SERVER_URL = 'https://node-app-production-d022.up.railway.app';
+
+const apiFetch = (url, options = {}) => {
+    const baseUrl = API_SERVER_URL;
+    const targetUrl = url.startsWith('/') ? url : `/${url}`;
+    return fetch(`${baseUrl}${targetUrl}`, options);
+};
+
+const getAssetUrl = (path) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const baseUrl = API_SERVER_URL;
+    const targetUrl = path.startsWith('/') ? path : `/${path}`;
+    return `${baseUrl}${targetUrl}`;
+};
+
 // --- MAIN APP COMPONENT ---
 function App() {
     const [authenticated, setAuthenticated] = useState(false);
@@ -59,21 +76,6 @@ function App() {
     const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
-    const API_SERVER_URL = 'https://node-app-production-d022.up.railway.app';
-
-    const apiFetch = (url, options = {}) => {
-        const baseUrl = API_SERVER_URL;
-        const targetUrl = url.startsWith('/') ? url : `/${url}`;
-        return fetch(`${baseUrl}${targetUrl}`, options);
-    };
-
-    const getAssetUrl = (path) => {
-        if (!path) return '';
-        if (path.startsWith('http')) return path;
-        const baseUrl = API_SERVER_URL;
-        const targetUrl = path.startsWith('/') ? path : `/${path}`;
-        return `${baseUrl}${targetUrl}`;
-    };
     const [characters, setCharacters] = useState([]);
     const [videoType, setVideoType] = useState('long');
     const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12, 15, 20, 25)
@@ -92,6 +94,7 @@ function App() {
             return cached ? JSON.parse(cached) : null;
         } catch (e) {
             console.error('Failed to parse cached script', e);
+            localStorage.removeItem('doodleyt_current_script');
             return null;
         }
     });
@@ -103,6 +106,7 @@ function App() {
     const [showHistoryPanel, setShowHistoryPanel] = useState(false);
     const [showCostPanel, setShowCostPanel] = useState(false);
     const [copiedField, setCopiedField] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // Copy to clipboard with visual feedback
     const copyToClipboard = (text, fieldId) => {
@@ -163,14 +167,19 @@ function App() {
     const [pipelineStages, setPipelineStages] = useState(() => buildDefaultStages(videoType, targetDuration));
 
     // Keep checklist structure synced with length selection
+    const hasMountedStages = useRef(false);
     useEffect(() => {
+        if (!hasMountedStages.current) {
+            hasMountedStages.current = true;
+            return;
+        }
         setPipelineStages(buildDefaultStages(videoType, targetDuration));
     }, [videoType, targetDuration]);
 
     const logEndRef = useRef(null);
     const pollIntervalRef = useRef(null);
 
-    const startPollingStatus = () => {
+    const startPollingStatus = useCallback(() => {
         if (pollIntervalRef.current) return;
         
         pollIntervalRef.current = setInterval(async () => {
@@ -197,7 +206,12 @@ function App() {
                     setSynthesisStatus('idle');
                 } else {
                     // Default to generation
-                    setIsGenerating(data.status === 'running');
+                    if (data.script && data.status === 'running') {
+                        setIsGenerating(true);
+                        setCurrentScript(data.script);
+                    } else {
+                        setIsGenerating(data.status === 'running');
+                    }
                     setSynthesisStatus('idle');
                     setCompileStatus('idle');
                 }
@@ -205,17 +219,22 @@ function App() {
                 if (data.status !== 'running') {
                     clearInterval(pollIntervalRef.current);
                     pollIntervalRef.current = null;
-                    const finalStatus = data.status; // 'completed' or 'failed'
-                    const jobType = data.jobType; // 'synthesis' or 'assembly'
-                    if (jobType === 'synthesis') {
-                        // Use 'completed' to match component checks (they look for 'completed')
-                        setSynthesisStatus(finalStatus === 'completed' ? 'completed' : 'failed');
-                    } else if (jobType === 'assembly') {
-                        setCompileStatus(finalStatus === 'completed' ? 'completed' : 'failed');
+                    const finalStatus = data.status || 'done';
+                    if (data.jobType === 'synthesis') {
+                        setSynthesisStatus(finalStatus);
+                        setIsGenerating(false);
+                        setCompileStatus('idle');
+                        if (finalStatus === 'synthesis_complete') setActiveTab('studio');
+                    } else if (data.jobType === 'assembly') {
+                        setCompileStatus(finalStatus);
+                        setIsGenerating(false);
+                        setSynthesisStatus('idle');
+                    } else {
+                        setIsGenerating(false);
+                        setSynthesisStatus('idle');
+                        setCompileStatus('idle');
                     }
-                    if (finalStatus === 'failed') {
-                        addLog(`❌ Job failed: ${data.error || 'Unknown error'}`);
-                    }
+                    if (finalStatus === 'failed') addLog(`❌ Job failed: ${data.error || 'Unknown'}`);
                     // Refresh history list after any job completes
                     syncScriptHistory();
                 }
@@ -223,7 +242,7 @@ function App() {
                 console.error('Polling error:', err);
             }
         }, 1500);
-    };
+    }, [syncScriptHistory]);
 
     // Fetch config on load
     useEffect(() => {
@@ -349,6 +368,8 @@ function App() {
                         } catch (err) {
                             console.error('Failed to restore script:', entry.filename, err);
                         }
+                    } else {
+                        addLog('⚠️ Skipping "' + entry.title + '" — not in browser cache (cannot restore).');
                     }
                 }
                 if (restoredCount > 0) {
@@ -369,22 +390,29 @@ function App() {
                     
                     // Pre-cache full scripts in the background for any scripts we don't have cached yet
                     let updatedCache = false;
-                    for (const entry of serverScripts) {
-                        if (!fullCache[entry.filename]) {
-                            try {
-                                const loadRes = await apiFetch(`/api/load-script?filename=${encodeURIComponent(entry.filename)}`);
-                                if (loadRes.ok) {
-                                    const loadData = await loadRes.json();
-                                    if (loadData.script) {
-                                        fullCache[entry.filename] = loadData.script;
-                                        updatedCache = true;
-                                    }
-                                }
-                            } catch (e) {
-                                console.error('Failed to pre-cache script:', entry.filename, e);
-                            }
-                        }
+                    const scriptsToFetch = serverScripts.filter(entry => !fullCache[entry.filename]);
+                    
+                    if (scriptsToFetch.length > 0) {
+                        await Promise.allSettled(
+                            scriptsToFetch.map(entry => 
+                                apiFetch(`/api/load-script?filename=${encodeURIComponent(entry.filename)}`)
+                                    .then(res => {
+                                        if (!res.ok) throw new Error('Failed to load');
+                                        return res.json();
+                                    })
+                                    .then(loadData => {
+                                        if (loadData.script) {
+                                            fullCache[entry.filename] = loadData.script;
+                                            updatedCache = true;
+                                        }
+                                    })
+                                    .catch(e => {
+                                        console.error('Failed to pre-cache script:', entry.filename, e);
+                                    })
+                            )
+                        );
                     }
+                    
                     if (updatedCache) {
                         localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(fullCache));
                     }
@@ -520,6 +548,7 @@ function App() {
             addLog('🛑 Generation cancelled.');
         } catch (e) {
             console.error('Failed to cancel generation:', e);
+            setIsGenerating(true);
         }
     };
 
@@ -987,7 +1016,7 @@ ${currentScript.thumbnail}
             setCurrentScript(data.script);
             setActiveHistoryFilename(filename);
             setShowHistoryPanel(false);
-            setActiveTab('sandbox');
+            setActiveTab('studio');
             addLog(`📂 Loaded history script: "${data.script.title}"`);
 
             // Cache full script in local storage
@@ -1100,7 +1129,7 @@ ${currentScript.thumbnail}
                         <button
                             onClick={() => setShowCostPanel(true)}
                             title="Click to view detailed Cost Analytics"
-                            className="flex items-center gap-1.5 bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-2 py-1 rounded-lg cursor-pointer hover:scale-105 transition-transform"
+                            className="flex items-center gap-1.5 bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-2 py-1 rounded-lg cursor-pointer hover:bg-yellow-900/40 hover:scale-105 transition-all"
                         >
                             <span className="font-bold">💰 Total API Spend:</span>
                             <span>${scriptHistory.reduce((sum, script) => sum + (script.estimatedCost?.total || 0), 0).toFixed(3)}</span>
@@ -1192,6 +1221,15 @@ ${currentScript.thumbnail}
                                 </button>
                             </div>
                         </div>
+                        <div className="p-4 border-b border-neutral-800">
+                            <input 
+                                type="text" 
+                                placeholder="Search history by title or category..." 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-neutral-900 border border-neutral-800 p-3 rounded-xl text-sm text-neutral-200 outline-none focus:border-blue-500 transition-colors"
+                            />
+                        </div>
                         <div className="flex-1 overflow-y-auto p-4 space-y-3">
                             {historyLoading ? (
                                 <div className="flex items-center justify-center py-12 text-neutral-500">
@@ -1203,7 +1241,10 @@ ${currentScript.thumbnail}
                                     <p className="text-sm">No scripts saved yet. Generate your first one!</p>
                                 </div>
                             ) : (
-                                scriptHistory.map((entry) => {
+                                scriptHistory.filter(s => 
+                                    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                    (s.category || '').toLowerCase().includes(searchQuery.toLowerCase())
+                                ).map((entry) => {
                                     const isActive = entry.filename === activeHistoryFilename;
                                     const date = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'Unknown date';
                                     return (
@@ -1235,11 +1276,11 @@ ${currentScript.thumbnail}
                                             <div className="text-[9px] text-neutral-600 font-mono mt-1">{date}</div>
                                             <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                                                 {entry.estimatedCost && (
-                                                    <span className="text-[8px] bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-1.5 py-0.5 rounded font-bold" title={`Images: $${entry.estimatedCost.images ?? 0} | Audio: $${entry.estimatedCost.audio ?? 0}`}>
+                                                    <span className="text-[8px] bg-yellow-950/40 text-yellow-400 border border-yellow-900/30 px-1.5 py-0.5 rounded font-bold" title={`Images: $${(entry.estimatedCost.images ?? 0).toFixed(3)} | Audio: $${(entry.estimatedCost.audio ?? 0).toFixed(3)}`}>
                                                         💰 ${(entry.estimatedCost.total ?? 0).toFixed(3)}
                                                     </span>
                                                 )}
-                                                {entry.seoMetadata && <span className="text-[8px] bg-green-950/40 text-green-400 border border-green-900/30 px-1.5 py-0.5 rounded font-bold">SEO ✓</span>}
+                                                {(entry.seoMetadata || entry.hasSeo) && <span className="text-[8px] bg-green-950/40 text-green-400 border border-green-900/30 px-1.5 py-0.5 rounded font-bold">SEO ✓</span>}
                                                 {entry.videoPath ? (
                                                     <span className="text-[8px] bg-emerald-950/40 text-emerald-400 border border-emerald-900/30 px-1.5 py-0.5 rounded font-bold">Video ✓</span>
                                                 ) : entry.assetsSynthesized ? (
@@ -1314,6 +1355,9 @@ ${currentScript.thumbnail}
                         </button>
                         <button onClick={() => { setActiveTab('sandbox'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'sandbox' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>📝</span> Script Sandbox
+                        </button>
+                        <button onClick={() => { setActiveTab('studio'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'studio' ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
+                            <span>🎬</span> Storyboard Studio
                         </button>
                         <button onClick={() => { setActiveTab('videos'); setSidebarOpen(false); }} className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-3 transition-all ${activeTab === 'videos' ? 'bg-blue-600/10 text-blue-405 border border-blue-500/20' : 'text-neutral-400 hover:bg-neutral-900 hover:text-white border border-transparent'}`}>
                             <span>🎥</span> Generated Videos
@@ -1395,6 +1439,16 @@ ${currentScript.thumbnail}
                             setActiveTab={setActiveTab}
                             isGenerating={isGenerating}
                             generateTopicsViaAI={generateTopicsViaAI}
+                        />
+                    )}
+
+                    {/* STUDIO VIEW TAB */}
+                    {activeTab === 'studio' && (
+                        <StudioView 
+                            script={currentScript} 
+                            runVideoCompilation={runVideoCompilation}
+                            compileStatus={compileStatus}
+                            isGenerating={isGenerating}
                         />
                     )}
 
