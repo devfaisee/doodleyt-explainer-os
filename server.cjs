@@ -1466,7 +1466,7 @@ function startBackendAssembly(script, providedOutputPath) {
                     // -t strictly forces the duration.
                     // -af apad pads the audio stream with silence so the audio track perfectly matches the video track duration.
                     // This prevents the "creepy distortion" (audio sync popping) during the final concat.
-                    const cmd = `ffmpeg -nostdin -y -loop 1 -framerate 25 -t ${paddedDuration} -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset fast -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -af "apad" "${tempSceneVideo}"`;
+                    const cmd = `ffmpeg -nostdin -y -loop 1 -framerate 25 -t ${paddedDuration} -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset fast -threads 2 -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -af "apad" "${tempSceneVideo}"`;
                     
                     await execAsync(cmd);
                     tempVideoFiles.push(tempSceneVideo);
@@ -1489,7 +1489,7 @@ function startBackendAssembly(script, providedOutputPath) {
             const finalVideoPath = path.join(videosDir, videoFilename);
             
             addJobLog(`⚡ Concatenating individual scene files into final master print...`);
-            const concatCmd = `ffmpeg -nostdin -y -f concat -safe 0 -i "${inputsTxtPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:v libx264 -c:a aac "${finalVideoPath}"`;
+            const concatCmd = `ffmpeg -nostdin -y -f concat -safe 0 -i "${inputsTxtPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:v libx264 -threads 2 -c:a aac "${finalVideoPath}"`;
             
             await execAsync(concatCmd);
 
