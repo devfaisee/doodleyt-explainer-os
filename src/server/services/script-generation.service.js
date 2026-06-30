@@ -4,6 +4,7 @@ import { activeJob, addJobLog, writeLatestScript, buildDefaultStages, updateJobS
 import { getEffectiveApiKey, readConfig, writeConfig, STYLE_REFS_DIR } from '../utils/config.js';
 import { callOpenRouter, callGeminiAPI } from './llm.service.js';
 import { saveScriptToHistory } from './history.service.js';
+import { extractSpokenText } from './media.service.js';
 
 const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
 
@@ -273,6 +274,52 @@ Return strictly a JSON object matching this schema:
         updateJobStageStatus('qc', 'running');
         addJobLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
         
+        // Auto-split extremely long voiceovers (> 15 words) and sanitize empty voiceovers
+        let splitSanitizedScenes = [];
+        for (let idx = 0; idx < accumulatedScenes.length; idx++) {
+            const scene = accumulatedScenes[idx];
+            const voiceover = (scene.voiceover || '').trim();
+            const spoken = extractSpokenText(voiceover).trim();
+            const words = spoken.split(/\s+/).filter(w => w.length > 0);
+            
+            if (!spoken || spoken.length === 0) {
+                addJobLog(`⚠️ Scene ${idx + 1}: Empty voiceover detected. Setting default quiet voiceover.`);
+                scene.voiceover = 'Read with quiet pause: "..."';
+                scene.duration = 2;
+                splitSanitizedScenes.push(scene);
+            } else if (words.length > 15) {
+                addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 15). Splitting...`);
+                const halfCount = Math.ceil(words.length / 2);
+                const firstSpoken = words.slice(0, halfCount).join(' ');
+                const secondSpoken = words.slice(halfCount).join(' ');
+                
+                const prefixMatch = voiceover.match(/^(Read\s+[^:]+:\s*)/i);
+                const prefix = prefixMatch ? prefixMatch[1] : 'Read with quiet authority: ';
+                
+                const firstVo = `${prefix}"${firstSpoken}"`;
+                const secondVo = `${prefix}"${secondSpoken}"`;
+                
+                splitSanitizedScenes.push({
+                    ...scene,
+                    voiceover: firstVo,
+                    duration: Math.max(2, Math.ceil(halfCount / 3)),
+                    prompt: scene.prompt + " (Part 1)"
+                });
+                splitSanitizedScenes.push({
+                    ...scene,
+                    voiceover: secondVo,
+                    duration: Math.max(2, Math.ceil((words.length - halfCount) / 3)),
+                    prompt: scene.prompt + " (Part 2)"
+                });
+            } else {
+                // Ensure duration aligns with word count roughly
+                const calculatedDur = Math.max(2, Math.ceil(words.length / 3));
+                scene.duration = calculatedDur;
+                splitSanitizedScenes.push(scene);
+            }
+        }
+        accumulatedScenes = splitSanitizedScenes;
+
         let qcErrorsCount = 0;
         const formatTimeLocal = (seconds) => {
             const mins = Math.floor(seconds / 60);

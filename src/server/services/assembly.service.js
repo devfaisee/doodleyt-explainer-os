@@ -150,9 +150,11 @@ export function startBackendAssembly(script, providedOutputPath) {
                             '-threads', '1',
                             '-loop', '1',
                             '-framerate', '25',
-                            '-t', paddedDuration,
                             '-i', imgPath,
                             '-i', audioPath,
+                            '-map', '0:v:0',
+                            '-map', '1:a:0',
+                            '-t', paddedDuration,
                             '-c:v', 'libx264',
                             '-preset', 'ultrafast',
                             '-threads', '2',
@@ -162,7 +164,7 @@ export function startBackendAssembly(script, providedOutputPath) {
                             '-b:a', '192k',
                             '-af', 'apad',
                             tempSceneVideo
-                        ], { timeout: 60000 });
+                        ], { timeout: 300000 });
                     } catch (err) {
                         addJobLog(`[FFMPEG DEBUG] Failed/Timed out encode for scene ${sceneIndex+1}: ${err.message}`);
                         throw err;
