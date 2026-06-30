@@ -1422,7 +1422,7 @@ function startBackendAssembly(script, providedOutputPath) {
         addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos...`);
         
         try {
-            const batchSize = 10;
+            const batchSize = 3;
             for (let i = 0; i < scenes.length; i += batchSize) {
                 if (activeJob.status === 'idle') {
                     addJobLog(`🛑 Compilation cancelled by user.`);
@@ -1466,7 +1466,7 @@ function startBackendAssembly(script, providedOutputPath) {
                     // -t strictly forces the duration.
                     // -af apad pads the audio stream with silence so the audio track perfectly matches the video track duration.
                     // This prevents the "creepy distortion" (audio sync popping) during the final concat.
-                    const cmd = `ffmpeg -nostdin -y -loop 1 -framerate 25 -t ${paddedDuration} -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset fast -threads 2 -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -af "apad" "${tempSceneVideo}"`;
+                    const cmd = `ffmpeg -nostdin -y -loop 1 -framerate 25 -t ${paddedDuration} -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset ultrafast -threads 2 -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -af "apad" "${tempSceneVideo}"`;
                     
                     await execAsync(cmd);
                     tempVideoFiles.push(tempSceneVideo);
