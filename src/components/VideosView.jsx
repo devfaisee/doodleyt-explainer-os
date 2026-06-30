@@ -102,7 +102,7 @@ export default function VideosView({
                                             {script.thumbnailPath && (
                                                 <a 
                                                     href={getAssetUrl(script.thumbnailPath)}
-                                                    download={`thumbnail_${script.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.png`}
+                                                    download={`thumbnail_${script.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.jpg`}
                                                     className="bg-neutral-800 hover:bg-neutral-750 border border-neutral-700 text-neutral-200 font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 justify-center flex-1 sm:flex-none"
                                                 >
                                                     🖼️ Thumbnail

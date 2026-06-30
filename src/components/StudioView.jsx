@@ -66,7 +66,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                     return (
                         <div key={idx} className="flex gap-4 items-start bg-neutral-950 p-4 rounded-xl border border-neutral-800">
                             <img 
-                                src={`${getAssetUrl(`/output/images/scene_${sceneNum}.png`)}?t=${assetTimestamps[idx] || ''}`} 
+                                src={`${getAssetUrl(`/output/images/scene_${sceneNum}.jpg`)}?t=${assetTimestamps[idx] || ''}`} 
                                 alt={`Scene ${sceneNum}`} 
                                 className="w-32 h-auto rounded-lg border border-neutral-700 object-cover mt-1" 
                             />

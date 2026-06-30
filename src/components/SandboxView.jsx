@@ -188,7 +188,7 @@ export default function SandboxView({
                                         {currentScript.thumbnailPath && (
                                             <a
                                                 href={getAssetUrl(currentScript.thumbnailPath)}
-                                                download={`thumbnail_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.png`}
+                                                download={`thumbnail_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.jpg`}
                                                 className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-amber-900/30 border-amber-800/30 text-amber-400 hover:text-white transition-all font-mono"
                                             >
                                                 📥 Download Image

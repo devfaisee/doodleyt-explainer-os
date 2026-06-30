@@ -1201,7 +1201,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                 if (thumbGenerated && thumbBuffer) {
                     try {
                         const slug = (script.title || 'untitled').toLowerCase().replace(/[^a-z0-9]+/g, '_').substring(0, 50);
-                        const thumbName = `thumb_${script.timestamp || Date.now()}_${slug}.png`;
+                        const thumbName = `thumb_${script.timestamp || Date.now()}_${slug}.jpg`;
                         const fullThumbPath = path.join(thumbnailsDir, thumbName);
                         
                         await fs.promises.writeFile(fullThumbPath, thumbBuffer);
@@ -1222,12 +1222,12 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                 
                 const scene = scenes[i];
                 const indexStr = (i + 1).toString().padStart(3, '0');
-                const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
+                const imgPath = path.join(imagesDir, `scene_${indexStr}.jpg`);
                 // Named MP3: first 2 words of title + zero-padded scene number
                 const audioFileName = getAudioFileName(script.title, i);
                 const audioPath = path.join(audioDir, audioFileName);
                 
-                scene.imagePath = `/output/images/scene_${indexStr}.png`;
+                scene.imagePath = `/output/images/scene_${indexStr}.jpg`;
                 scene.audioPath = `/output/audio/${audioFileName}`;
                 
                 // Image synthesis — skip entirely in audio_only mode
@@ -1270,7 +1270,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         await fs.promises.writeFile(imgPath, imgBuffer);
                     } else {
                         addJobLog(`ℹ️ Saving mock canvas image for scene ${i+1}`);
-                        await fs.promises.writeFile(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                        await fs.promises.writeFile(imgPath, Buffer.from(MOCK_JPG_BASE64, 'base64'));
                     }
                 }
                 
@@ -1435,13 +1435,13 @@ function startBackendAssembly(script, providedOutputPath) {
                 const batchPromises = batch.map(async (scene, batchIdx) => {
                     const sceneIndex = i + batchIdx;
                     const indexStr = (sceneIndex + 1).toString().padStart(3, '0');
-                    const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
+                    const imgPath = path.join(imagesDir, `scene_${indexStr}.jpg`);
                     const audioFileName = getAudioFileName(script.title, sceneIndex);
                     const audioPath = path.join(audioDir, audioFileName);
                     
                     // Dynamic check/write of fallback assets if missing
                     if (!fs.existsSync(imgPath)) {
-                        fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                        fs.writeFileSync(imgPath, Buffer.from(MOCK_JPG_BASE64, 'base64'));
                     }
                     if (!fs.existsSync(audioPath)) {
                         const duration = parseFloat(scene.duration) || 2;
@@ -1470,7 +1470,14 @@ function startBackendAssembly(script, providedOutputPath) {
                     // This prevents the "creepy distortion" (audio sync popping) during the final concat.
                     const cmd = `ffmpeg -nostdin -y -loglevel error -threads 1 -loop 1 -framerate 25 -t ${paddedDuration} -i "${imgPath}" -i "${audioPath}" -c:v libx264 -preset ultrafast -threads 2 -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k -af "apad" "${tempSceneVideo}"`;
                     
-                    await execAsync(cmd);
+                    console.log(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}... cmd: ${cmd}`);
+                    try {
+                        await execAsync(cmd, { timeout: 60000 }); // 60s max per scene
+                        console.log(`[FFMPEG DEBUG] Finished encode for scene ${sceneIndex+1}`);
+                    } catch (err) {
+                        console.error(`[FFMPEG DEBUG] Failed/Timed out encode for scene ${sceneIndex+1}: ${err.message}`);
+                        throw err;
+                    }
                     tempVideoFiles.push(tempSceneVideo);
                 });
                 
@@ -1491,9 +1498,16 @@ function startBackendAssembly(script, providedOutputPath) {
             const finalVideoPath = path.join(videosDir, videoFilename);
             
             addJobLog(`⚡ Concatenating individual scene files into final master print...`);
-            const concatCmd = `ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "${inputsTxtPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:v libx264 -threads 2 -c:a aac "${finalVideoPath}"`;
+            const concatCmd = `ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "${inputsTxtPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:v copy -c:a aac "${finalVideoPath}"`;
             
-            await execAsync(concatCmd);
+            console.log(`[FFMPEG DEBUG] Starting final concat... cmd: ${concatCmd}`);
+            try {
+                await execAsync(concatCmd, { timeout: 120000 }); // 2 mins max
+                console.log(`[FFMPEG DEBUG] Finished final concat.`);
+            } catch (err) {
+                console.error(`[FFMPEG DEBUG] Failed/Timed out final concat: ${err.message}`);
+                throw err;
+            }
 
             // Cleanup temp files on success
             tempVideoFiles.forEach(file => { try { fs.unlinkSync(file); } catch(e){} });
@@ -1623,7 +1637,7 @@ function getSilentWavBuffer(durationSeconds = 2) {
     return buffer;
 }
 
-const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+const MOCK_JPG_BASE64 = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
 
 const server = http.createServer((req, res) => {
     const origin = req.headers.origin || '*';
@@ -1714,7 +1728,7 @@ const server = http.createServer((req, res) => {
                 if (type === 'image') {
                     ensureDir(imagesDir);
                     const indexStr = String(sceneIndex + 1).padStart(3, '0');
-                    const imgPath = path.join(imagesDir, `scene_${indexStr}.png`);
+                    const imgPath = path.join(imagesDir, `scene_${indexStr}.jpg`);
                     let imgBuffer = null;
                     let imgGenerated = false;
 
