@@ -1355,6 +1355,17 @@ function startBackendAssembly(script, providedOutputPath) {
                     const audioFileName = getAudioFileName(script.title, sceneIndex);
                     const audioPath = path.join(audioDir, audioFileName);
                     
+                    // Legacy Upgrade: If old broken progressive JPEG exists but PNG doesn't, convert it to rock-solid PNG
+                    const legacyImgPath = path.join(imagesDir, `scene_${indexStr}.jpg`);
+                    if (!fs.existsSync(imgPath) && fs.existsSync(legacyImgPath)) {
+                        addJobLog(`[Legacy Upgrade] Converting old progressive JPEG scene ${indexStr} to safe PNG format...`);
+                        try {
+                            await execAsync(`ffmpeg -y -v error -i "${legacyImgPath}" -vcodec png "${imgPath}"`);
+                        } catch (e) {
+                            addJobLog(`⚠️ Failed to convert legacy JPEG for scene ${indexStr}. Using safe mock fallback.`);
+                        }
+                    }
+
                     // Dynamic check/write of fallback assets if missing
                     if (!fs.existsSync(imgPath)) {
                         fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
