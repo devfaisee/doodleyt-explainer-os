@@ -1185,7 +1185,8 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         const payload = JSON.stringify({
                             input: {
                                 prompt: script.thumbnail,
-                                aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9'
+                                aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
+                                output_format: "jpg"
                             }
                         });
                         const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
@@ -1252,7 +1253,8 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             const payload = JSON.stringify({
                                 input: {
                                     prompt: scene.prompt,
-                                    aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9'
+                                    aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
+                                    output_format: "jpg"
                                 }
                             });
                             const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
@@ -1422,7 +1424,7 @@ function startBackendAssembly(script, providedOutputPath) {
         addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos...`);
         
         try {
-            const batchSize = 3;
+            const batchSize = 1;
             for (let i = 0; i < scenes.length; i += batchSize) {
                 if (activeJob.status === 'idle') {
                     addJobLog(`🛑 Compilation cancelled by user.`);
@@ -1736,7 +1738,8 @@ const server = http.createServer((req, res) => {
                             const payload = JSON.stringify({
                                 input: {
                                     prompt: text,
-                                    aspect_ratio: videoType === 'short' ? '9:16' : '16:9'
+                                    aspect_ratio: videoType === 'short' ? '9:16' : '16:9',
+                                    output_format: "jpg"
                                 }
                             });
                             const mockLog = (msg) => console.log(msg);
