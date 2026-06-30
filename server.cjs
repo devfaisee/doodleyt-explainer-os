@@ -1140,7 +1140,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             }
                         });
                         const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
-                        thumbBuffer = await httpsGet(imgUrl);
+                        thumbBuffer = await fetchImageBuffer(imgUrl);
                         thumbGenerated = true;
                         addJobLog(`✓ [Replicate] Custom thumbnail image completed.`);
                     } catch (err) {
@@ -1197,7 +1197,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                                 }
                             });
                             const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
-                            imgBuffer = await httpsGet(imgUrl);
+                            imgBuffer = await fetchImageBuffer(imgUrl);
                             imgGenerated = true;
                             addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
                         } catch (err) {
@@ -1502,6 +1502,14 @@ function httpsPost(url, headers, body, timeoutMs = 120000) {
 }
 
 // Native HTTPS GET request helper
+async function fetchImageBuffer(imgUrl) {
+    if (imgUrl && imgUrl.startsWith('data:')) {
+        const base64Data = imgUrl.split(',')[1];
+        return Buffer.from(base64Data, 'base64');
+    }
+    return await httpsGet(imgUrl);
+}
+
 function httpsGet(url, maxRedirects = 5) {
     return new Promise((resolve, reject) => {
         https.get(url, (res) => {
@@ -1553,7 +1561,7 @@ function getSilentWavBuffer(durationSeconds = 2) {
     return buffer;
 }
 
-const MOCK_JPG_BASE64 = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=";
+const MOCK_JPG_BASE64 = "/9j/4AAQSkZJRgABAgAAAQABAAD//gAQTGF2YzYyLjI4LjEwMQD/2wBDAAgEBAQEBAUFBQUFBQYGBgYGBgYGBgYGBgYHBwcICAgHBwcGBgcHCAgICAkJCQgICAgJCQoKCgwMCwsODg4RERT/xABLAAEBAAAAAAAAAAAAAAAAAAAACAEBAAAAAAAAAAAAAAAAAAAAABABAAAAAAAAAAAAAAAAAAAAABEBAAAAAAAAAAAAAAAAAAAAAP/AABEIAEAAQAMBIgACEQADEQD/2gAMAwEAAhEDEQA/AJ/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//9k=";
 
 const server = http.createServer((req, res) => {
     const origin = req.headers.origin || '*';
@@ -1662,7 +1670,7 @@ const server = http.createServer((req, res) => {
                             });
                             const mockLog = (msg) => console.log(msg);
                             const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, mockLog);
-                            imgBuffer = await httpsGet(imgUrl);
+                            imgBuffer = await fetchImageBuffer(imgUrl);
                             imgGenerated = true;
                             console.log(`✓ [Regenerate] Replicate image completed.`);
                         } catch (err) {
