@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { downloadFile } from './utils/downloadFile.js';
+import { DEFAULT_VISUAL_DNA, DEFAULT_STYLE_REFS } from './store/pipelineStore.js';
 import TerminalView from './components/TerminalView';
 import TopicsView from './components/TopicsView';
 import SandboxView from './components/SandboxView';
@@ -27,8 +29,8 @@ const DEFAULT_TOPICS = [
 const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
 
 const CONSTITUTION = {
-    visualDNA: "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).",
-    styleReferences: ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg']
+    visualDNA: DEFAULT_VISUAL_DNA,
+    styleReferences: DEFAULT_STYLE_REFS
 };
 
 
@@ -72,8 +74,6 @@ const getAssetUrl = (path) => {
 
 // --- MAIN APP COMPONENT ---
 function App() {
-    const [authenticated, setAuthenticated] = useState(false);
-    const [passKey, setPassKey] = useState('');
     const [activeTab, setActiveTab] = useState('terminal');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     
@@ -88,8 +88,8 @@ function App() {
     const [videoType, setVideoType] = useState('long');
     const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12, 15, 20, 25)
     
-    const [visualDNA, setVisualDNA] = useState("Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).");
-    const [styleReferences, setStyleReferences] = useState(['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg']);
+    const [visualDNA, setVisualDNA] = useState(DEFAULT_VISUAL_DNA);
+    const [styleReferences, setStyleReferences] = useState(DEFAULT_STYLE_REFS);
     
     const [topicBank, setTopicBank] = useState(DEFAULT_TOPICS);
     const [customNicheInput, setCustomNicheInput] = useState('');
@@ -118,7 +118,15 @@ function App() {
 
     // Copy to clipboard with visual feedback
     const copyToClipboard = (text, fieldId) => {
-        navigator.clipboard.writeText(text);
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(err => {
+                    console.warn('Clipboard write failed, using fallback', err);
+                });
+            }
+        } catch (e) {
+            console.warn('Clipboard API not available', e);
+        }
         setCopiedField(fieldId);
         setTimeout(() => setCopiedField(null), 2000);
     };
@@ -409,10 +417,10 @@ function App() {
                 const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
                 const cachedElevenlabsKey = localStorage.getItem('doodleyt_elevenlabs_key') || '';
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
-                const cachedPath = localStorage.getItem('doodleyt_output_path') || 'E:/doodleyt/output';
+                const cachedPath = localStorage.getItem('doodleyt_output_path') || './output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
-                const cachedVisualDNA = localStorage.getItem('doodleyt_visual_dna') || "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).";
-                const cachedStyleReferences = localStorage.getItem('doodleyt_style_references') ? JSON.parse(localStorage.getItem('doodleyt_style_references')) : ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'];
+                const cachedVisualDNA = localStorage.getItem('doodleyt_visual_dna') || DEFAULT_VISUAL_DNA;
+                const cachedStyleReferences = localStorage.getItem('doodleyt_style_references') ? JSON.parse(localStorage.getItem('doodleyt_style_references')) : DEFAULT_STYLE_REFS;
 
                 setApiKey(cachedKey);
                 setGeminiApiKey(cachedGeminiKey);
@@ -689,10 +697,12 @@ ${currentScript.thumbnail}
                 }
 
                 const data = await response.json();
-                scene.prompt = data.correctedText;
-                
-                const checkAgain = validatePromptText(scene.prompt);
-                scene.qcErrors = checkAgain.words;
+                const checkAgain = validatePromptText(data.correctedText);
+                updatedScenes[index] = {
+                    ...scene,
+                    prompt: data.correctedText,
+                    qcErrors: checkAgain.words
+                };
                 if (checkAgain.isValid) {
                     addLog(`   Scene ${index + 1} fixed.`);
                 } else {
@@ -1111,21 +1121,8 @@ ${currentScript.thumbnail}
                                 📺 Watch Active Video
                             </a>
                             <button 
-                                onClick={async () => {
-                                    try {
-                                        const res = await fetch(getAssetUrl(currentScript.videoPath));
-                                        if (!res.ok) throw new Error(`Server returned ${res.status}: ${res.statusText}`);
-                                        const blob = await res.blob();
-                                        const blobUrl = URL.createObjectURL(blob);
-                                        const link = document.createElement('a');
-                                        link.href = blobUrl;
-                                        link.download = `video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`;
-                                        document.body.appendChild(link);
-                                        link.click();
-                                        document.body.removeChild(link);
-                                    } catch (err) {
-                                        window.open(getAssetUrl(currentScript.videoPath), '_blank');
-                                    }
+                                onClick={() => {
+                                    downloadFile(currentScript.videoPath, `video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`);
                                 }}
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-xl text-xs transition flex items-center gap-1.5 active:scale-98"
                             >
@@ -1313,22 +1310,9 @@ ${currentScript.thumbnail}
                                                         <span>📺</span> Watch
                                                     </a>
                                                     <button 
-                                                        onClick={async (e) => {
+                                                        onClick={(e) => {
                                                             e.stopPropagation();
-                                                            try {
-                                                                const res = await fetch(getAssetUrl(entry.videoPath));
-                                                                if (!res.ok) throw new Error(`Server returned ${res.status}: ${res.statusText}`);
-                                                                const blob = await res.blob();
-                                                                const blobUrl = URL.createObjectURL(blob);
-                                                                const link = document.createElement('a');
-                                                                link.href = blobUrl;
-                                                                link.download = `video_${entry.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`;
-                                                                document.body.appendChild(link);
-                                                                link.click();
-                                                                document.body.removeChild(link);
-                                                            } catch (err) {
-                                                                window.open(getAssetUrl(entry.videoPath), '_blank');
-                                                            }
+                                                            downloadFile(entry.videoPath, `video_${entry.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`);
                                                         }}
                                                         className="flex-1 bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-400 border border-emerald-900/30 hover:border-emerald-750 font-mono text-[9px] py-1 px-2 rounded-lg text-center transition-all flex items-center justify-center gap-1"
                                                     >
@@ -1462,6 +1446,8 @@ ${currentScript.thumbnail}
                             compileStatus={compileStatus}
                             isGenerating={isGenerating}
                             getAssetUrl={getAssetUrl}
+                            handleCellEdit={handleCellEdit}
+                            apiKey={apiKey}
                         />
                     )}
 

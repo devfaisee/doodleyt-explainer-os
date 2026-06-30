@@ -1,4 +1,5 @@
 import React from 'react';
+import { downloadFile } from '../utils/downloadFile.js';
 
 export default function SandboxView({
     currentScript,
@@ -147,20 +148,8 @@ export default function SandboxView({
                                     </span>
                                     <div className="flex gap-2 w-full sm:w-auto">
                                         <button 
-                                            onClick={async () => {
-                                                try {
-                                                    const res = await fetch(getAssetUrl(currentScript.videoPath));
-                                                    const blob = await res.blob();
-                                                    const blobUrl = URL.createObjectURL(blob);
-                                                    const link = document.createElement('a');
-                                                    link.href = blobUrl;
-                                                    link.download = `video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`;
-                                                    document.body.appendChild(link);
-                                                    link.click();
-                                                    document.body.removeChild(link);
-                                                } catch (err) {
-                                                    window.open(getAssetUrl(currentScript.videoPath), '_blank');
-                                                }
+                                            onClick={() => {
+                                                downloadFile(currentScript.videoPath, `video_${currentScript.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`);
                                             }}
                                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-xs transition flex items-center gap-1.5 justify-center flex-1 sm:flex-none shadow-lg shadow-emerald-950/20 active:scale-98"
                                         >
@@ -432,24 +421,11 @@ export default function SandboxView({
                                                             {copiedField === `voiceover_${i}` ? '✓ Copied!' : '📋 Copy'}
                                                         </button>
                                                     </div>
-                                                    {/* Voiceover Audio Download — shown after synthesis */}
                                                     {scene.audioPath && (
                                                         <button
-                                                            onClick={async () => {
-                                                                try {
-                                                                    const res = await fetch(getAssetUrl(`/api/audio-download/${scene.audioPath.split('/').pop()}`));
-                                                                    if (!res.ok) throw new Error('Audio file not found on server');
-                                                                    const blob = await res.blob();
-                                                                    const url = URL.createObjectURL(blob);
-                                                                    const link = document.createElement('a');
-                                                                    link.href = url;
-                                                                    link.download = scene.audioPath.split('/').pop();
-                                                                    document.body.appendChild(link);
-                                                                    link.click();
-                                                                    document.body.removeChild(link);
-                                                                } catch(e) {
-                                                                    alert("Couldn't download audio: " + e.message);
-                                                                }
+                                                            onClick={() => {
+                                                                const filename = scene.audioPath.split('/').pop();
+                                                                downloadFile(`/api/audio-download/${filename}`, filename);
                                                             }}
                                                             className="mt-2 flex items-center gap-2 w-full justify-center bg-green-950/30 hover:bg-green-950/60 border border-green-500/20 hover:border-green-500/50 text-green-400 hover:text-green-300 px-3 py-2 rounded-xl text-[11px] font-mono font-bold transition-all"
                                                         >
@@ -544,24 +520,11 @@ export default function SandboxView({
                                             value={scene.voiceover}
                                             onChange={(e) => handleCellEdit(i, 'voiceover', e.target.value)}
                                         />
-                                        {/* Voiceover Audio Download */}
                                         {scene.audioPath && (
                                             <button
-                                                onClick={async () => {
-                                                    try {
-                                                        const res = await fetch(getAssetUrl(`/api/audio-download/${scene.audioPath.split('/').pop()}`));
-                                                        if (!res.ok) throw new Error('Audio file not found on server');
-                                                        const blob = await res.blob();
-                                                        const url = URL.createObjectURL(blob);
-                                                        const link = document.createElement('a');
-                                                        link.href = url;
-                                                        link.download = scene.audioPath.split('/').pop();
-                                                        document.body.appendChild(link);
-                                                        link.click();
-                                                        document.body.removeChild(link);
-                                                    } catch(e) {
-                                                        alert("Couldn't download audio: " + e.message);
-                                                    }
+                                                onClick={() => {
+                                                    const filename = scene.audioPath.split('/').pop();
+                                                    downloadFile(`/api/audio-download/${filename}`, filename);
                                                 }}
                                                 className="mt-2 flex items-center gap-2 w-full justify-center bg-green-950/30 hover:bg-green-950/60 border border-green-500/20 hover:border-green-500/50 text-green-400 hover:text-green-300 px-3 py-2 rounded-xl text-[11px] font-mono font-bold transition-all"
                                             >

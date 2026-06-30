@@ -10,25 +10,30 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "node server.cjs",
+    "start": "node src/server/index.js",
     "test": "jest --runInBand --detectOpenHandles",
     "lint": "echo \"No lint configured\" && exit 0"
   },
   "dependencies": {
+    "cors": "^2.8.6",
     "edge-tts-universal": "^1.4.0",
+    "express": "^5.2.1",
     "ffmpeg-static": "^5.3.0",
+    "lucide-react": "^1.22.0",
     "pg": "^8.13.1",
+    "pino": "^8.17.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "pino": "^8.17.0"
+    "react-router-dom": "^7.18.1",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
-    "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.3",
-    "vite": "^5.2.11",
     "jest": "^29.6.1",
-    "supertest": "^6.3.3"
+    "postcss": "^8.4.38",
+    "supertest": "^6.3.3",
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.2.11"
   }
 }

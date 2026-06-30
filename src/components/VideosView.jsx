@@ -1,4 +1,5 @@
 import React from 'react';
+import { downloadFile } from '../utils/downloadFile.js';
 
 export default function VideosView({
     scriptHistory,
@@ -74,25 +75,8 @@ export default function VideosView({
                                         </span>
                                         <div className="flex gap-2 w-full sm:w-auto">
                                             <button 
-                                                onClick={async () => {
-                                                    try {
-                                                        const res = await fetch(getAssetUrl(script.videoPath));
-                                                        if (!res.ok) {
-                                                            // If fetch fails, open in new tab as fallback
-                                                            window.open(getAssetUrl(script.videoPath), '_blank');
-                                                            return;
-                                                        }
-                                                        const blob = await res.blob();
-                                                        const blobUrl = URL.createObjectURL(blob);
-                                                        const link = document.createElement('a');
-                                                        link.href = blobUrl;
-                                                        link.download = `video_${script.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`;
-                                                        document.body.appendChild(link);
-                                                        link.click();
-                                                        document.body.removeChild(link);
-                                                    } catch (err) {
-                                                        window.open(getAssetUrl(script.videoPath), '_blank');
-                                                    }
+                                                onClick={() => {
+                                                    downloadFile(script.videoPath, `video_${script.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}.mp4`);
                                                 }}
                                                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5 justify-center flex-1 sm:flex-none shadow-lg shadow-emerald-950/20 active:scale-98"
                                             >

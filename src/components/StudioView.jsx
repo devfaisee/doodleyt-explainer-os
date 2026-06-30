@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
+import { apiFetch } from '../apiClient.js';
 
-export default function StudioView({ script, runVideoCompilation, compileStatus, isGenerating, getAssetUrl }) {
-    const [editedPrompts, setEditedPrompts] = useState({});
-    const [editedVoiceovers, setEditedVoiceovers] = useState({});
+export default function StudioView({ script, runVideoCompilation, compileStatus, isGenerating, getAssetUrl, handleCellEdit, apiKey }) {
     const [assetTimestamps, setAssetTimestamps] = useState({});
     const [isRegenerating, setIsRegenerating] = useState({});
 
@@ -27,19 +26,19 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
         setIsRegenerating(prev => ({ ...prev, [key]: true }));
         try {
             const text = isAudio 
-                ? (editedVoiceovers[idx] !== undefined ? editedVoiceovers[idx] : script.scenes[idx].voiceover)
-                : (editedPrompts[idx] !== undefined ? editedPrompts[idx] : script.scenes[idx].prompt);
+                ? script.scenes[idx].voiceover
+                : script.scenes[idx].prompt;
             
             const payload = {
                 sceneIndex: idx,
                 type,
                 text,
                 scriptTitle: script.title,
-                apiKey: localStorage.getItem('doodleyt_api_key')
+                apiKey
             };
             if (!isAudio) payload.videoType = script.videoType;
 
-            const res = await fetch('http://localhost:3000/api/regenerate-asset', {
+            const res = await apiFetch('/api/regenerate-asset', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -60,13 +59,13 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
             <div className="grid grid-cols-1 gap-4 max-h-[600px] overflow-y-auto pr-2">
                 {script.scenes.map((scene, idx) => {
                     const sceneNum = String(idx + 1).padStart(3, '0');
-                    const currentPrompt = editedPrompts[idx] !== undefined ? editedPrompts[idx] : scene.prompt;
-                    const currentVoiceover = editedVoiceovers[idx] !== undefined ? editedVoiceovers[idx] : scene.voiceover;
+                    const currentPrompt = scene.prompt;
+                    const currentVoiceover = scene.voiceover;
                     
                     return (
                         <div key={idx} className="flex gap-4 items-start bg-neutral-950 p-4 rounded-xl border border-neutral-800">
                             <img 
-                                src={`${getAssetUrl(`/output/images/scene_${sceneNum}.jpg`)}?t=${assetTimestamps[idx] || ''}`} 
+                                src={`${getAssetUrl(`/output/images/scene_${sceneNum}.png`)}?t=${assetTimestamps[idx] || ''}`} 
                                 alt={`Scene ${sceneNum}`} 
                                 className="w-32 h-auto rounded-lg border border-neutral-700 object-cover mt-1" 
                             />
@@ -77,7 +76,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                                     <div className="flex-1">
                                         <textarea 
                                             value={currentVoiceover}
-                                            onChange={(e) => setEditedVoiceovers(prev => ({ ...prev, [idx]: e.target.value }))}
+                                            onChange={(e) => handleCellEdit(idx, 'voiceover', e.target.value)}
                                             className="w-full bg-neutral-900 border border-neutral-800 p-2 text-sm text-white rounded outline-none" 
                                             rows={2}
                                         />
@@ -99,7 +98,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                                 <div className="flex gap-3 items-start">
                                     <textarea 
                                         value={currentPrompt}
-                                        onChange={(e) => setEditedPrompts(prev => ({ ...prev, [idx]: e.target.value }))}
+                                        onChange={(e) => handleCellEdit(idx, 'prompt', e.target.value)}
                                         className="w-full bg-neutral-900 border border-neutral-800 p-2 text-sm text-neutral-400 rounded outline-none" 
                                         rows={2}
                                     />

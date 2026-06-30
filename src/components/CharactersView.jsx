@@ -27,7 +27,10 @@ export default function CharactersView({
                                         value={char.description}
                                         onChange={(e) => {
                                             const updated = [...characters];
-                                            updated[index].description = e.target.value;
+                                            updated[index] = {
+                                                ...updated[index],
+                                                description: e.target.value
+                                            };
                                             setCharacters(updated);
                                             saveConfig({ characters: updated });
                                         }}
