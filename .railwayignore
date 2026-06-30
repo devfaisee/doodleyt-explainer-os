@@ -1,0 +1,15 @@
+node_modules/
+.git/
+.github/
+.vercel/
+output/
+outputs/
+scripts_history/
+dist/
+.tempmediaStorage/
+*.pdf
+*.zip
+*.jpg
+*.png
+*.wav
+*.mp3
