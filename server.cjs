@@ -1092,46 +1092,7 @@ Return only the corrected prompt text, nothing else.`;
     })();
 }
 
-async function callGeminiImagenAPI(promptText, apiKey, videoType) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`;
-    const aspectHint = videoType === 'short' ? 'vertical portrait 9:16 aspect ratio' : 'horizontal landscape 16:9 aspect ratio';
-    const fullPrompt = `${promptText}. Generate this image in ${aspectHint}.`;
-    const payload = JSON.stringify({
-        contents: [
-            {
-                parts: [
-                    {
-                        text: fullPrompt
-                    }
-                ]
-            }
-        ],
-        generationConfig: {
-            responseModalities: ["IMAGE"]
-        }
-    });
-    const headers = {
-        'Content-Type': 'application/json'
-    };
-    try {
-        const res = await httpsPost(url, headers, payload);
-        const data = JSON.parse(res.body.toString());
-        if (data.error) {
-            throw new Error(data.error.message || 'Gemini 2.5 Flash Image API error');
-        }
-        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-            const parts = data.candidates[0].content.parts;
-            for (const part of parts) {
-                if (part.inlineData && part.inlineData.data) {
-                    return Buffer.from(part.inlineData.data, 'base64');
-                }
-            }
-        }
-        throw new Error('Invalid Gemini 2.5 Flash Image API response structure');
-    } catch (e) {
-        throw new Error(`Google Gemini Image Call Failed: ${e.message}`);
-    }
-}
+
 
 function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey, providedGeminiApiKey, synthesisMode = 'audio_and_images') {
     activeJob.status = 'running';
@@ -1167,18 +1128,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                 let thumbBuffer = null;
                 let thumbGenerated = false;
 
-                if (geminiApiKey && geminiApiKey.trim().length > 10) {
-                    addJobLog(`🎨 [Gemini Imagen] Synthesizing custom thumbnail image...`);
-                    try {
-                        thumbBuffer = await callGeminiImagenAPI(script.thumbnail, geminiApiKey.trim(), script.videoType);
-                        thumbGenerated = true;
-                        addJobLog(`✓ [Gemini Imagen] Custom thumbnail image completed.`);
-                    } catch (err) {
-                        addJobLog(`⚠️ [Gemini Imagen] Thumbnail synthesis failed: ${err.message}. Trying Fal.ai fallback...`);
-                    }
-                }
-
-                if (!thumbGenerated) {
+                if (true) {
                     addJobLog(`🎨 [Replicate] Synthesizing custom thumbnail image...`);
                     try {
                         const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
@@ -1235,18 +1185,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                     let imgBuffer = null;
                     let imgGenerated = false;
 
-                    if (geminiApiKey && geminiApiKey.trim().length > 10) {
-                        try {
-                            addJobLog(`[Gemini Imagen] Scene ${i+1}/${scenes.length} generating image...`);
-                            imgBuffer = await callGeminiImagenAPI(scene.prompt, geminiApiKey.trim(), script.videoType);
-                            imgGenerated = true;
-                            addJobLog(`✓ [Gemini Imagen] Scene ${i+1}/${scenes.length} image completed.`);
-                        } catch (geminiErr) {
-                            addJobLog(`⚠️ [Gemini Imagen] failed for scene ${i+1}: ${geminiErr.message}. Trying Fal.ai fallback...`);
-                        }
-                    }
-
-                    if (!imgGenerated) {
+                    if (true) {
                         try {
                             addJobLog(`[Replicate] Scene ${i+1}/${scenes.length} generating image...`);
                             const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
@@ -1300,30 +1239,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         addJobLog(`✓ [Chatterbox TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {
-                        addJobLog(`⚠️ Chatterbox TTS failed for scene ${i+1}: ${cbErr.message}. Trying ElevenLabs fallback...`);
-                    }
-                }
-
-                if (!audioGenerated && elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
-                    try {
-                        const payload = JSON.stringify({
-                            text: spokenText,
-                            model_id: "eleven_monolingual_v1",
-                            voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-                        });
-                        const res = await httpsPost(
-                            "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
-                            {
-                                "xi-api-key": elevenlabsApiKey.trim(),
-                                "Content-Type": "application/json"
-                            },
-                            payload
-                        );
-                        await fs.promises.writeFile(audioPath, res.body);
-                        addJobLog(`✓ [ElevenLabs] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
-                        audioGenerated = true;
-                    } catch (elErr) {
-                        addJobLog(`⚠️ ElevenLabs failed for scene ${i+1}: ${elErr.message}. Saving silent fallback.`);
+                        addJobLog(`⚠️ Chatterbox TTS failed for scene ${i+1}: ${cbErr.message}. Saving silent fallback.`);
                     }
                 }
 
@@ -1732,19 +1648,7 @@ const server = http.createServer((req, res) => {
                     let imgBuffer = null;
                     let imgGenerated = false;
 
-                    const geminiApiKey = apiKey || config.geminiApiKey || '';
-                    if (geminiApiKey && geminiApiKey.trim().length > 10) {
-                        try {
-                            console.log(`[Regenerate] Gemini Imagen generating image for scene ${sceneIndex + 1}...`);
-                            imgBuffer = await callGeminiImagenAPI(text, geminiApiKey.trim(), videoType);
-                            imgGenerated = true;
-                            console.log(`✓ [Regenerate] Gemini Imagen image completed.`);
-                        } catch (geminiErr) {
-                            console.log(`⚠️ [Regenerate] Gemini Imagen failed: ${geminiErr.message}. Trying Fal.ai fallback...`);
-                        }
-                    }
-
-                    if (!imgGenerated) {
+                    if (true) {
                         try {
                             console.log(`[Regenerate] Replicate generating image for scene ${sceneIndex + 1}...`);
                             const falApiKey = readConfig().falApiKey || '';
@@ -1803,30 +1707,7 @@ const server = http.createServer((req, res) => {
                             console.log(`✓ [Regenerate] Chatterbox TTS voiceover saved.`);
                             audioGenerated = true;
                         } catch (cbErr) {
-                            console.log(`⚠️ [Regenerate] Chatterbox TTS failed: ${cbErr.message}. Trying ElevenLabs fallback...`);
-                        }
-                    }
-
-                    if (!audioGenerated && elevenlabsApiKey && elevenlabsApiKey.trim().length > 10 && spokenText) {
-                        try {
-                            const payload = JSON.stringify({
-                                text: spokenText,
-                                model_id: "eleven_monolingual_v1",
-                                voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-                            });
-                            const res = await httpsPost(
-                                "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
-                                {
-                                    "xi-api-key": elevenlabsApiKey.trim(),
-                                    "Content-Type": "application/json"
-                                },
-                                payload
-                            );
-                            await fs.promises.writeFile(audioPath, res.body);
-                            console.log(`✓ [Regenerate] ElevenLabs voiceover saved.`);
-                            audioGenerated = true;
-                        } catch (elErr) {
-                            console.log(`⚠️ [Regenerate] ElevenLabs fallback failed: ${elErr.message}.`);
+                            console.log(`⚠️ [Regenerate] Chatterbox TTS failed: ${cbErr.message}.`);
                         }
                     }
 

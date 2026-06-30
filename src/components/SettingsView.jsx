@@ -27,18 +27,7 @@ export default function SettingsView({
                 
                 <div className="space-y-4">
                     <div>
-                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Google AI Studio API Key (Gemini)</label>
-                        <input 
-                            type="password" 
-                            placeholder="AQ.Ab8RN6..."
-                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
-                            value={geminiApiKey || ''}
-                            onChange={(e) => setGeminiApiKey(e.target.value)}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">OpenRouter API Key (For Audio & Models)</label>
+                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">OpenRouter API Key (For DeepSeek LLM)</label>
                         <input 
                             type="password" 
                             placeholder="sk-or-v1-..."
@@ -49,24 +38,13 @@ export default function SettingsView({
                     </div>
 
                     <div>
-                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Fal.ai API Key (Image Generation)</label>
+                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">Replicate API Key (For Flux Images & Chatterbox Voiceover)</label>
                         <input 
                             type="password" 
-                            placeholder="fal-..."
+                            placeholder="r8_..."
                             className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
                             value={falApiKey}
                             onChange={(e) => setFalApiKey(e.target.value)}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="text-xs font-mono text-neutral-400 block mb-1.5 font-semibold">ElevenLabs API Key (Voiceover TTS)</label>
-                        <input 
-                            type="password" 
-                            placeholder="eleven-labs-key..."
-                            className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
-                            value={elevenlabsApiKey}
-                            onChange={(e) => setElevenlabsApiKey(e.target.value)}
                         />
                     </div>
 
