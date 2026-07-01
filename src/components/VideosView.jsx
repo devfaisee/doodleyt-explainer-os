@@ -64,6 +64,8 @@ export default function VideosView({
                                         <video 
                                             src={getAssetUrl(script.videoPath)} 
                                             controls 
+                                            preload="none"
+                                            poster={script.thumbnailPath ? getAssetUrl(script.thumbnailPath) : undefined}
                                             className="w-full h-full object-contain"
                                         />
                                     </div>

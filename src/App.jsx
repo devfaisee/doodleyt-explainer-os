@@ -229,35 +229,6 @@ function App() {
                 setScriptHistory(serverScripts);
                 if (serverScripts.length > 0) {
                     localStorage.setItem('doodleyt_history_backup', JSON.stringify(serverScripts));
-                    
-                    // Pre-cache full scripts in the background for any scripts we don't have cached yet
-                    let updatedCache = false;
-                    const scriptsToFetch = serverScripts.filter(entry => !fullCache[entry.filename]);
-                    
-                    if (scriptsToFetch.length > 0) {
-                        await Promise.allSettled(
-                            scriptsToFetch.map(entry => 
-                                apiFetch(`/api/load-script?filename=${encodeURIComponent(entry.filename)}`)
-                                    .then(res => {
-                                        if (!res.ok) throw new Error('Failed to load');
-                                        return res.json();
-                                    })
-                                    .then(loadData => {
-                                        if (loadData.script) {
-                                            fullCache[entry.filename] = loadData.script;
-                                            updatedCache = true;
-                                        }
-                                    })
-                                    .catch(e => {
-                                        console.error('Failed to pre-cache script:', entry.filename, e);
-                                    })
-                            )
-                        );
-                    }
-                    
-                    if (updatedCache) {
-                        localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(fullCache));
-                    }
                 }
             }
         } catch (err) {

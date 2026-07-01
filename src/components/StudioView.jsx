@@ -67,6 +67,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                             <img 
                                 src={`${getAssetUrl(`/output/images/scene_${sceneNum}.png`)}?t=${assetTimestamps[idx] || ''}`} 
                                 alt={`Scene ${sceneNum}`} 
+                                loading="lazy"
                                 className="w-32 h-auto rounded-lg border border-neutral-700 object-cover mt-1" 
                             />
                             <div className="flex-1 space-y-3">
@@ -82,6 +83,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                                         />
                                         <audio 
                                             controls 
+                                            preload="none"
                                             src={`${getAssetUrl(`/output/audio/${getAudioFileName(script.title, idx)}`)}?t=${assetTimestamps[idx] || ''}`} 
                                             className="h-8 w-full mt-2" 
                                         />
