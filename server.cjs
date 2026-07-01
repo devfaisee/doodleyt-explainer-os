@@ -706,6 +706,8 @@ async function callGeminiAPI(systemInstruction, userPrompt, apiKey, modelName = 
 }
 
 function startBackendScriptGeneration(topicTheme, videoType, targetDuration, providedApiKey, providedModel) {
+    videoType = videoType || 'short';
+    targetDuration = targetDuration || 5;
     const apiKey = getEffectiveApiKey(providedApiKey);
     const model = providedModel || 'deepseek/deepseek-v4-flash';
     
