@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { downloadFile } from '../utils/downloadFile.js';
 
 export default function VideosView({
@@ -7,7 +7,10 @@ export default function VideosView({
     copiedField,
     copyToClipboard
 }) {
-    const compiledScripts = scriptHistory.filter(s => s.videoPath);
+    const compiledScripts = useMemo(() => scriptHistory.filter(s => s.videoPath), [scriptHistory]);
+    const PAGE_SIZE = 6;
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const visibleScripts = compiledScripts.slice(0, visibleCount);
 
     return (
         <div className="space-y-6 max-w-7xl">
@@ -28,8 +31,9 @@ export default function VideosView({
                     <p className="text-sm max-w-md mx-auto text-center font-medium">No videos have been compiled yet. Go to the Execution Terminal or Script Sandbox, synthesize media assets, and assemble the final video.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn">
-                    {compiledScripts.map((script, idx) => {
+                <div className="space-y-4 animate-fadeIn">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {visibleScripts.map((script, idx) => {
                         const dateStr = script.timestamp ? new Date(script.timestamp).toLocaleString() : 'Unknown date';
                         
                         // Parse description & tags for YouTube
@@ -63,6 +67,7 @@ export default function VideosView({
                                     <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-neutral-850 relative group">
                                         <video 
                                             src={getAssetUrl(script.videoPath)} 
+                                            preload="none"
                                             controls 
                                             className="w-full h-full object-contain"
                                         />
@@ -172,6 +177,17 @@ export default function VideosView({
                             </div>
                         );
                     })}
+                    </div>
+                    {visibleCount < compiledScripts.length && (
+                        <div className="flex justify-center pt-2">
+                            <button
+                                onClick={() => setVisibleCount(prev => prev + PAGE_SIZE)}
+                                className="bg-neutral-850 hover:bg-neutral-800 border border-neutral-750 text-neutral-200 font-bold px-4 py-2 rounded-xl text-xs transition"
+                            >
+                                Load more videos
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

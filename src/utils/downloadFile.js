@@ -1,4 +1,4 @@
-import { apiFetch } from '../apiClient.js';
+import { apiFetch, getAssetUrl } from '../apiClient.js';
 
 export async function downloadFile(urlPath, filename) {
     try {
@@ -16,6 +16,6 @@ export async function downloadFile(urlPath, filename) {
     } catch (err) {
         console.warn('Secure download failed, falling back to public link:', err);
         // Fallback to direct opening if apiFetch fails or isn't needed
-        window.open(urlPath.startsWith('http') ? urlPath : `https://node-app-production-d022.up.railway.app${urlPath}`, '_blank');
+        window.open(getAssetUrl(urlPath), '_blank');
     }
 }

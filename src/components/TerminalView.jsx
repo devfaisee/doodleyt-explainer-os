@@ -248,6 +248,7 @@ export default function TerminalView({
                                                     <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black border border-neutral-850 group">
                                                         <video 
                                                             src={getAssetUrl(currentScript.videoPath)} 
+                                                            preload="none"
                                                             controls 
                                                             className="w-full h-full object-contain"
                                                         />

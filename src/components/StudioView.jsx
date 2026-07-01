@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../apiClient.js';
 
 export default function StudioView({ script, runVideoCompilation, compileStatus, isGenerating, getAssetUrl, handleCellEdit, apiKey }) {
     const [assetTimestamps, setAssetTimestamps] = useState({});
     const [isRegenerating, setIsRegenerating] = useState({});
+    const [page, setPage] = useState(1);
+    const SCENES_PER_PAGE = 8;
 
     if (!script || !script.scenes || !Array.isArray(script.scenes)) {
         return (
@@ -13,6 +15,21 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
             </div>
         );
     }
+
+    useEffect(() => {
+        setPage(1);
+    }, [script?.historyFilename, script?.timestamp, script?.title, script?.scenes?.length]);
+
+    const totalScenes = script.scenes.length;
+    const totalPages = Math.max(1, Math.ceil(totalScenes / SCENES_PER_PAGE));
+    const currentPage = Math.min(page, totalPages);
+    const pagedScenes = useMemo(() => {
+        const start = (currentPage - 1) * SCENES_PER_PAGE;
+        return script.scenes.slice(start, start + SCENES_PER_PAGE).map((scene, offset) => ({
+            scene,
+            idx: start + offset
+        }));
+    }, [script.scenes, currentPage]);
 
     const getAudioFileName = (title, idx) => {
         const safeTitle = title || 'untitled';
@@ -56,8 +73,27 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
     return (
         <div className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl mt-6 space-y-4">
             <h3 className="text-lg font-bold text-white">Storyboard Editor</h3>
+            <div className="flex items-center justify-between text-xs font-mono text-neutral-400">
+                <span>Showing scenes {(currentPage - 1) * SCENES_PER_PAGE + 1} - {Math.min(currentPage * SCENES_PER_PAGE, totalScenes)} of {totalScenes}</span>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 disabled:opacity-50 text-neutral-300 px-2.5 py-1 rounded-lg"
+                    >
+                        Prev
+                    </button>
+                    <button
+                        onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 disabled:opacity-50 text-neutral-300 px-2.5 py-1 rounded-lg"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
             <div className="grid grid-cols-1 gap-4 max-h-[600px] overflow-y-auto pr-2">
-                {script.scenes.map((scene, idx) => {
+                {pagedScenes.map(({ scene, idx }) => {
                     const sceneNum = String(idx + 1).padStart(3, '0');
                     const currentPrompt = scene.prompt;
                     const currentVoiceover = scene.voiceover;
@@ -67,6 +103,8 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                             <img 
                                 src={`${getAssetUrl(`/output/images/scene_${sceneNum}.png`)}?t=${assetTimestamps[idx] || ''}`} 
                                 alt={`Scene ${sceneNum}`} 
+                                loading="lazy"
+                                decoding="async"
                                 className="w-32 h-auto rounded-lg border border-neutral-700 object-cover mt-1" 
                             />
                             <div className="flex-1 space-y-3">
@@ -82,6 +120,7 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                                         />
                                         <audio 
                                             controls 
+                                            preload="none"
                                             src={`${getAssetUrl(`/output/audio/${getAudioFileName(script.title, idx)}`)}?t=${assetTimestamps[idx] || ''}`} 
                                             className="h-8 w-full mt-2" 
                                         />

@@ -4,16 +4,18 @@ jest.setTimeout(20000);
 
 function waitForServerReady(proc) {
   return new Promise((resolve, reject) => {
+    let timeoutId;
     const onData = (data) => {
       const s = data.toString();
       if (s.includes('Explainer OS v2026 local server is running')) {
+        if (timeoutId) clearTimeout(timeoutId);
         proc.stdout.off('data', onData);
         resolve();
       }
     };
     proc.stdout.on('data', onData);
     proc.on('error', reject);
-    setTimeout(() => reject(new Error('Server did not start in time')), 15000);
+    timeoutId = setTimeout(() => reject(new Error('Server did not start in time')), 15000);
   });
 }
 

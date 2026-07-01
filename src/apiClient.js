@@ -1,4 +1,5 @@
-export const API_SERVER_URL = 'https://node-app-production-d022.up.railway.app';
+const envBaseUrl = (import.meta.env.VITE_API_SERVER_URL || '').trim().replace(/\/+$/, '');
+export const API_SERVER_URL = envBaseUrl || 'https://node-app-production-d022.up.railway.app';
 
 export const apiFetch = (url, options = {}) => {
     const baseUrl = API_SERVER_URL;

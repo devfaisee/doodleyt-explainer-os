@@ -23,7 +23,7 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
         try {
             const config = readConfig();
             const geminiApiKey = providedGeminiApiKey || config.geminiApiKey || '';
-            const targetDir = config.outputPath || path.join(process.cwd(), 'output');
+            const targetDir = providedOutputPath || config.outputPath || path.join(process.cwd(), 'output');
             const imagesDir = path.join(targetDir, 'images');
             const audioDir = path.join(targetDir, 'audio');
             const thumbnailsDir = path.join(targetDir, 'thumbnails');

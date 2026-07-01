@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { downloadFile } from './utils/downloadFile.js';
+import { apiFetch, getAssetUrl } from './apiClient.js';
 import { DEFAULT_VISUAL_DNA, DEFAULT_STYLE_REFS } from './store/pipelineStore.js';
 import TerminalView from './components/TerminalView';
 import TopicsView from './components/TopicsView';
@@ -47,30 +48,6 @@ const validatePromptText = (promptText) => {
 
 
 const FALLBACK_API_KEY = '';
-
-const API_SERVER_URL = 'https://node-app-production-d022.up.railway.app';
-
-const apiFetch = (url, options = {}) => {
-    const baseUrl = API_SERVER_URL;
-    const targetUrl = url.startsWith('/') ? url : `/${url}`;
-    
-    // Inject the x-api-key header so the backend authorization passes
-    const token = localStorage.getItem('doodleyt_api_key') || '';
-    if (!options.headers) {
-        options.headers = {};
-    }
-    options.headers['x-api-key'] = token;
-
-    return fetch(`${baseUrl}${targetUrl}`, options);
-};
-
-const getAssetUrl = (path) => {
-    if (!path) return '';
-    if (path.startsWith('http')) return path;
-    const baseUrl = API_SERVER_URL;
-    const targetUrl = path.startsWith('/') ? path : `/${path}`;
-    return `${baseUrl}${targetUrl}`;
-};
 
 // --- MAIN APP COMPONENT ---
 function App() {
@@ -255,35 +232,6 @@ function App() {
                 setScriptHistory(serverScripts);
                 if (serverScripts.length > 0) {
                     localStorage.setItem('doodleyt_history_backup', JSON.stringify(serverScripts));
-                    
-                    // Pre-cache full scripts in the background for any scripts we don't have cached yet
-                    let updatedCache = false;
-                    const scriptsToFetch = serverScripts.filter(entry => !fullCache[entry.filename]);
-                    
-                    if (scriptsToFetch.length > 0) {
-                        await Promise.allSettled(
-                            scriptsToFetch.map(entry => 
-                                apiFetch(`/api/load-script?filename=${encodeURIComponent(entry.filename)}`)
-                                    .then(res => {
-                                        if (!res.ok) throw new Error('Failed to load');
-                                        return res.json();
-                                    })
-                                    .then(loadData => {
-                                        if (loadData.script) {
-                                            fullCache[entry.filename] = loadData.script;
-                                            updatedCache = true;
-                                        }
-                                    })
-                                    .catch(e => {
-                                        console.error('Failed to pre-cache script:', entry.filename, e);
-                                    })
-                            )
-                        );
-                    }
-                    
-                    if (updatedCache) {
-                        localStorage.setItem('doodleyt_full_scripts_cache', JSON.stringify(fullCache));
-                    }
                 }
             }
         } catch (err) {
@@ -1032,9 +980,23 @@ ${currentScript.thumbnail}
     const loadScriptFromHistory = async (filename) => {
         setHistoryLoading(true);
         try {
-            const res = await apiFetch(`/api/load-script?filename=${encodeURIComponent(filename)}`);
-            if (!res.ok) throw new Error('Failed to load script');
-            const data = await res.json();
+            let data = null;
+            try {
+                const cacheStr = localStorage.getItem('doodleyt_full_scripts_cache') || '{}';
+                const cache = JSON.parse(cacheStr);
+                if (cache[filename]) {
+                    data = { script: cache[filename] };
+                }
+            } catch (cacheErr) {
+                console.warn('Failed to read local script cache', cacheErr);
+            }
+
+            if (!data) {
+                const res = await apiFetch(`/api/load-script?filename=${encodeURIComponent(filename)}`);
+                if (!res.ok) throw new Error('Failed to load script');
+                data = await res.json();
+            }
+
             setCurrentScript(data.script);
             setActiveHistoryFilename(filename);
             setShowHistoryPanel(false);

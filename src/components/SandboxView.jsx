@@ -138,6 +138,7 @@ export default function SandboxView({
                                 <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-neutral-800 relative">
                                     <video 
                                         src={getAssetUrl(currentScript.videoPath)} 
+                                        preload="none"
                                         controls 
                                         className="w-full h-full object-contain"
                                     />
