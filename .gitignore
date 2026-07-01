@@ -4,10 +4,25 @@ config.json
 .env.local
 .env.*
 
-# Generated outputs
+# Generated outputs — never commit media or generated data
 output/
+outputs/
 dist/
 scripts_history/
+latest_script.json
+
+# Scratch / one-off development scripts
+scratch/
+
+# Test / temporary binary and archive files
+*.wav
+*.mp3
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.zip
+*.pdf
 
 # Dependencies
 node_modules/

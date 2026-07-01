@@ -6,7 +6,7 @@ function waitForServerReady(proc) {
   return new Promise((resolve, reject) => {
     const onData = (data) => {
       const s = data.toString();
-      if (s.includes('Explainer OS v2026 local server is running')) {
+      if (s.includes('[Express] Server successfully started!')) {
         proc.stdout.off('data', onData);
         resolve();
       }
@@ -26,7 +26,7 @@ async function fetchJson(url) {
 let proc;
 
 beforeAll(async () => {
-  proc = spawn('node', ['server.cjs'], { env: { PORT: '4001', ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
+  proc = spawn('node', ['src/server/index.js'], { env: { PORT: '4001', ...process.env }, stdio: ['ignore', 'pipe', 'pipe'] });
   await waitForServerReady(proc);
 });
 
