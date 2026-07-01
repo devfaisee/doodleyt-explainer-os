@@ -1,23 +1,12 @@
 import fs from 'fs';
 import path from 'path';
-import { activeJob, addJobLog, writeLatestScript, buildDefaultStages, updateJobStageStatus } from './job.service.js';
+import { activeJob, addJobLog, writeLatestScript, buildDefaultStages, updateJobStageStatus, processQueue } from './job.service.js';
 import { getEffectiveApiKey, readConfig, writeConfig, STYLE_REFS_DIR } from '../utils/config.js';
-import { callOpenRouter, callGeminiAPI } from './llm.service.js';
+import { callOpenRouter } from './llm.service.js';
 import { saveScriptToHistory } from './history.service.js';
 import { extractSpokenText } from './media.service.js';
-
-const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
-
-export const validatePromptText = (promptText) => {
-    if (!promptText) return { isValid: true, words: [] };
-    const cleaned = promptText.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ');
-    const tokens = cleaned.split(/\s+/);
-    const leaked = BANNED_PRONOUNS.filter(p => tokens.includes(p));
-    return {
-        isValid: leaked.length === 0,
-        words: leaked
-    };
-};
+import { BANNED_PRONOUNS, MODEL_RATES, DEFAULT_MODEL_RATE } from '../../shared/constants.js';
+import { validatePromptText, calcDurationFromWordCount } from '../../shared/validation.js';
 
 export function startBackendScriptGeneration(topicTheme, videoType, targetDuration, providedApiKey, providedModel) {
     // Input validation
@@ -51,9 +40,6 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
     
     (async () => {
         const config = readConfig();
-        const geminiKey = config.geminiApiKey;
-        const useGemini = false; // Always use OpenRouter (DeepSeek V4) for text tasks
-        const geminiModelName = (model && model.includes('pro')) ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
 
         addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
         addJobLog(`🧠 Routing script writing to OpenRouter (${model})`);
@@ -299,22 +285,22 @@ Return strictly a JSON object matching this schema:
                 const firstVo = `${prefix}"${firstSpoken}"`;
                 const secondVo = `${prefix}"${secondSpoken}"`;
                 
+                // Both split halves share the same visual — it is a continuous shot.
+                // Do NOT append "(Part 1)"/"(Part 2)" which would be rendered as text
+                // by the image generator.
                 splitSanitizedScenes.push({
                     ...scene,
                     voiceover: firstVo,
-                    duration: Math.max(2, Math.ceil(halfCount / 3)),
-                    prompt: scene.prompt + " (Part 1)"
+                    duration: calcDurationFromWordCount(halfCount)
                 });
                 splitSanitizedScenes.push({
                     ...scene,
                     voiceover: secondVo,
-                    duration: Math.max(2, Math.ceil((words.length - halfCount) / 3)),
-                    prompt: scene.prompt + " (Part 2)"
+                    duration: calcDurationFromWordCount(words.length - halfCount)
                 });
             } else {
-                // Ensure duration aligns with word count roughly
-                const calculatedDur = Math.max(2, Math.ceil(words.length / 3));
-                scene.duration = calculatedDur;
+                // Align duration to the canonical word-count thresholds.
+                scene.duration = calcDurationFromWordCount(words.length);
                 splitSanitizedScenes.push(scene);
             }
         }
@@ -395,12 +381,7 @@ Return only the corrected prompt text, nothing else.`;
         finalScriptData.targetDuration = parsedDuration;
         
         // --- COST CALCULATOR (LLM BASE) ---
-        const MODEL_RATES = {
-            'deepseek/deepseek-v4-flash': { input: 0.09, output: 0.18 },
-            'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
-            'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 }
-        };
-        const rates = MODEL_RATES[model] || { input: 0.5, output: 1.5 };
+        const rates = MODEL_RATES[model] || DEFAULT_MODEL_RATE;
         const tokens = activeJob.llmTokens || { input: 0, output: 0 };
         const llmCost = (tokens.input * rates.input + tokens.output * rates.output) / 1000000;
         
@@ -412,7 +393,10 @@ Return only the corrected prompt text, nothing else.`;
         };
         addJobLog(`💰 Base LLM Scripting Cost: $${llmCost.toFixed(4)}`);
         
-        if (finalScriptData.scenes && finalScriptData.scenes[0] && finalScriptData.scenes[0].voiceover) {
+        // Hook optimizer — Shorts only: the prompt is specifically written for short-form
+        // YouTube Shorts pacing and would damage the cinematic long-form tone if applied
+        // to a multi-act video.
+        if (videoType === 'short' && finalScriptData.scenes && finalScriptData.scenes[0] && finalScriptData.scenes[0].voiceover) {
             try {
                 const originalHook = finalScriptData.scenes[0].voiceover;
                 const systemPrompt = "You are an expert hook writer. Reply with ONLY the raw rewritten text. NO conversational filler, NO quotes around the text, NO explanations.";
@@ -455,8 +439,6 @@ Return only the corrected prompt text, nothing else.`;
         activeJob.stages = activeJob.stages.map(s => s.status === 'running' ? { ...s, status: 'failed' } : s);
     }).finally(() => {
         // Trigger next job in queue if any
-        import('./job.service.js').then(({ processQueue }) => {
-            processQueue(startBackendScriptGeneration);
-        });
+        processQueue(startBackendScriptGeneration);
     });
 }

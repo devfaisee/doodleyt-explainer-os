@@ -13,17 +13,23 @@ export const STYLE_REFS_DIR = path.join(ROOT_DIR, 'style_references');
 export const SCRIPTS_HISTORY_DIR = path.join(OUTPUT_DIR, 'scripts_history');
 export const LATEST_SCRIPT_FILE = path.join(OUTPUT_DIR, 'latest_script.json');
 
+// In-memory config cache — avoids synchronous disk reads on every authenticated request.
+// Invalidated whenever writeConfig() is called.
+let configCache = null;
+
 // Helper to read config
 export function readConfig() {
+    if (configCache) return configCache;
     try {
         if (fs.existsSync(CONFIG_FILE)) {
             const data = fs.readFileSync(CONFIG_FILE, 'utf8');
-            return JSON.parse(data);
+            configCache = JSON.parse(data);
+            return configCache;
         }
     } catch (e) {
         console.error('Error reading config:', e);
     }
-    return {
+    configCache = {
         apiKey: FIXATED_KEY,
         model: 'deepseek/deepseek-v4-flash',
         outputPath: OUTPUT_DIR,
@@ -34,12 +40,14 @@ export function readConfig() {
             { name: 'SARA', description: 'Female stick figure, long hair drawn as squiggly lines, pink shirt, blue skirt, glasses, surprised expression' }
         ]
     };
+    return configCache;
 }
 
-// Helper to write config
+// Helper to write config — also invalidates the in-memory cache.
 export function writeConfig(config) {
     try {
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+        configCache = config; // Update cache to the newly written value
         return true;
     } catch (e) {
         console.error('Error writing config:', e);

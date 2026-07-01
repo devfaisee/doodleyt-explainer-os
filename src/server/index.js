@@ -84,7 +84,11 @@ app.use((req, res, next) => {
 
 // Static file serving for React frontend and media outputs
 app.use(express.static(path.join(ROOT_DIR, 'dist')));
-app.use('/output', express.static(path.join(ROOT_DIR, 'output')));
+app.use('/output', express.static(path.join(ROOT_DIR, 'output'), {
+    maxAge: '1h',
+    etag: true,
+    lastModified: true
+}));
 
 // Catch-all to serve index.html for React Router
 app.get('/*splat', (req, res) => {
@@ -101,7 +105,7 @@ app.get('/*splat', (req, res) => {
     }
 });
 
-const PORT = 3001; // The user specified port 3001
+const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
     console.log(`[Express] Server successfully started!`);
