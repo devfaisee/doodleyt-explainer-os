@@ -153,29 +153,34 @@ export function startBackendAssembly(script, providedOutputPath) {
                     const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                     
                     const scaleFilter = script.videoType === 'short' 
-                        ? `scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24`
-                        : `scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=24`;
+                        ? `scale=540:960:force_original_aspect_ratio=increase,crop=540:960,fps=20`
+                        : `scale=960:540:force_original_aspect_ratio=increase,crop=960:540,fps=20`;
                     
                     addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}...`);
                     try {
                         await execFileAsync('ffmpeg', [
                             '-nostdin', '-y', '-loglevel', 'error',
                             '-loop', '1',
-                            '-framerate', '25',
+                            '-framerate', '20',
                             '-i', imgPath,
                             '-i', audioPath,
                             '-map', '0:v:0',
                             '-map', '1:a:0',
                             '-t', paddedDuration,
                             '-shortest',
-                            '-c:v', 'mpeg4',
-                            '-q:v', '5',
+                            '-c:v', 'libx264',
+                            '-preset', 'ultrafast',
+                            '-tune', 'stillimage',
+                            '-crf', '32',
+                            '-profile:v', 'baseline',
+                            '-level', '3.1',
                             '-pix_fmt', 'yuv420p',
+                            '-movflags', '+faststart',
                             '-vf', scaleFilter,
                             '-c:a', 'aac',
-                            '-b:a', '192k',
+                            '-b:a', '160k',
                             tempSceneVideo
-                        ], { timeout: 180000 });
+                        ], { timeout: 240000 });
                     } catch (err) {
                         addJobLog(`[FFMPEG DEBUG] Failed/Timed out encode for scene ${sceneIndex+1}: ${err.message}`);
                         throw err;
@@ -209,10 +214,15 @@ export function startBackendAssembly(script, providedOutputPath) {
                     '-safe', '0',
                     '-i', inputsTxtPath,
                     '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
-                    '-c:v', 'copy',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '30',
+                    '-pix_fmt', 'yuv420p',
+                    '-movflags', '+faststart',
                     '-c:a', 'aac',
+                    '-b:a', '160k',
                     finalVideoPath
-                ], { timeout: 120000 });
+                ], { timeout: 300000 });
                 addJobLog(`[FFMPEG DEBUG] Finished final concat.`);
             } catch (err) {
                 addJobLog(`[FFMPEG DEBUG] Failed/Timed out final concat: ${err.message}`);

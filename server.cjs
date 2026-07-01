@@ -1138,7 +1138,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
         try {
             const config = readConfig();
             const geminiApiKey = providedGeminiApiKey || config.geminiApiKey || '';
-            const targetDir = config.outputPath || path.join(__dirname, 'output');
+            const targetDir = providedOutputPath || config.outputPath || path.join(__dirname, 'output');
             const imagesDir = path.join(targetDir, 'images');
             const audioDir = path.join(targetDir, 'audio');
             const thumbnailsDir = path.join(targetDir, 'thumbnails');
@@ -1351,7 +1351,7 @@ function startBackendAssembly(script, providedOutputPath) {
         }
 
         const config = readConfig();
-        const targetDir = config.outputPath || path.join(__dirname, 'output');
+        const targetDir = providedOutputPath || config.outputPath || path.join(__dirname, 'output');
         const imagesDir = path.join(targetDir, 'images');
         const audioDir = path.join(targetDir, 'audio');
         const videosDir = path.join(targetDir, 'videos');
@@ -1395,6 +1395,8 @@ function startBackendAssembly(script, providedOutputPath) {
                         }
                     }
 
+                    await ensurePngFormat(imgPath);
+
                     // Dynamic check/write of fallback assets if missing
                     if (!fs.existsSync(imgPath)) {
                         fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
@@ -1418,15 +1420,15 @@ function startBackendAssembly(script, providedOutputPath) {
                     const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                     
                     const scaleFilter = script.videoType === 'short' 
-                        ? `scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,fps=24`
-                        : `scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=24`;
+                        ? `scale=540:960:force_original_aspect_ratio=increase,crop=540:960,fps=20`
+                        : `scale=960:540:force_original_aspect_ratio=increase,crop=960:540,fps=20`;
                     
-                    // Keep encoding lightweight so production runners do not time out on x264.
-                    const cmd = `ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 25 -i "${imgPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -t ${paddedDuration} -shortest -c:v mpeg4 -q:v 5 -pix_fmt yuv420p -vf "${scaleFilter}" -c:a aac -b:a 192k "${tempSceneVideo}"`;
+                    // Browser-safe output: H.264/AAC while keeping encode load low for Railway.
+                    const cmd = `ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 20 -i "${imgPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -t ${paddedDuration} -shortest -c:v libx264 -preset ultrafast -tune stillimage -crf 32 -profile:v baseline -level 3.1 -pix_fmt yuv420p -movflags +faststart -vf "${scaleFilter}" -c:a aac -b:a 160k "${tempSceneVideo}"`;
                     
                     addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}... cmd: ${cmd}`);
                     try {
-                        await execAsync(cmd, { timeout: 180000 }); // 3 min max per scene
+                        await execAsync(cmd, { timeout: 240000 }); // 4 min max per scene
                         addJobLog(`[FFMPEG DEBUG] Finished encode for scene ${sceneIndex+1}`);
                     } catch (err) {
                         addJobLog(`[FFMPEG DEBUG] Failed/Timed out encode for scene ${sceneIndex+1}: ${err.message}`);
@@ -1452,11 +1454,11 @@ function startBackendAssembly(script, providedOutputPath) {
             const finalVideoPath = path.join(videosDir, videoFilename);
             
             addJobLog(`⚡ Concatenating individual scene files into final master print...`);
-            const concatCmd = `ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "${inputsTxtPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:v copy -c:a aac "${finalVideoPath}"`;
+            const concatCmd = `ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "${inputsTxtPath}" -af "loudnorm=I=-16:TP=-1.5:LRA=11" -c:v libx264 -preset ultrafast -crf 30 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 160k "${finalVideoPath}"`;
             
             addJobLog(`[FFMPEG DEBUG] Starting final concat... cmd: ${concatCmd}`);
             try {
-                await execAsync(concatCmd, { timeout: 120000 }); // 2 mins max
+                await execAsync(concatCmd, { timeout: 300000 }); // 5 mins max
                 addJobLog(`[FFMPEG DEBUG] Finished final concat.`);
             } catch (err) {
                 addJobLog(`[FFMPEG DEBUG] Failed/Timed out final concat: ${err.message}`);
@@ -1617,6 +1619,27 @@ function getSilentWavBuffer(durationSeconds = 2) {
     
     buffer.fill(128, 44);
     return buffer;
+}
+
+async function ensurePngFormat(filePath) {
+    try {
+        if (!fs.existsSync(filePath)) return false;
+        const buffer = await fs.promises.readFile(filePath);
+        if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+            addJobLog(`[Image Guard] Detected JPEG bytes in ${path.basename(filePath)}. Converting to real PNG...`);
+            const tempJpg = filePath + '.tmp.jpg';
+            await fs.promises.writeFile(tempJpg, buffer);
+            try {
+                await execAsync(`ffmpeg -y -v error -i "${tempJpg}" -vcodec png "${filePath}"`);
+            } finally {
+                try { fs.unlinkSync(tempJpg); } catch (_) {}
+            }
+        }
+        return true;
+    } catch (e) {
+        addJobLog(`⚠️ Error verifying image format for ${path.basename(filePath)}: ${e.message}`);
+        return false;
+    }
 }
 
 const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAe0lEQVR4nNXOMQ0AAAjAsJHMv2ZEcJBVQYc4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4vwNXCyFoAP6hilguAAAAAElFTkSuQmCC";
