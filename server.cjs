@@ -554,7 +554,7 @@ function isAuthorized(req) {
     return false;
 }
 
-async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = false) {
+async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = false, maxRetries = 2) {
     apiKey = process.env.OPENROUTER_API_KEY || apiKey;
     const messages = [
         { role: 'system', content: systemPrompt },
@@ -566,6 +566,7 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
     const payload = JSON.stringify({
         model: model || 'deepseek/deepseek-v4-flash',
         messages,
+        max_tokens: 16000,
         response_format: isJson ? { type: 'json_object' } : undefined
     });
     const headers = {
@@ -574,30 +575,45 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
         'HTTP-Referer': 'http://localhost:3000',
         'X-Title': 'Doodle Theory OS'
     };
-    try {
-        // LLM inference can take 3-5 min for large Act outputs — use 5 min timeout
-        const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload, 300000);
-        const data = JSON.parse(res.body.toString());
-        if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-            throw new Error(data.error?.message || 'Invalid completions response structure');
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            if (attempt > 0) {
+                await new Promise(r => setTimeout(r, 3000 * attempt));
+                if (activeJob) addJobLog(`🔁 Retrying OpenRouter call (attempt ${attempt + 1})...`);
+            }
+            // LLM inference can take 3-5 min for large Act outputs — use 5 min timeout
+            const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload, 300000);
+            const rawBody = res.body.toString();
+            let data;
+            try {
+                data = JSON.parse(rawBody);
+            } catch (parseErr) {
+                throw new Error(`Truncated/invalid JSON response from OpenRouter (${rawBody.length} bytes): ${parseErr.message}`);
+            }
+            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+                throw new Error(data.error?.message || 'Invalid completions response structure');
+            }
+            if (activeJob && activeJob.status === 'running' && data.usage) {
+                activeJob.llmTokens = activeJob.llmTokens || { input: 0, output: 0 };
+                activeJob.llmTokens.input += data.usage.prompt_tokens || 0;
+                activeJob.llmTokens.output += data.usage.completion_tokens || 0;
+            }
+            let textResponse = data.choices[0].message.content;
+            const match = textResponse.match(/<final_answer>([\s\S]*?)<\/final_answer>/);
+            if (match) {
+                textResponse = match[1];
+            }
+            if (isJson && !textResponse.startsWith("{")) {
+                textResponse = "{\n  \"title\":" + textResponse;
+            }
+            return textResponse;
+        } catch (e) {
+            lastError = e;
+            if (attempt < maxRetries) continue;
         }
-        if (activeJob && activeJob.status === 'running' && data.usage) {
-            activeJob.llmTokens = activeJob.llmTokens || { input: 0, output: 0 };
-            activeJob.llmTokens.input += data.usage.prompt_tokens || 0;
-            activeJob.llmTokens.output += data.usage.completion_tokens || 0;
-        }
-        let textResponse = data.choices[0].message.content;
-        const match = textResponse.match(/<final_answer>([\s\S]*?)<\/final_answer>/);
-        if (match) {
-            textResponse = match[1];
-        }
-        if (isJson && !textResponse.startsWith("{")) {
-            textResponse = "{\n  \"title\":" + textResponse;
-        }
-        return textResponse;
-    } catch (e) {
-        throw new Error(`OpenRouter Call Failed: ${e.message}`);
     }
+    throw new Error(`OpenRouter Call Failed: ${lastError.message}`);
 }
 
 function extractSpokenText(voiceover) {
