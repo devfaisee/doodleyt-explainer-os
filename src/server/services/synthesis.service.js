@@ -1,12 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { activeJob, jobQueue, addJobLog, writeLatestScript } from './job.service.js';
+import { activeJob, jobQueue, addJobLog, writeLatestScript, processQueue } from './job.service.js';
 import { callReplicateWithRetry, extractSpokenText, MOCK_PNG_BASE64 } from './media.service.js';
 import { updateScriptInHistory } from './history.service.js';
 import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from './ffmpeg.service.js';
 import { ensureDir } from '../utils/fileSystem.js';
 import { readConfig } from '../utils/config.js';
 import { fetchImageBuffer, httpsGet } from '../utils/network.js';
+import { startBackendScriptGeneration } from './script-generation.service.js';
+import { startBackendAssembly } from './assembly.service.js';
 
 export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey, providedGeminiApiKey, synthesisMode = 'audio_and_images') {
     activeJob.status = 'running';
@@ -41,24 +43,22 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                 let thumbBuffer = null;
                 let thumbGenerated = false;
 
-                if (true) {
-                    addJobLog(`🎨 [Replicate] Synthesizing custom thumbnail image...`);
-                    try {
-                        const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
-                        const payload = JSON.stringify({
-                            input: {
-                                prompt: script.thumbnail,
-                                aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
-                                output_format: "png"
-                            }
-                        });
-                        const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
-                        thumbBuffer = await fetchImageBuffer(imgUrl);
-                        thumbGenerated = true;
-                        addJobLog(`✓ [Replicate] Custom thumbnail image completed.`);
-                    } catch (err) {
-                        addJobLog(`⚠️ [Replicate] Thumbnail synthesis failed: ${err.message}`);
-                    }
+                addJobLog(`🎨 [Replicate] Synthesizing custom thumbnail image...`);
+                try {
+                    const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                    const payload = JSON.stringify({
+                        input: {
+                            prompt: script.thumbnail,
+                            aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
+                            output_format: "png"
+                        }
+                    });
+                    const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
+                    thumbBuffer = await fetchImageBuffer(imgUrl);
+                    thumbGenerated = true;
+                    addJobLog(`✓ [Replicate] Custom thumbnail image completed.`);
+                } catch (err) {
+                    addJobLog(`⚠️ [Replicate] Thumbnail synthesis failed: ${err.message}`);
                 }
 
                 if (thumbGenerated && thumbBuffer) {
@@ -95,24 +95,22 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                     let imgBuffer = null;
                     let imgGenerated = false;
 
-                    if (true) {
-                        try {
-                            addJobLog(`[Replicate] Scene ${i+1}/${scenes.length} generating image...`);
-                            const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
-                            const payload = JSON.stringify({
-                                input: {
-                                    prompt: scene.prompt,
-                                    aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
-                                    output_format: "png"
-                                }
-                            });
-                            const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
-                            imgBuffer = await fetchImageBuffer(imgUrl);
-                            imgGenerated = true;
-                            addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
-                        } catch (err) {
-                            addJobLog(`⚠️ [Replicate] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
-                        }
+                    try {
+                        addJobLog(`[Replicate] Scene ${i+1}/${scenes.length} generating image...`);
+                        const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                        const payload = JSON.stringify({
+                            input: {
+                                prompt: scene.prompt,
+                                aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
+                                output_format: "png"
+                            }
+                        });
+                        const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
+                        imgBuffer = await fetchImageBuffer(imgUrl);
+                        imgGenerated = true;
+                        addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
+                    } catch (err) {
+                        addJobLog(`⚠️ [Replicate] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
                     }
 
                     if (imgGenerated && imgBuffer) {
@@ -188,27 +186,17 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
             activeJob.script = script;
             if (jobQueue.length > 0) {
                 addJobLog(`⚡ Bulk queue detected. Bypassing storyboard and auto-assembling...`);
-                import('./assembly.service.js').then(({ startBackendAssembly }) => {
-                    startBackendAssembly(script, null);
-                });
+                startBackendAssembly(script, null);
             } else {
                 activeJob.status = 'synthesis_complete';
                 addJobLog(`🎉 Asset synthesis finished successfully! Waiting for manual assembly...`);
-                import('./job.service.js').then(({ processQueue }) => {
-                    import('./script-generation.service.js').then(({ startBackendScriptGeneration }) => {
-                        processQueue(startBackendScriptGeneration);
-                    });
-                });
+                processQueue(startBackendScriptGeneration);
             }
         } catch (e) {
             activeJob.status = 'failed';
             activeJob.error = e.message;
             addJobLog(`❌ Asset synthesis failed: ${e.message}`);
-            import('./job.service.js').then(({ processQueue }) => {
-                import('./script-generation.service.js').then(({ startBackendScriptGeneration }) => {
-                    processQueue(startBackendScriptGeneration);
-                });
-            });
+            processQueue(startBackendScriptGeneration);
         }
     })();
 }

@@ -47,7 +47,9 @@ export async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endp
 export function extractSpokenText(voiceover) {
     if (!voiceover) return '';
     const matches = [...voiceover.matchAll(/"([^"]+)"/g)];
-    if (matches.length > 0) return matches[matches.length - 1][1];
+    // Join all quoted segments in case the LLM produced multiple clauses in one voiceover.
+    // This prevents silent truncation where only the last match was previously returned.
+    if (matches.length > 0) return matches.map(m => m[1]).join(' ');
     return voiceover.replace(/^Read\s+[^:]+:\s*/i, '').trim();
 }
 

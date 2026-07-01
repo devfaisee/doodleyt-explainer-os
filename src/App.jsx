@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { downloadFile } from './utils/downloadFile.js';
-import { DEFAULT_VISUAL_DNA, DEFAULT_STYLE_REFS } from './store/pipelineStore.js';
+import { DEFAULT_VISUAL_DNA, DEFAULT_STYLE_REFS, DEFAULT_TOPICS, BANNED_PRONOUNS } from './shared/constants.js';
+import { validatePromptText } from './shared/validation.js';
 import TerminalView from './components/TerminalView';
 import TopicsView from './components/TopicsView';
 import SandboxView from './components/SandboxView';
@@ -13,38 +14,11 @@ import StudioView from './components/StudioView';
 
 
 // --- PRESETS & HARDCODED BLUEPRINTS ---
-const DEFAULT_TOPICS = [
-    { id: 1, title: "Your Teeth Weren't Meant For Modern Food", cat: "Evolutionary Anthropology", curiosity: 9.8, novelty: 9.6, relatability: 9.4, hook: "Why ancient human skulls show perfect straight teeth and zero wisdom teeth impactions before agriculture." },
-    { id: 2, title: "Why Complete Silence Terrifies the Human Brain", cat: "Behavioral Psychology", curiosity: 9.9, novelty: 9.7, relatability: 9.2, hook: "Inside the world's quietest room, the silence is so absolute that you start hearing your own organs grinding." },
-    { id: 3, title: "Why Left-Handed Spies Were Banned in the 1960s", cat: "Biological Anomalies", curiosity: 9.8, novelty: 9.8, relatability: 8.8, hook: "How an obscure biological trait became an instant automatic dealbreaker for Cold War spy agencies." },
-    { id: 4, title: "Before Fire, Every Night Was a Nightmare", cat: "Existential Mysteries", curiosity: 9.7, novelty: 9.5, relatability: 9.0, hook: "How the discovery of fire saved early humans from the terrifying nocturnal predators that ruled the prehistoric dark." },
-    { id: 5, title: "Why Ancient Builders Buried Gobekli Tepe Under Dirt", cat: "Archaeological Mysteries", curiosity: 9.8, novelty: 9.6, relatability: 8.5, hook: "Why the world's oldest temple was deliberately buried under thousands of tons of soil by its own creators." },
-    { id: 6, title: "The Primal Switch That Flips When You Get Lost", cat: "Survival Psychology", curiosity: 9.6, novelty: 9.4, relatability: 8.9, hook: "Why lost hikers walk in perfect circles, even when they are convinced they are walking straight." },
-    { id: 7, title: "The Town That Danced Themselves to Death in 1518", cat: "Mass Hysteria", curiosity: 9.9, novelty: 9.8, relatability: 8.7, hook: "What happens when a mass psychological outbreak causes an entire city to dance uncontrollably until their hearts fail." },
-    { id: 8, title: "The 1-Character Code Typo That Wiped Out $500M", cat: "Technological Blunders", curiosity: 9.8, novelty: 9.7, relatability: 9.0, hook: "How a junior developer forgot a reentrancy guard, draining a massive decentralized vault in less than a minute." },
-    { id: 9, title: "The Wow Signal and the Fermi Paradox", cat: "Cosmic Anomalies", curiosity: 9.9, novelty: 9.8, relatability: 8.4, hook: "What scientists actually discovered when they analyzed the deep space radio signal that broke cosmic silence." },
-    { id: 10, title: "The Medieval Trials Where Rats Were Put on Trial", cat: "Psychology of Beliefs", curiosity: 9.7, novelty: 9.8, relatability: 8.6, hook: "How medieval courts legally prosecuted, tried, and executed weasels, pigs, and insects for crimes." }
-];
-
-const BANNED_PRONOUNS = ['he', 'she', 'it', 'they', 'his', 'her', 'their', 'its', 'same', 'similar', 'previous', 'earlier', 'above', 'below', 'again', 'identical', 'character', 'figure'];
 
 const CONSTITUTION = {
     visualDNA: DEFAULT_VISUAL_DNA,
     styleReferences: DEFAULT_STYLE_REFS
 };
-
-
-const validatePromptText = (promptText) => {
-    if (!promptText) return { isValid: true, words: [] };
-    const cleaned = promptText.toLowerCase().replace(/[^a-z0-9'\s-]/g, ' ');
-    const tokens = cleaned.split(/\s+/);
-    const leaked = BANNED_PRONOUNS.filter(p => tokens.includes(p));
-    return {
-        isValid: leaked.length === 0,
-        words: leaked
-    };
-};
-
 
 const FALLBACK_API_KEY = '';
 
@@ -301,13 +275,29 @@ function App() {
     const startPollingStatus = useCallback(() => {
         if (pollIntervalRef.current) return;
         
-        pollIntervalRef.current = setInterval(async () => {
+        // Adaptive polling: start fast (1.5 s), back off to 5 s when no new log
+        // lines have appeared for 3 consecutive polls (i.e. during slow LLM calls).
+        let lastLogCount = 0;
+        let quietPolls = 0;
+        const FAST_INTERVAL = 1500;
+        const SLOW_INTERVAL = 5000;
+        
+        const doPoll = async () => {
             try {
                 const res = await apiFetch('/api/generation-status');
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
                 
-                if (data.logs) setPipelineLogs(data.logs);
+                if (data.logs) {
+                    const newCount = data.logs.length;
+                    if (newCount > lastLogCount) {
+                        lastLogCount = newCount;
+                        quietPolls = 0;
+                    } else {
+                        quietPolls++;
+                    }
+                    setPipelineLogs(data.logs);
+                }
                 if (data.stages) setPipelineStages(data.stages);
                 if (data.script) {
                     setCurrentScript(data.script);
@@ -324,7 +314,6 @@ function App() {
                     setIsGenerating(false);
                     setSynthesisStatus('idle');
                 } else {
-                    // Default to generation
                     if (data.script && data.status === 'running') {
                         setIsGenerating(true);
                         setCurrentScript(data.script);
@@ -354,13 +343,22 @@ function App() {
                         setCompileStatus('idle');
                     }
                     if (finalStatus === 'failed') addLog(`❌ Job failed: ${data.error || 'Unknown'}`);
-                    // Refresh history list after any job completes
                     syncScriptHistory();
+                    return;
                 }
+
+                // Reschedule at the appropriate speed
+                const nextDelay = quietPolls >= 3 ? SLOW_INTERVAL : FAST_INTERVAL;
+                pollIntervalRef.current = setTimeout(doPoll, nextDelay);
             } catch (err) {
                 console.error('Polling error:', err);
+                // Keep polling even after transient errors
+                pollIntervalRef.current = setTimeout(doPoll, SLOW_INTERVAL);
             }
-        }, 1500);
+        };
+
+        // Kick off the first poll immediately via setTimeout so the ref is set
+        pollIntervalRef.current = setTimeout(doPoll, FAST_INTERVAL);
     }, [syncScriptHistory]);
 
     // Fetch config on load

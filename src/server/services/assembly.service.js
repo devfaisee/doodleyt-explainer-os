@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { activeJob, addJobLog, writeLatestScript } from './job.service.js';
+import { activeJob, addJobLog, writeLatestScript, processQueue } from './job.service.js';
 import { updateScriptInHistory } from './history.service.js';
 import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from './ffmpeg.service.js';
 import { ensureDir } from '../utils/fileSystem.js';
@@ -8,6 +8,7 @@ import { readConfig, OUTPUT_DIR } from '../utils/config.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { MOCK_PNG_BASE64 } from './media.service.js';
+import { startBackendScriptGeneration } from './script-generation.service.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -230,11 +231,7 @@ export function startBackendAssembly(script, providedOutputPath) {
             addJobLog(`🎉 Master video compilation finished successfully!`);
             addJobLog(`💾 File saved: ${script.videoPath} (${stats.size} bytes)`);
             
-            import('./job.service.js').then(({ processQueue }) => {
-                import('./script-generation.service.js').then(({ startBackendScriptGeneration }) => {
-                    processQueue(startBackendScriptGeneration);
-                });
-            });
+            processQueue(startBackendScriptGeneration);
 
         } catch (innerErr) {
             // Wildcard cleanup to prevent background leaks of concurrent threads
@@ -249,11 +246,7 @@ export function startBackendAssembly(script, providedOutputPath) {
                 activeJob.status = 'idle';
             }
             
-            import('./job.service.js').then(({ processQueue }) => {
-                import('./script-generation.service.js').then(({ startBackendScriptGeneration }) => {
-                    processQueue(startBackendScriptGeneration);
-                });
-            });
+            processQueue(startBackendScriptGeneration);
         }
     })();
 }

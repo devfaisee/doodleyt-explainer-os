@@ -53,27 +53,25 @@ router.post('/regenerate-asset', async (req, res) => {
             let imgBuffer = null;
             let imgGenerated = false;
 
-            if (true) {
-                try {
-                    console.log(`[Regenerate] Replicate generating image for scene ${sceneIndex + 1}...`);
-                    const falApiKey = config.falApiKey || '';
-                    const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
-                    const payload = JSON.stringify({
-                        input: {
-                            prompt: text,
-                            aspect_ratio: videoType === 'short' ? '9:16' : '16:9',
-                            output_format: "png"
-                        }
-                    });
-                    const mockLog = (msg) => console.log(msg);
-                    const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, mockLog);
-                    imgBuffer = await fetchImageBuffer(imgUrl);
-                    imgGenerated = true;
-                    console.log(`✓ [Regenerate] Replicate image completed.`);
-                } catch (err) {
-                    console.log(`⚠️ [Regenerate] Replicate failed: ${err.message}.`);
-                    throw new Error(`Image generation failed: ${err.message}`);
-                }
+            try {
+                console.log(`[Regenerate] Replicate generating image for scene ${sceneIndex + 1}...`);
+                const falApiKey = config.falApiKey || '';
+                const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                const payload = JSON.stringify({
+                    input: {
+                        prompt: text,
+                        aspect_ratio: videoType === 'short' ? '9:16' : '16:9',
+                        output_format: "png"
+                    }
+                });
+                const mockLog = (msg) => console.log(msg);
+                const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, mockLog);
+                imgBuffer = await fetchImageBuffer(imgUrl);
+                imgGenerated = true;
+                console.log(`✓ [Regenerate] Replicate image completed.`);
+            } catch (err) {
+                console.log(`⚠️ [Regenerate] Replicate failed: ${err.message}.`);
+                throw new Error(`Image generation failed: ${err.message}`);
             }
 
             if (imgGenerated && imgBuffer) {
