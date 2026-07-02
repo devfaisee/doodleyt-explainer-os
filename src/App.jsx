@@ -316,11 +316,8 @@ function App() {
             .then(res => res.json())
             .then(data => {
                 setServerStatus('Online');
-                const cachedOpenRouterKey = localStorage.getItem('doodleyt_api_key') || FALLBACK_API_KEY;
-                const cachedReplicateKey = localStorage.getItem('doodleyt_replicate_key') || localStorage.getItem('doodleyt_fal_key') || '';
-                setApiKey(!isMaskedKey(data.apiKey) ? (data.apiKey || FALLBACK_API_KEY) : cachedOpenRouterKey);
-                if (!isMaskedKey(data.replicateApiKey) && data.replicateApiKey) setReplicateApiKey(data.replicateApiKey);
-                else setReplicateApiKey(cachedReplicateKey);
+                setApiKey(!isMaskedKey(data.apiKey) ? (data.apiKey || FALLBACK_API_KEY) : FALLBACK_API_KEY);
+                setReplicateApiKey(!isMaskedKey(data.replicateApiKey) ? (data.replicateApiKey || '') : '');
                 if (data.model) setModel(data.model);
                 if (data.outputPath) setOutputPath(data.outputPath);
                 if (data.characters) setCharacters(data.characters);
@@ -360,16 +357,14 @@ function App() {
                     if (backupStr) setScriptHistory(JSON.parse(backupStr));
                 } catch(e) {}
                 
-                const cachedKey = localStorage.getItem('doodleyt_api_key') || FALLBACK_API_KEY;
-                const cachedReplicateKey = localStorage.getItem('doodleyt_replicate_key') || localStorage.getItem('doodleyt_fal_key') || '';
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || './output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
                 const cachedVisualDNA = localStorage.getItem('doodleyt_visual_dna') || DEFAULT_VISUAL_DNA;
                 const cachedStyleReferences = localStorage.getItem('doodleyt_style_references') ? JSON.parse(localStorage.getItem('doodleyt_style_references')) : DEFAULT_STYLE_REFS;
 
-                setApiKey(cachedKey);
-                setReplicateApiKey(cachedReplicateKey);
+                setApiKey(FALLBACK_API_KEY);
+                setReplicateApiKey('');
                 setModel(cachedModel);
                 setOutputPath(cachedPath);
                 setVisualDNA(cachedVisualDNA);
@@ -397,13 +392,6 @@ function App() {
 
 
     const saveConfig = async (updatedFields) => {
-        if (updatedFields.apiKey !== undefined) localStorage.setItem('doodleyt_api_key', updatedFields.apiKey);
-        if (updatedFields.replicateApiKey !== undefined) {
-            localStorage.setItem('doodleyt_replicate_key', updatedFields.replicateApiKey);
-            localStorage.removeItem('doodleyt_fal_key');
-            localStorage.removeItem('doodleyt_gemini_key');
-            localStorage.removeItem('doodleyt_elevenlabs_key');
-        }
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
         if (updatedFields.characters !== undefined) localStorage.setItem('doodleyt_characters', JSON.stringify(updatedFields.characters));
@@ -533,7 +521,6 @@ function App() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     script: currentScript,
-                    apiKey,
                     replicateApiKey,
                     outputPath,
                     synthesisMode
