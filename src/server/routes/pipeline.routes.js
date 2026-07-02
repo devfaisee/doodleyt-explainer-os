@@ -150,7 +150,7 @@ router.post('/synthesize-assets', (req, res) => {
     try {
         const { script, replicateApiKey, outputPath, synthesisMode } = req.body;
         if (!script) throw new Error("Script data is required");
-        const keyFromHeader = req.headers['x-api-key'] || req.headers['x-replicate-api-key'] || '';
+        const keyFromHeader = req.headers['x-replicate-api-key'] || '';
         const effectiveReplicateApiKey = (typeof replicateApiKey === 'string' && replicateApiKey.trim())
             ? replicateApiKey.trim()
             : (typeof keyFromHeader === 'string' ? keyFromHeader.trim() : '');

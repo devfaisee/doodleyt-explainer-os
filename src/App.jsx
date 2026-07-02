@@ -312,6 +312,11 @@ function App() {
 
     // Fetch config on load
     useEffect(() => {
+        localStorage.removeItem('doodleyt_api_key');
+        localStorage.removeItem('doodleyt_replicate_key');
+        localStorage.removeItem('doodleyt_fal_key');
+        localStorage.removeItem('doodleyt_gemini_key');
+        localStorage.removeItem('doodleyt_elevenlabs_key');
         apiFetch('/api/config')
             .then(res => res.json())
             .then(data => {
