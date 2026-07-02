@@ -56,8 +56,7 @@ router.post('/regenerate-asset', async (req, res) => {
             if (true) {
                 try {
                     console.log(`[Regenerate] Replicate generating image for scene ${sceneIndex + 1}...`);
-                    const falApiKey = config.falApiKey || '';
-                    const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                    const replicateApiKey = process.env.REPLICATE_API_KEY || config.replicateApiKey || '';
                     const payload = JSON.stringify({
                         input: {
                             prompt: text,
@@ -85,8 +84,7 @@ router.post('/regenerate-asset', async (req, res) => {
             const audioPath = path.join(audioDir, audioFileName);
             
             const spokenText = extractSpokenText(text);
-            const falApiKey = config.falApiKey || '';
-            const replicateApiKey = process.env.REPLICATE_API_KEY || config.replicateApiKey || falApiKey;
+            const replicateApiKey = process.env.REPLICATE_API_KEY || config.replicateApiKey || '';
             const mockLog = (msg) => console.log(msg);
             let audioGenerated = false;
 
@@ -150,10 +148,13 @@ router.post('/synthesize-assets', (req, res) => {
         return res.status(409).json({ error: 'A background job is already in progress.' });
     }
     try {
-        const { script, apiKey, falApiKey, elevenlabsApiKey, geminiApiKey, outputPath, synthesisMode } = req.body;
+        const { script, replicateApiKey, outputPath, synthesisMode } = req.body;
         if (!script) throw new Error("Script data is required");
-        
-        startBackendSynthesis(script, falApiKey, elevenlabsApiKey, outputPath, apiKey, geminiApiKey, synthesisMode || 'audio_and_images');
+        const keyFromHeader = req.headers['x-api-key'] || req.headers['x-replicate-api-key'] || '';
+        const effectiveReplicateApiKey = (typeof replicateApiKey === 'string' && replicateApiKey.trim())
+            ? replicateApiKey.trim()
+            : (typeof keyFromHeader === 'string' ? keyFromHeader.trim() : '');
+        startBackendSynthesis(script, effectiveReplicateApiKey, outputPath, synthesisMode || 'audio_and_images');
         
         res.json({ success: true, message: 'Asset synthesis started' });
     } catch (e) {

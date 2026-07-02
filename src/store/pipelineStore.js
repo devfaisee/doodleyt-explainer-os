@@ -26,9 +26,7 @@ export const usePipelineStore = create((set, get) => ({
     
     // Core Parameters
     apiKey: '',
-    geminiApiKey: '',
-    falApiKey: '',
-    elevenlabsApiKey: '',
+    replicateApiKey: '',
     model: 'deepseek/deepseek-v4-flash',
     outputPath: '',
     videoType: 'long',

@@ -3,12 +3,8 @@ import React from 'react';
 export default function SettingsView({
     apiKey,
     setApiKey,
-    geminiApiKey,
-    setGeminiApiKey,
-    falApiKey,
-    setFalApiKey,
-    elevenlabsApiKey,
-    setElevenlabsApiKey,
+    replicateApiKey,
+    setReplicateApiKey,
     model,
     setModel,
     outputPath,
@@ -43,8 +39,8 @@ export default function SettingsView({
                             type="password" 
                             placeholder="r8_..."
                             className="w-full bg-neutral-950 border border-neutral-850 focus:border-blue-500 p-3.5 rounded-xl text-neutral-200 outline-none font-mono text-sm"
-                            value={falApiKey}
-                            onChange={(e) => setFalApiKey(e.target.value)}
+                            value={replicateApiKey}
+                            onChange={(e) => setReplicateApiKey(e.target.value)}
                         />
                     </div>
 
@@ -58,8 +54,6 @@ export default function SettingsView({
                             >
                                 <option value="deepseek/deepseek-v4-flash">deepseek/deepseek-v4-flash (DeepSeek V4 Flash - Recommended)</option>
                                 <option value="deepseek/deepseek-chat">deepseek/deepseek-chat (DeepSeek V3)</option>
-                                <option value="google/gemini-2.5-flash">google/gemini-2.5-flash</option>
-                                <option value="google/gemini-2.5-pro">google/gemini-2.5-pro</option>
                                 <option value="meta-llama/llama-3.1-70b-instruct">meta-llama/llama-3.1-70b-instruct</option>
                             </select>
                             <input 
@@ -97,7 +91,7 @@ export default function SettingsView({
                 <div className="pt-4 border-t border-neutral-800 flex justify-end">
                     <button 
                         onClick={() => {
-                            saveConfig({ apiKey, geminiApiKey, falApiKey, elevenlabsApiKey, model, outputPath, characters, visualDNA, styleReferences });
+                            saveConfig({ apiKey, replicateApiKey, model, outputPath, characters, visualDNA, styleReferences });
                             alert('Settings locked successfully!');
                         }}
                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-2.5 rounded-xl text-xs transition"

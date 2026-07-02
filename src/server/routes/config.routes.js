@@ -11,9 +11,6 @@ router.get('/config', (req, res) => {
     const safeConfig = {
         ...config,
         apiKey: config.apiKey ? '***' + config.apiKey.slice(-4) : '',
-        geminiApiKey: config.geminiApiKey ? '***' + config.geminiApiKey.slice(-4) : '',
-        elevenlabsApiKey: config.elevenlabsApiKey ? '***' + config.elevenlabsApiKey.slice(-4) : '',
-        falApiKey: config.falApiKey ? '***' + config.falApiKey.slice(-4) : '',
         replicateApiKey: config.replicateApiKey ? '***' + config.replicateApiKey.slice(-4) : ''
     };
     res.json(safeConfig);

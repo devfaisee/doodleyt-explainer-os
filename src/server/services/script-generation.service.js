@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { activeJob, addJobLog, writeLatestScript, buildDefaultStages, updateJobStageStatus } from './job.service.js';
 import { getEffectiveApiKey, readConfig, writeConfig, STYLE_REFS_DIR } from '../utils/config.js';
-import { callOpenRouter, callGeminiAPI } from './llm.service.js';
+import { callOpenRouter } from './llm.service.js';
 import { saveScriptToHistory } from './history.service.js';
 import { extractSpokenText } from './media.service.js';
 

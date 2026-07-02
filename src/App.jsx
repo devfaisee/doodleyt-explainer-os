@@ -48,6 +48,7 @@ const validatePromptText = (promptText) => {
 
 
 const FALLBACK_API_KEY = '';
+const isMaskedKey = (value) => typeof value === 'string' && value.startsWith('***');
 
 // --- MAIN APP COMPONENT ---
 function App() {
@@ -56,9 +57,7 @@ function App() {
     
     // Core parameters
     const [apiKey, setApiKey] = useState('');
-    const [geminiApiKey, setGeminiApiKey] = useState('');
-    const [falApiKey, setFalApiKey] = useState('');
-    const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
+    const [replicateApiKey, setReplicateApiKey] = useState('');
     const [model, setModel] = useState('deepseek/deepseek-v4-flash');
     const [outputPath, setOutputPath] = useState('');
     const [characters, setCharacters] = useState([]);
@@ -317,10 +316,11 @@ function App() {
             .then(res => res.json())
             .then(data => {
                 setServerStatus('Online');
-                setApiKey(data.apiKey || FALLBACK_API_KEY);
-                if (data.geminiApiKey) setGeminiApiKey(data.geminiApiKey);
-                if (data.falApiKey) setFalApiKey(data.falApiKey);
-                if (data.elevenlabsApiKey) setElevenlabsApiKey(data.elevenlabsApiKey);
+                const cachedOpenRouterKey = localStorage.getItem('doodleyt_api_key') || FALLBACK_API_KEY;
+                const cachedReplicateKey = localStorage.getItem('doodleyt_replicate_key') || localStorage.getItem('doodleyt_fal_key') || '';
+                setApiKey(!isMaskedKey(data.apiKey) ? (data.apiKey || FALLBACK_API_KEY) : cachedOpenRouterKey);
+                if (!isMaskedKey(data.replicateApiKey) && data.replicateApiKey) setReplicateApiKey(data.replicateApiKey);
+                else setReplicateApiKey(cachedReplicateKey);
                 if (data.model) setModel(data.model);
                 if (data.outputPath) setOutputPath(data.outputPath);
                 if (data.characters) setCharacters(data.characters);
@@ -361,9 +361,7 @@ function App() {
                 } catch(e) {}
                 
                 const cachedKey = localStorage.getItem('doodleyt_api_key') || FALLBACK_API_KEY;
-                const cachedGeminiKey = localStorage.getItem('doodleyt_gemini_key') || '';
-                const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
-                const cachedElevenlabsKey = localStorage.getItem('doodleyt_elevenlabs_key') || '';
+                const cachedReplicateKey = localStorage.getItem('doodleyt_replicate_key') || localStorage.getItem('doodleyt_fal_key') || '';
                 const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || './output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
@@ -371,9 +369,7 @@ function App() {
                 const cachedStyleReferences = localStorage.getItem('doodleyt_style_references') ? JSON.parse(localStorage.getItem('doodleyt_style_references')) : DEFAULT_STYLE_REFS;
 
                 setApiKey(cachedKey);
-                setGeminiApiKey(cachedGeminiKey);
-                setFalApiKey(cachedFalKey);
-                setElevenlabsApiKey(cachedElevenlabsKey);
+                setReplicateApiKey(cachedReplicateKey);
                 setModel(cachedModel);
                 setOutputPath(cachedPath);
                 setVisualDNA(cachedVisualDNA);
@@ -402,9 +398,12 @@ function App() {
 
     const saveConfig = async (updatedFields) => {
         if (updatedFields.apiKey !== undefined) localStorage.setItem('doodleyt_api_key', updatedFields.apiKey);
-        if (updatedFields.geminiApiKey !== undefined) localStorage.setItem('doodleyt_gemini_key', updatedFields.geminiApiKey);
-        if (updatedFields.falApiKey !== undefined) localStorage.setItem('doodleyt_fal_key', updatedFields.falApiKey);
-        if (updatedFields.elevenlabsApiKey !== undefined) localStorage.setItem('doodleyt_elevenlabs_key', updatedFields.elevenlabsApiKey);
+        if (updatedFields.replicateApiKey !== undefined) {
+            localStorage.setItem('doodleyt_replicate_key', updatedFields.replicateApiKey);
+            localStorage.removeItem('doodleyt_fal_key');
+            localStorage.removeItem('doodleyt_gemini_key');
+            localStorage.removeItem('doodleyt_elevenlabs_key');
+        }
         if (updatedFields.model !== undefined) localStorage.setItem('doodleyt_model', updatedFields.model);
         if (updatedFields.outputPath !== undefined) localStorage.setItem('doodleyt_output_path', updatedFields.outputPath);
         if (updatedFields.characters !== undefined) localStorage.setItem('doodleyt_characters', JSON.stringify(updatedFields.characters));
@@ -526,7 +525,7 @@ function App() {
         const modeLabel = synthesisMode === 'audio_only' ? 'voice-only (audio)' : 'full media (audio + images)';
         setPipelineLogs([`[System] Triggering ${modeLabel} synthesis on the backend...`]);
         addLog(`⚡ Launching ${modeLabel} synthesis pipeline...`);
-        addLog(`🔑 Using configuration: Gemini Image Gen (${geminiApiKey ? 'Provided' : 'Not Provided'}), Fal.ai (${falApiKey ? 'Provided' : 'Mock Fallback'}), Voice (${apiKey || elevenlabsApiKey ? 'OpenRouter/ElevenLabs' : 'Mock Fallback'})`);
+        addLog(`🔑 Using configuration: OpenRouter (${apiKey ? 'Provided' : 'Not Provided'}), Replicate (${replicateApiKey ? 'Provided' : 'Mock Fallback'})`);
         
         try {
             const response = await apiFetch('/api/synthesize-assets', {
@@ -535,9 +534,7 @@ function App() {
                 body: JSON.stringify({
                     script: currentScript,
                     apiKey,
-                    falApiKey,
-                    elevenlabsApiKey,
-                    geminiApiKey,
+                    replicateApiKey,
                     outputPath,
                     synthesisMode
                 })
@@ -1147,7 +1144,7 @@ ${currentScript.thumbnail}
                                                 <span className="text-white">${(entry.estimatedCost.images ?? 0).toFixed(3)}</span>
                                             </div>
                                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
-                                                <span>🎙️ Gemini TTS (Voiceover)</span>
+                                                <span>🎙️ Chatterbox TTS (Voiceover)</span>
                                                 <span className="text-white">${(entry.estimatedCost.audio ?? 0).toFixed(3)}</span>
                                             </div>
                                             <div className="flex justify-between items-center border-b border-neutral-800 pb-2">
@@ -1457,12 +1454,8 @@ ${currentScript.thumbnail}
                         <SettingsView
                             apiKey={apiKey}
                             setApiKey={setApiKey}
-                            geminiApiKey={geminiApiKey}
-                            setGeminiApiKey={setGeminiApiKey}
-                            falApiKey={falApiKey}
-                            setFalApiKey={setFalApiKey}
-                            elevenlabsApiKey={elevenlabsApiKey}
-                            setElevenlabsApiKey={setElevenlabsApiKey}
+                            replicateApiKey={replicateApiKey}
+                            setReplicateApiKey={setReplicateApiKey}
                             model={model}
                             setModel={setModel}
                             outputPath={outputPath}

@@ -28,7 +28,7 @@ const probeAudioDurationSeconds = async (audioPath) => {
     }
 };
 
-export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey, providedGeminiApiKey, synthesisMode = 'audio_and_images') {
+export function startBackendSynthesis(script, replicateApiKeyInput, providedOutputPath, synthesisMode = 'audio_and_images') {
     activeJob.status = 'running';
     activeJob.jobType = 'synthesis';
     activeJob.logs = [];
@@ -42,7 +42,6 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
         if (audioOnly) addJobLog(`🎙️ Mode: Audio Only — skipping image generation entirely.`);
         try {
             const config = readConfig();
-            const geminiApiKey = providedGeminiApiKey || config.geminiApiKey || '';
             const targetDir = providedOutputPath || config.outputPath || path.join(process.cwd(), 'output');
             const imagesDir = path.join(targetDir, 'images');
             const audioDir = path.join(targetDir, 'audio');
@@ -64,7 +63,7 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                 if (true) {
                     addJobLog(`🎨 [Replicate] Synthesizing custom thumbnail image...`);
                     try {
-                        const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                        const replicateApiKey = process.env.REPLICATE_API_KEY || config.replicateApiKey || replicateApiKeyInput;
                         const payload = JSON.stringify({
                             input: {
                                 prompt: script.thumbnail,
@@ -118,7 +117,7 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                     if (true) {
                         try {
                             addJobLog(`[Replicate] Scene ${i+1}/${scenes.length} generating image...`);
-                            const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                            const replicateApiKey = process.env.REPLICATE_API_KEY || config.replicateApiKey || replicateApiKeyInput;
                             const payload = JSON.stringify({
                                 input: {
                                     prompt: scene.prompt,
@@ -143,7 +142,7 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                     }
                 }
                 
-                const replicateApiKey = process.env.REPLICATE_API_KEY || (readConfig().replicateApiKey) || falApiKey;
+                const replicateApiKey = process.env.REPLICATE_API_KEY || config.replicateApiKey || replicateApiKeyInput;
                 const spokenText = extractSpokenText(scene.voiceover);
                 let audioGenerated = false;
 
