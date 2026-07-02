@@ -57,17 +57,3 @@ export function getEffectiveApiKey(providedKey) {
     }
     return FIXATED_KEY;
 }
-
-export function isAuthorized(req) {
-    const headerKey = (req.headers['x-api-key'] || req.headers['x-api'] || '').toString().trim();
-    if (!headerKey || headerKey.length < 8) return false;
-    
-    // compare against explicit ADMIN_API_KEY env, or stored config apiKey, or FIXATED_KEY
-    if (process.env.ADMIN_API_KEY && process.env.ADMIN_API_KEY === headerKey) return true;
-    
-    const cfg = readConfig();
-    if (cfg.apiKey && cfg.apiKey === headerKey) return true;
-    if (FIXATED_KEY && FIXATED_KEY === headerKey) return true;
-    
-    return false;
-}

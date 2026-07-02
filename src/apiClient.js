@@ -4,14 +4,6 @@ export const API_SERVER_URL = envBaseUrl || 'https://node-app-production-d022.up
 export const apiFetch = (url, options = {}) => {
     const baseUrl = API_SERVER_URL;
     const targetUrl = url.startsWith('/') ? url : `/${url}`;
-    
-    // Inject the x-api-key header so the backend authorization passes
-    const token = localStorage.getItem('doodleyt_api_key') || '';
-    if (!options.headers) {
-        options.headers = {};
-    }
-    options.headers['x-api-key'] = token;
-
     return fetch(`${baseUrl}${targetUrl}`, options);
 };
 

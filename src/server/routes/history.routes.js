@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { isAuthorized } from '../utils/config.js';
 import { writeLatestScript } from '../services/job.service.js';
 import path from 'path';
 import {
@@ -38,9 +37,6 @@ router.get('/load-script', async (req, res) => {
 });
 
 router.delete('/delete-script', async (req, res) => {
-    if (!isAuthorized(req)) {
-        return res.status(401).json({ error: 'Unauthorized. Provide a valid X-API-KEY header.' });
-    }
     try {
         const { filename } = req.body;
         const safeFilename = path.basename(filename);
@@ -52,9 +48,6 @@ router.delete('/delete-script', async (req, res) => {
 });
 
 router.post('/update-script-history', async (req, res) => {
-    if (!isAuthorized(req)) {
-        return res.status(401).json({ error: 'Unauthorized. Provide a valid X-API-KEY header.' });
-    }
     try {
         const { filename, script } = req.body;
         if (!filename || !script) throw new Error('filename and script are required');

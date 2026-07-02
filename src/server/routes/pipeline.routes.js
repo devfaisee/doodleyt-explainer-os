@@ -38,7 +38,7 @@ router.post('/generate-script', (req, res) => {
 
 router.post('/regenerate-asset', async (req, res) => {
     try {
-        const { sceneIndex, type, text, videoType, scriptTitle, apiKey } = req.body;
+        const { sceneIndex, type, text, videoType, scriptTitle, apiKey, sceneDuration } = req.body;
         const config = readConfig();
         const targetDir = config.outputPath || path.join(process.cwd(), 'output');
         const imagesDir = path.join(targetDir, 'images');
@@ -116,8 +116,9 @@ router.post('/regenerate-asset', async (req, res) => {
             }
 
             if (!audioGenerated) {
+                const fallbackDuration = Number(sceneDuration) > 0 ? Number(sceneDuration) : 2;
                 console.log(`⚠️ [Regenerate] Voiceover generation failed or no text. Saving silent fallback.`);
-                await saveAudioAsMP3(getSilentWavBuffer(2), audioPath);
+                await saveAudioAsMP3(getSilentWavBuffer(fallbackDuration), audioPath);
             }
         }
         

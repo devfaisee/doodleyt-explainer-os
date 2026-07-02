@@ -7,7 +7,7 @@ import pipelineRoutes from './routes/pipeline.routes.js';
 import configRoutes from './routes/config.routes.js';
 import historyRoutes from './routes/history.routes.js';
 import { activeJob } from './services/job.service.js';
-import { readConfig, isAuthorized } from './utils/config.js';
+import { readConfig } from './utils/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,14 +23,6 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Health endpoint (public)
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), activeJob: activeJob.status, timestamp: Date.now() });
-});
-
-// Auth middleware
-app.use('/api', (req, res, next) => {
-    if (!isAuthorized(req)) {
-        return res.status(401).json({ error: 'Unauthorized. Provide a valid X-API-KEY header.' });
-    }
-    next();
 });
 
 // Mount API routes

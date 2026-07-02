@@ -534,26 +534,6 @@ function getEffectiveApiKey(providedKey) {
     return FIXATED_KEY;
 }
 
-// Simple admin auth check for sensitive endpoints
-function isAuthorized(req) {
-    const headerKey = (req.headers['x-api-key'] || req.headers['x-api'] || '').toString().trim();
-    if (!headerKey || headerKey.length < 8) return false;
-    
-    // compare against explicit ADMIN_API_KEY env, or stored config apiKey, or FIXATED_KEY
-    if (process.env.ADMIN_API_KEY && process.env.ADMIN_API_KEY === headerKey) return true;
-    
-    const cfg = readConfig();
-    
-    // FIX: If the backend config is completely fresh (e.g. after a Railway deploy),
-    // there is no apiKey saved yet. Accept the key so the frontend can initialize it!
-    if (!cfg.apiKey) return true;
-    
-    if (cfg.apiKey && cfg.apiKey === headerKey) return true;
-    if (FIXATED_KEY && FIXATED_KEY === headerKey) return true;
-    
-    return false;
-}
-
 async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = false, maxRetries = 2) {
     apiKey = process.env.OPENROUTER_API_KEY || apiKey;
     const messages = [
@@ -621,6 +601,17 @@ function extractSpokenText(voiceover) {
     const matches = [...voiceover.matchAll(/"([^"]+)"/g)];
     if (matches.length > 0) return matches[matches.length - 1][1];
     return voiceover.replace(/^Read\s+[^:]+:\s*/i, '').trim();
+}
+
+async function probeAudioDurationSeconds(audioPath) {
+    try {
+        const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`);
+        const duration = Number.parseFloat((stdout || '').trim());
+        if (!Number.isFinite(duration) || duration <= 0.05) return null;
+        return duration;
+    } catch (_) {
+        return null;
+    }
 }
 
 function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
@@ -979,7 +970,53 @@ Return strictly a JSON object matching this schema:
             // Stage 6: Stateless QC Check & Auto-Sanitation
             updateJobStageStatus('qc', 'running');
             addJobLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
-            
+
+            const computeSceneDurationFromWords = (wordCount) => {
+                if (wordCount <= 4) return 2;
+                if (wordCount <= 7) return 3;
+                if (wordCount <= 10) return 4;
+                return Math.max(4, Math.ceil(wordCount / 3));
+            };
+
+            // Auto-split long voiceovers (> 10 spoken words) to keep visual pacing fast and synced
+            let splitSanitizedScenes = [];
+            for (let idx = 0; idx < accumulatedScenes.length; idx++) {
+                const scene = accumulatedScenes[idx];
+                const voiceover = (scene.voiceover || '').trim();
+                const spoken = extractSpokenText(voiceover).trim();
+                const words = spoken.split(/\s+/).filter(w => w.length > 0);
+
+                if (!spoken || spoken.length === 0) {
+                    addJobLog(`⚠️ Scene ${idx + 1}: Empty voiceover detected. Setting default quiet voiceover.`);
+                    scene.voiceover = 'Read with quiet pause: "..."';
+                    scene.duration = 2;
+                    splitSanitizedScenes.push(scene);
+                } else if (words.length > 10) {
+                    addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 10). Splitting...`);
+                    const prefixMatch = voiceover.match(/^(Read\s+[^:]+:\s*)/i);
+                    const prefix = prefixMatch ? prefixMatch[1] : 'Read with quiet authority: ';
+                    const totalParts = Math.ceil(words.length / 10);
+                    const partSize = Math.ceil(words.length / totalParts);
+                    for (let part = 0; part < totalParts; part++) {
+                        const start = part * partSize;
+                        const end = Math.min(start + partSize, words.length);
+                        const partWords = words.slice(start, end);
+                        const partSpoken = partWords.join(' ');
+                        if (!partSpoken) continue;
+                        splitSanitizedScenes.push({
+                            ...scene,
+                            voiceover: `${prefix}"${partSpoken}"`,
+                            duration: computeSceneDurationFromWords(partWords.length),
+                            prompt: `${scene.prompt} (Part ${part + 1})`
+                        });
+                    }
+                } else {
+                    scene.duration = computeSceneDurationFromWords(words.length);
+                    splitSanitizedScenes.push(scene);
+                }
+            }
+            accumulatedScenes = splitSanitizedScenes;
+             
             let qcErrorsCount = 0;
             const formatTimeLocal = (seconds) => {
                 const mins = Math.floor(seconds / 60);
@@ -1281,6 +1318,12 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         addJobLog(`ℹ️ Saved silent fallback for Scene ${i+1} due to API failures.`);
                     }
                 }
+
+                const measuredDuration = await probeAudioDurationSeconds(audioPath);
+                if (measuredDuration) {
+                    scene.exactAudioDuration = Number(measuredDuration.toFixed(3));
+                    scene.duration = Math.max(2, Math.ceil(measuredDuration));
+                }
             }
             
             script.assetsSynthesized = true;
@@ -1407,16 +1450,6 @@ function startBackendAssembly(script, providedOutputPath) {
                         await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                     }
 
-                    const getDurationCmd = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`;
-                    let exactAudioDur = 2.0;
-                    try {
-                        const { stdout } = await execAsync(getDurationCmd);
-                        exactAudioDur = parseFloat(stdout.trim());
-                        if (isNaN(exactAudioDur)) exactAudioDur = 2.0;
-                    } catch(e) {}
-                    
-                    // Add 0.3s padding to ensure the final TTS word naturally fades out and never gets cropped
-                    const paddedDuration = (exactAudioDur + 0.3).toFixed(3);
                     const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                     
                     const scaleFilter = script.videoType === 'short' 
@@ -1424,7 +1457,7 @@ function startBackendAssembly(script, providedOutputPath) {
                         : `scale=960:540:force_original_aspect_ratio=increase,crop=960:540,fps=20`;
                     
                     // Browser-safe output: H.264/AAC while keeping encode load low for Railway.
-                    const cmd = `ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 20 -i "${imgPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -t ${paddedDuration} -shortest -c:v libx264 -preset ultrafast -tune stillimage -crf 32 -profile:v baseline -level 3.1 -pix_fmt yuv420p -movflags +faststart -vf "${scaleFilter}" -c:a aac -b:a 160k "${tempSceneVideo}"`;
+                    const cmd = `ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 20 -i "${imgPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -af "apad=pad_dur=0.35" -shortest -c:v libx264 -preset ultrafast -tune stillimage -crf 32 -profile:v baseline -level 3.1 -pix_fmt yuv420p -movflags +faststart -vf "${scaleFilter}" -c:a aac -b:a 160k "${tempSceneVideo}"`;
                     
                     addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}... cmd: ${cmd}`);
                     try {
@@ -1651,7 +1684,7 @@ const server = http.createServer((req, res) => {
     const corsHeaders = {
         'Access-Control-Allow-Origin': safeOrigin,
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, X-API-KEY'
+        'Access-Control-Allow-Headers': 'Content-Type'
     };
 
     // Auto-inject CORS headers into every response safely
@@ -1722,7 +1755,7 @@ const server = http.createServer((req, res) => {
         req.on('end', async () => {
             try {
                 const params = JSON.parse(body);
-                const { sceneIndex, type, text, videoType, scriptTitle, apiKey } = params;
+                const { sceneIndex, type, text, videoType, scriptTitle, apiKey, sceneDuration } = params;
                 const config = readConfig();
                 const targetDir = config.outputPath || path.join(__dirname, 'output');
                 const imagesDir = path.join(targetDir, 'images');
@@ -1801,8 +1834,9 @@ const server = http.createServer((req, res) => {
                     }
 
                     if (!audioGenerated) {
+                        const fallbackDuration = Number(sceneDuration) > 0 ? Number(sceneDuration) : 2;
                         console.log(`⚠️ [Regenerate] Voiceover generation failed or no text. Saving silent fallback.`);
-                        await saveAudioAsMP3(getSilentWavBuffer(2), audioPath);
+                        await saveAudioAsMP3(getSilentWavBuffer(fallbackDuration), audioPath);
                     }
                 }
                 
@@ -1885,11 +1919,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/delete-script' && req.method === 'DELETE') {
-        if (!isAuthorized(req)) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
-            return;
-        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -1916,11 +1945,6 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/update-script-history' && req.method === 'POST') {
         // Updates an existing history entry (e.g. after sandbox edits)
-        if (!isAuthorized(req)) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
-            return;
-        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -1968,11 +1992,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/config' && req.method === 'POST') {
-        if (!isAuthorized(req)) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
-            return;
-        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -1999,11 +2018,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/save' && req.method === 'POST') {
-        if (!isAuthorized(req)) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
-            return;
-        }
         let body = '';
         req.on('data', chunk => {
             body += chunk;
@@ -2048,11 +2062,6 @@ const server = http.createServer((req, res) => {
         return;
     }
     if (pathname === '/api/synthesize-assets' && req.method === 'POST') {
-        if (!isAuthorized(req)) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
-            return;
-        }
         if (activeJob.status === 'running') {
             res.writeHead(409, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'A background job is already in progress.' }));
@@ -2086,11 +2095,6 @@ const server = http.createServer((req, res) => {
     }
 
     if (pathname === '/api/assemble-video' && req.method === 'POST') {
-        if (!isAuthorized(req)) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Unauthorized. Provide a valid X-API-KEY header.' }));
-            return;
-        }
         if (activeJob.status === 'running') {
             res.writeHead(409, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'A background job is already in progress.' }));

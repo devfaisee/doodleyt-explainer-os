@@ -51,7 +51,8 @@ export default function StudioView({ script, runVideoCompilation, compileStatus,
                 type,
                 text,
                 scriptTitle: script.title,
-                apiKey
+                apiKey,
+                sceneDuration: script.scenes[idx].duration
             };
             if (!isAudio) payload.videoType = script.videoType;
 

@@ -7,6 +7,26 @@ import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from './ffmpeg.s
 import { ensureDir } from '../utils/fileSystem.js';
 import { readConfig } from '../utils/config.js';
 import { fetchImageBuffer, httpsGet } from '../utils/network.js';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
+
+const probeAudioDurationSeconds = async (audioPath) => {
+    try {
+        const { stdout } = await execFileAsync('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            audioPath
+        ]);
+        const duration = Number.parseFloat(stdout.trim());
+        if (!Number.isFinite(duration) || duration <= 0.05) return null;
+        return duration;
+    } catch (_) {
+        return null;
+    }
+};
 
 export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey, providedGeminiApiKey, synthesisMode = 'audio_and_images') {
     activeJob.status = 'running';
@@ -160,6 +180,12 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                     } else {
                         addJobLog(`ℹ️ Saved silent fallback for Scene ${i+1} due to API failures.`);
                     }
+                }
+
+                const measuredDuration = await probeAudioDurationSeconds(audioPath);
+                if (measuredDuration) {
+                    scene.exactAudioDuration = Number(measuredDuration.toFixed(3));
+                    scene.duration = Math.max(2, Math.ceil(measuredDuration));
                 }
             }
             

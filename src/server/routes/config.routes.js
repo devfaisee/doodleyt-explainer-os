@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { readConfig, writeConfig, isAuthorized } from '../utils/config.js';
+import { readConfig, writeConfig } from '../utils/config.js';
 import { ensureDir } from '../utils/fileSystem.js';
 import path from 'path';
 import fs from 'fs';
@@ -20,9 +20,6 @@ router.get('/config', (req, res) => {
 });
 
 router.post('/config', (req, res) => {
-    if (!isAuthorized(req)) {
-        return res.status(401).json({ error: 'Unauthorized. Provide a valid X-API-KEY header.' });
-    }
     try {
         const newConfig = req.body;
         const currentConfig = readConfig();
@@ -35,9 +32,6 @@ router.post('/config', (req, res) => {
 });
 
 router.post('/save', (req, res) => {
-    if (!isAuthorized(req)) {
-        return res.status(401).json({ error: 'Unauthorized. Provide a valid X-API-KEY header.' });
-    }
     try {
         const { filename, content } = req.body;
         const config = readConfig();

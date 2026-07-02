@@ -346,7 +346,14 @@ Return strictly a JSON object matching this schema:
         updateJobStageStatus('qc', 'running');
         addJobLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
         
-        // Auto-split extremely long voiceovers (> 15 words) and sanitize empty voiceovers
+        const computeSceneDurationFromWords = (wordCount) => {
+            if (wordCount <= 4) return 2;
+            if (wordCount <= 7) return 3;
+            if (wordCount <= 10) return 4;
+            return Math.max(4, Math.ceil(wordCount / 3));
+        };
+
+        // Auto-split long voiceovers (> 10 words) and sanitize empty voiceovers
         let splitSanitizedScenes = [];
         for (let idx = 0; idx < accumulatedScenes.length; idx++) {
             const scene = accumulatedScenes[idx];
@@ -359,34 +366,27 @@ Return strictly a JSON object matching this schema:
                 scene.voiceover = 'Read with quiet pause: "..."';
                 scene.duration = 2;
                 splitSanitizedScenes.push(scene);
-            } else if (words.length > 15) {
-                addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 15). Splitting...`);
-                const halfCount = Math.ceil(words.length / 2);
-                const firstSpoken = words.slice(0, halfCount).join(' ');
-                const secondSpoken = words.slice(halfCount).join(' ');
-                
+            } else if (words.length > 10) {
+                addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 10). Splitting...`);
                 const prefixMatch = voiceover.match(/^(Read\s+[^:]+:\s*)/i);
                 const prefix = prefixMatch ? prefixMatch[1] : 'Read with quiet authority: ';
-                
-                const firstVo = `${prefix}"${firstSpoken}"`;
-                const secondVo = `${prefix}"${secondSpoken}"`;
-                
-                splitSanitizedScenes.push({
-                    ...scene,
-                    voiceover: firstVo,
-                    duration: Math.max(2, Math.ceil(halfCount / 3)),
-                    prompt: scene.prompt + " (Part 1)"
-                });
-                splitSanitizedScenes.push({
-                    ...scene,
-                    voiceover: secondVo,
-                    duration: Math.max(2, Math.ceil((words.length - halfCount) / 3)),
-                    prompt: scene.prompt + " (Part 2)"
-                });
+                const totalParts = Math.ceil(words.length / 10);
+                const partSize = Math.ceil(words.length / totalParts);
+                for (let part = 0; part < totalParts; part++) {
+                    const start = part * partSize;
+                    const end = Math.min(start + partSize, words.length);
+                    const partWords = words.slice(start, end);
+                    const partSpoken = partWords.join(' ');
+                    if (!partSpoken) continue;
+                    splitSanitizedScenes.push({
+                        ...scene,
+                        voiceover: `${prefix}"${partSpoken}"`,
+                        duration: computeSceneDurationFromWords(partWords.length),
+                        prompt: `${scene.prompt} (Part ${part + 1})`
+                    });
+                }
             } else {
-                // Ensure duration aligns with word count roughly
-                const calculatedDur = Math.max(2, Math.ceil(words.length / 3));
-                scene.duration = calculatedDur;
+                scene.duration = computeSceneDurationFromWords(words.length);
                 splitSanitizedScenes.push(scene);
             }
         }

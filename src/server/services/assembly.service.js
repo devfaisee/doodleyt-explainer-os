@@ -137,19 +137,6 @@ export function startBackendAssembly(script, providedOutputPath) {
                         await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
                     }
 
-                    let exactAudioDur = 2.0;
-                    try {
-                        const { stdout } = await execFileAsync('ffprobe', [
-                            '-v', 'error',
-                            '-show_entries', 'format=duration',
-                            '-of', 'default=noprint_wrappers=1:nokey=1',
-                            audioPath
-                        ]);
-                        exactAudioDur = parseFloat(stdout.trim());
-                        if (isNaN(exactAudioDur) || exactAudioDur <= 0.1) exactAudioDur = 2.0;
-                    } catch(e) {}
-                    
-                    const paddedDuration = (exactAudioDur + 0.3).toFixed(3);
                     const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                     
                     const scaleFilter = script.videoType === 'short' 
@@ -166,7 +153,7 @@ export function startBackendAssembly(script, providedOutputPath) {
                             '-i', audioPath,
                             '-map', '0:v:0',
                             '-map', '1:a:0',
-                            '-t', paddedDuration,
+                            '-af', 'apad=pad_dur=0.35',
                             '-shortest',
                             '-c:v', 'libx264',
                             '-preset', 'ultrafast',
