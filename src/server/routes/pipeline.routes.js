@@ -11,6 +11,31 @@ import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from '../service
 import { ensureDir } from '../utils/fileSystem.js';
 import fs from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
+const execFileAsync = promisify(execFile);
+
+const compactSpeechAudio = async (audioPath) => {
+    const compactPath = `${audioPath}.compact.mp3`;
+    try {
+        await execFileAsync('ffmpeg', [
+            '-nostdin',
+            '-y',
+            '-v', 'error',
+            '-i', audioPath,
+            '-af', 'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.45',
+            '-c:a', 'libmp3lame',
+            '-q:a', '3',
+            compactPath
+        ]);
+        await fs.promises.rename(compactPath, audioPath);
+    } catch (_) {
+        // Keep original when silence compaction fails.
+    } finally {
+        try { fs.unlinkSync(compactPath); } catch (_) {}
+    }
+};
 
 const router = Router();
 
@@ -119,6 +144,10 @@ router.post('/regenerate-asset', async (req, res) => {
                 const fallbackDuration = Number(sceneDuration) > 0 ? Number(sceneDuration) : 2;
                 console.log(`⚠️ [Regenerate] Voiceover generation failed or no text. Saving silent fallback.`);
                 await saveAudioAsMP3(getSilentWavBuffer(fallbackDuration), audioPath);
+            }
+
+            if (spokenText) {
+                await compactSpeechAudio(audioPath);
             }
         }
         

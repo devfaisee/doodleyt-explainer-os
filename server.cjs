@@ -612,6 +612,25 @@ async function probeAudioDurationSeconds(audioPath) {
     } catch (_) {
         return null;
     }
+
+    async function compactSpeechAudio(audioPath) {
+        const compactPath = `${audioPath}.compact.mp3`;
+        try {
+            const beforeDuration = await probeAudioDurationSeconds(audioPath);
+            const cmd = `ffmpeg -nostdin -y -v error -i "${audioPath}" -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.45" -c:a libmp3lame -q:a 3 "${compactPath}"`;
+            await execAsync(cmd);
+            const afterDuration = await probeAudioDurationSeconds(compactPath);
+            if (afterDuration && (!beforeDuration || afterDuration >= 0.35)) {
+                fs.renameSync(compactPath, audioPath);
+                return { beforeDuration, afterDuration };
+            }
+        } catch (_) {
+            // Keep original file when compaction fails.
+        } finally {
+            try { fs.unlinkSync(compactPath); } catch (_) {}
+        }
+        return null;
+    }
 }
 
 function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
@@ -920,16 +939,15 @@ ${charactersPromptGuide}
 SCRIPTWRITING & PACING LAWS:
 1. Mesmerizing Storytelling: Use short, punchy sentences. Ask profound questions, then answer them with mind-bending facts. The tone is cinematic and serious.
 2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
-   - Keep the voiceover script for any single scene EXTREMELY short (maximum 10 words, ideal is 5 to 8 words per scene).
+   - Keep the voiceover script for any single scene EXTREMELY short (maximum 6 words, ideal is 3 to 5 words per scene).
    - If a sentence is long, you MUST split it across multiple consecutive scenes.
    - Prefixed Emotional Performance (Tagging): Prefix the "voiceover" text for every single scene with an acting instruction (e.g., 'Read with quiet, chilling authority: "..."', 'Read with profound fascination: "..."', 'Read softly and deliberately: "..."'). Always wrap the spoken clause inside double quotes inside the string.
    - Calculate duration strictly using only the spoken words inside the double quotes.
 3. Literal Visual Syncing (CRITICAL): The "prompt" field MUST exactly match the words being spoken. The visuals must perfectly depict the literal concepts or metaphors the voiceover is describing in that exact moment.
 4. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Use these metrics:
-   - 1 to 4 words = 2 seconds
-   - 5 to 7 words = 3 seconds
-   - 8 to 10 words = 4 seconds
-   Never put more than 10 spoken words in a single scene.
+   - 1 to 3 words = 2 seconds
+   - 4 to 6 words = 3 seconds
+   Never put more than 6 spoken words in a single scene.
 5. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format.
 6. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt blending the camera direction, the EXACT literal action reflecting the voiceover (following the Stateless Prompt Rule), and text overlays ONLY if necessary.
 Never output the exact same visual prompt for different scenes.
@@ -940,7 +958,7 @@ Return strictly a JSON object matching this schema:
 {
   "scenes": [
     {
-      "duration": [2, 3, or 4],
+      "duration": [2 or 3],
       "voiceover": "[Voice performance instruction followed by spoken clause inside double quotes, e.g. 'Read with energy and enthusiasm: \"Hey everyone!\"']",
       "prompt": "[Complete, unified stateless visual prompt blending camera direction, action, and extremely rare text overlay instructions. Follow Stateless Prompt Rule. White background]"
     }
@@ -972,13 +990,32 @@ Return strictly a JSON object matching this schema:
             addJobLog(`⚡ Starting final Quality Control & Stateless Guardrail analysis...`);
 
             const computeSceneDurationFromWords = (wordCount) => {
-                if (wordCount <= 4) return 2;
-                if (wordCount <= 7) return 3;
-                if (wordCount <= 10) return 4;
-                return Math.max(4, Math.ceil(wordCount / 3));
+                if (wordCount <= 3) return 2;
+                if (wordCount <= 6) return 3;
+                return Math.max(3, Math.ceil(wordCount / 2));
             };
 
-            // Auto-split long voiceovers (> 10 spoken words) to keep visual pacing fast and synced
+            const splitSpokenText = (spokenText, maxWords = 6) => {
+                const clauses = spokenText
+                    .split(/(?<=[.!?;,])\s+/)
+                    .map(s => s.trim())
+                    .filter(Boolean);
+                const source = clauses.length > 0 ? clauses : [spokenText];
+                const chunks = [];
+                for (const clause of source) {
+                    const clauseWords = clause.split(/\s+/).filter(Boolean);
+                    if (clauseWords.length <= maxWords) {
+                        chunks.push(clauseWords.join(' '));
+                        continue;
+                    }
+                    for (let i = 0; i < clauseWords.length; i += maxWords) {
+                        chunks.push(clauseWords.slice(i, i + maxWords).join(' '));
+                    }
+                }
+                return chunks.filter(Boolean);
+            };
+
+            // Auto-split long voiceovers (> 6 spoken words) to keep visual pacing fast and synced
             let splitSanitizedScenes = [];
             for (let idx = 0; idx < accumulatedScenes.length; idx++) {
                 const scene = accumulatedScenes[idx];
@@ -991,25 +1028,20 @@ Return strictly a JSON object matching this schema:
                     scene.voiceover = 'Read with quiet pause: "..."';
                     scene.duration = 2;
                     splitSanitizedScenes.push(scene);
-                } else if (words.length > 10) {
-                    addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 10). Splitting...`);
+                } else if (words.length > 6) {
+                    addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 6). Splitting...`);
                     const prefixMatch = voiceover.match(/^(Read\s+[^:]+:\s*)/i);
                     const prefix = prefixMatch ? prefixMatch[1] : 'Read with quiet authority: ';
-                    const totalParts = Math.ceil(words.length / 10);
-                    const partSize = Math.ceil(words.length / totalParts);
-                    for (let part = 0; part < totalParts; part++) {
-                        const start = part * partSize;
-                        const end = Math.min(start + partSize, words.length);
-                        const partWords = words.slice(start, end);
-                        const partSpoken = partWords.join(' ');
-                        if (!partSpoken) continue;
+                    const splitChunks = splitSpokenText(spoken, 6);
+                    splitChunks.forEach((partSpoken, partIndex) => {
+                        const partWords = partSpoken.split(/\s+/).filter(Boolean);
                         splitSanitizedScenes.push({
                             ...scene,
                             voiceover: `${prefix}"${partSpoken}"`,
                             duration: computeSceneDurationFromWords(partWords.length),
-                            prompt: `${scene.prompt} (Part ${part + 1})`
+                            prompt: `${scene.prompt} (Part ${partIndex + 1})`
                         });
-                    }
+                    });
                 } else {
                     scene.duration = computeSceneDurationFromWords(words.length);
                     splitSanitizedScenes.push(scene);
@@ -1316,6 +1348,13 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         addJobLog(`ℹ️ Scene ${i+1} has no spoken text. Saved silent block.`);
                     } else {
                         addJobLog(`ℹ️ Saved silent fallback for Scene ${i+1} due to API failures.`);
+                    }
+                }
+
+                if (audioGenerated && spokenText) {
+                    const compactResult = await compactSpeechAudio(audioPath);
+                    if (compactResult && compactResult.beforeDuration && compactResult.afterDuration && compactResult.afterDuration < compactResult.beforeDuration - 0.2) {
+                        addJobLog(`✂️ Trimmed long TTS pauses in Scene ${i + 1} (${compactResult.beforeDuration.toFixed(2)}s → ${compactResult.afterDuration.toFixed(2)}s).`);
                     }
                 }
 
@@ -1837,6 +1876,10 @@ const server = http.createServer((req, res) => {
                         const fallbackDuration = Number(sceneDuration) > 0 ? Number(sceneDuration) : 2;
                         console.log(`⚠️ [Regenerate] Voiceover generation failed or no text. Saving silent fallback.`);
                         await saveAudioAsMP3(getSilentWavBuffer(fallbackDuration), audioPath);
+                    }
+
+                    if (spokenText) {
+                        await compactSpeechAudio(audioPath);
                     }
                 }
                 

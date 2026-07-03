@@ -28,6 +28,33 @@ const probeAudioDurationSeconds = async (audioPath) => {
     }
 };
 
+const compactSpeechAudio = async (audioPath) => {
+    const compactPath = `${audioPath}.compact.mp3`;
+    try {
+        const beforeDuration = await probeAudioDurationSeconds(audioPath);
+        await execFileAsync('ffmpeg', [
+            '-nostdin',
+            '-y',
+            '-v', 'error',
+            '-i', audioPath,
+            '-af', 'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.45',
+            '-c:a', 'libmp3lame',
+            '-q:a', '3',
+            compactPath
+        ]);
+        const afterDuration = await probeAudioDurationSeconds(compactPath);
+        if (afterDuration && (!beforeDuration || afterDuration >= 0.35)) {
+            await fs.promises.rename(compactPath, audioPath);
+            return { beforeDuration, afterDuration };
+        }
+    } catch (_) {
+        // Keep original file when compaction fails.
+    } finally {
+        try { fs.unlinkSync(compactPath); } catch (_) {}
+    }
+    return null;
+};
+
 export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutputPath, providedOpenRouterApiKey, providedGeminiApiKey, synthesisMode = 'audio_and_images') {
     activeJob.status = 'running';
     activeJob.jobType = 'synthesis';
@@ -179,6 +206,13 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                         addJobLog(`ℹ️ Scene ${i+1} has no spoken text. Saved silent block.`);
                     } else {
                         addJobLog(`ℹ️ Saved silent fallback for Scene ${i+1} due to API failures.`);
+                    }
+                }
+
+                if (audioGenerated && spokenText) {
+                    const compactResult = await compactSpeechAudio(audioPath);
+                    if (compactResult && compactResult.beforeDuration && compactResult.afterDuration && compactResult.afterDuration < compactResult.beforeDuration - 0.2) {
+                        addJobLog(`✂️ Trimmed long TTS pauses in Scene ${i + 1} (${compactResult.beforeDuration.toFixed(2)}s → ${compactResult.afterDuration.toFixed(2)}s).`);
                     }
                 }
 
