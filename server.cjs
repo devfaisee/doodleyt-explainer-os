@@ -1156,7 +1156,37 @@ Return only the corrected prompt text, nothing else.`;
                     const isRefusal = refusalWords.some(w => cleanHook.toLowerCase().includes(w));
                     
                     if (cleanHook && cleanHook.length > 5 && !isRefusal) {
-                        finalScriptData.scenes[0].voiceover = cleanHook;
+                        const maxHookWords = 6;
+                        const hookPrefix = 'Read with urgent curiosity: ';
+                        const hookWords = cleanHook.split(/\s+/).filter(Boolean);
+                        const hookChunks = [];
+                        for (let i = 0; i < hookWords.length; i += maxHookWords) {
+                            hookChunks.push(hookWords.slice(i, i + maxHookWords).join(' '));
+                        }
+
+                        const firstScene = finalScriptData.scenes[0];
+                        const makeHookScene = (spokenChunk, partIndex) => {
+                            const chunkWords = spokenChunk.split(/\s+/).filter(Boolean).length;
+                            return {
+                                ...firstScene,
+                                voiceover: `${hookPrefix}"${spokenChunk}"`,
+                                duration: chunkWords <= 3 ? 2 : 3,
+                                prompt: partIndex === 0 ? firstScene.prompt : `${firstScene.prompt} (Hook Part ${partIndex + 1})`,
+                                qcErrors: firstScene.qcErrors || []
+                            };
+                        };
+
+                        const hookScenes = hookChunks.length > 0
+                            ? hookChunks.map((chunk, idx) => makeHookScene(chunk, idx))
+                            : [makeHookScene(cleanHook, 0)];
+                        finalScriptData.scenes = [...hookScenes, ...finalScriptData.scenes.slice(1)];
+
+                        let hookRunningDuration = 0;
+                        finalScriptData.scenes = finalScriptData.scenes.map(scene => {
+                            const sceneTime = formatTimeLocal(hookRunningDuration);
+                            hookRunningDuration += (scene.duration || 2);
+                            return { ...scene, time: sceneTime };
+                        });
                         addJobLog(`🔥 Optimized Opening Hook via LLM`);
                     } else {
                         addJobLog(`⚠️ Hook optimization returned invalid response or refusal. Keeping original hook.`);
