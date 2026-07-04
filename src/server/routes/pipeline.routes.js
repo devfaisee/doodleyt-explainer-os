@@ -4,7 +4,7 @@ import { startBackendScriptGeneration } from '../services/script-generation.serv
 import { startBackendSynthesis } from '../services/synthesis.service.js';
 import { startBackendAssembly } from '../services/assembly.service.js';
 import { readConfig, getEffectiveApiKey } from '../utils/config.js';
-import { callReplicateWithRetry, extractSpokenText } from '../services/media.service.js';
+import { callReplicateWithRetry, extractSpokenText, parseVoiceover } from '../services/media.service.js';
 import { fetchImageBuffer, httpsGet } from '../utils/network.js';
 import { callOpenRouter } from '../services/llm.service.js';
 import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from '../services/ffmpeg.service.js';
@@ -16,9 +16,26 @@ import { promisify } from 'util';
 
 const execFileAsync = promisify(execFile);
 
+const probeAudioDurationSeconds = async (audioPath) => {
+    try {
+        const { stdout } = await execFileAsync('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            audioPath
+        ]);
+        const duration = Number.parseFloat(stdout.trim());
+        if (!Number.isFinite(duration) || duration <= 0.05) return null;
+        return duration;
+    } catch (_) {
+        return null;
+    }
+};
+
 const compactSpeechAudio = async (audioPath) => {
     const compactPath = `${audioPath}.compact.mp3`;
     try {
+        const beforeDuration = await probeAudioDurationSeconds(audioPath);
         await execFileAsync('ffmpeg', [
             '-nostdin',
             '-y',
@@ -29,12 +46,17 @@ const compactSpeechAudio = async (audioPath) => {
             '-q:a', '3',
             compactPath
         ]);
-        await fs.promises.rename(compactPath, audioPath);
+        const afterDuration = await probeAudioDurationSeconds(compactPath);
+        if (afterDuration && (!beforeDuration || afterDuration >= 0.35)) {
+            await fs.promises.rename(compactPath, audioPath);
+            return { beforeDuration, afterDuration };
+        }
     } catch (_) {
-        // Keep original when silence compaction fails.
+        // Keep original file when compaction fails.
     } finally {
         try { fs.unlinkSync(compactPath); } catch (_) {}
     }
+    return null;
 };
 
 const router = Router();
@@ -117,26 +139,28 @@ router.post('/regenerate-asset', async (req, res) => {
 
             if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                 try {
-                    console.log(`[Regenerate] Chatterbox TTS generating voiceover for scene ${sceneIndex + 1}...`);
+                    console.log(`[Regenerate] Gemini TTS generating voiceover for scene ${sceneIndex + 1}...`);
+                    const parsedVo = parseVoiceover(text);
                     const payload = JSON.stringify({
                         input: {
-                            text: spokenText,
-                            voice: "Andy", 
-                            temperature: 0.3 
+                            text: parsedVo.text,
+                            voice: "Charon",
+                            prompt: parsedVo.prompt,
+                            language_code: "en-US"
                         }
                     });
                     const audioUrl = await callReplicateWithRetry(
                         payload, 
                         replicateApiKey.trim(), 
                         mockLog, 
-                        "https://api.replicate.com/v1/models/resemble-ai/chatterbox-turbo/predictions"
+                        "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                     );
                     const audioBuffer = await httpsGet(audioUrl);
                     await fs.promises.writeFile(audioPath, audioBuffer);
-                    console.log(`✓ [Regenerate] Chatterbox TTS voiceover saved.`);
+                    console.log(`✓ [Regenerate] Gemini TTS voiceover saved.`);
                     audioGenerated = true;
                 } catch (cbErr) {
-                    console.log(`⚠️ [Regenerate] Chatterbox TTS failed: ${cbErr.message}.`);
+                    console.log(`⚠️ [Regenerate] Gemini TTS failed: ${cbErr.message}.`);
                 }
             }
 

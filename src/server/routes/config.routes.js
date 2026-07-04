@@ -23,6 +23,15 @@ router.post('/config', (req, res) => {
     try {
         const newConfig = req.body;
         const currentConfig = readConfig();
+
+        // Prevent overwriting real keys with masked keys from the client
+        const keysToSkip = ['apiKey', 'geminiApiKey', 'elevenlabsApiKey', 'falApiKey', 'replicateApiKey'];
+        for (const key of keysToSkip) {
+            if (newConfig[key] && newConfig[key].startsWith('***')) {
+                delete newConfig[key];
+            }
+        }
+
         const mergedConfig = { ...currentConfig, ...newConfig };
         writeConfig(mergedConfig);
         res.json({ success: true, config: mergedConfig });

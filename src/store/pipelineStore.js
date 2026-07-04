@@ -45,7 +45,14 @@ export const usePipelineStore = create((set, get) => ({
     selectedTopic: DEFAULT_TOPICS[0],
     
     // Script & Logs
-    currentScript: null,
+    currentScript: (() => {
+        try {
+            const cached = localStorage.getItem('doodleyt_current_script');
+            return cached ? JSON.parse(cached) : null;
+        } catch (e) {
+            return null;
+        }
+    })(),
     pipelineLogs: [],
     pipelineStages: [],
     

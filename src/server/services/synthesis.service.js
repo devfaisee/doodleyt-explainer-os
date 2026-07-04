@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { activeJob, jobQueue, addJobLog, writeLatestScript } from './job.service.js';
-import { callReplicateWithRetry, extractSpokenText, MOCK_PNG_BASE64 } from './media.service.js';
+import { callReplicateWithRetry, extractSpokenText, parseVoiceover, MOCK_PNG_BASE64 } from './media.service.js';
 import { updateScriptInHistory } from './history.service.js';
 import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from './ffmpeg.service.js';
 import { ensureDir } from '../utils/fileSystem.js';
@@ -176,26 +176,28 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
 
                 if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                     try {
-                        addJobLog(`[Chatterbox TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
+                        addJobLog(`[Gemini TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
+                        const parsedVo = parseVoiceover(scene.voiceover);
                         const payload = JSON.stringify({
                             input: {
-                                text: spokenText,
-                                voice: "Andy",
-                                temperature: 0.3
+                                text: parsedVo.text,
+                                voice: "Charon",
+                                prompt: parsedVo.prompt,
+                                language_code: "en-US"
                             }
                         });
                         const audioUrl = await callReplicateWithRetry(
                             payload, 
                             replicateApiKey.trim(), 
                             addJobLog, 
-                            "https://api.replicate.com/v1/models/resemble-ai/chatterbox-turbo/predictions"
+                            "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                         );
                         const audioBuffer = await httpsGet(audioUrl);
                         await fs.promises.writeFile(audioPath, audioBuffer);
-                        addJobLog(`✓ [Chatterbox TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                        addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {
-                        addJobLog(`⚠️ Chatterbox TTS failed for scene ${i+1}: ${cbErr.message}. Saving silent fallback.`);
+                        addJobLog(`⚠️ Gemini TTS failed for scene ${i+1}: ${cbErr.message}. Saving silent fallback.`);
                     }
                 }
 

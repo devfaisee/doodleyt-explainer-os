@@ -603,6 +603,18 @@ function extractSpokenText(voiceover) {
     return voiceover.replace(/^Read\s+[^:]+:\s*/i, '').trim();
 }
 
+function parseVoiceover(voiceover) {
+    if (!voiceover) return { prompt: "Say the following in a clear, professional tone.", text: "" };
+    const matches = [...voiceover.matchAll(/"([^"]+)"/g)];
+    if (matches.length > 0) {
+        const text = matches[matches.length - 1][1];
+        const stylePart = voiceover.substring(0, voiceover.indexOf(matches[matches.length - 1][0])).trim();
+        const prompt = stylePart.replace(/:\s*$/, '').trim();
+        return { prompt: prompt || "Say the following.", text };
+    }
+    return { prompt: "Say the following.", text: voiceover.replace(/^Read\s+[^:]+:\s*/i, '').trim() };
+}
+
 async function probeAudioDurationSeconds(audioPath) {
     try {
         const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`);
@@ -612,25 +624,25 @@ async function probeAudioDurationSeconds(audioPath) {
     } catch (_) {
         return null;
     }
+}
 
-    async function compactSpeechAudio(audioPath) {
-        const compactPath = `${audioPath}.compact.mp3`;
-        try {
-            const beforeDuration = await probeAudioDurationSeconds(audioPath);
-            const cmd = `ffmpeg -nostdin -y -v error -i "${audioPath}" -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.45" -c:a libmp3lame -q:a 3 "${compactPath}"`;
-            await execAsync(cmd);
-            const afterDuration = await probeAudioDurationSeconds(compactPath);
-            if (afterDuration && (!beforeDuration || afterDuration >= 0.35)) {
-                fs.renameSync(compactPath, audioPath);
-                return { beforeDuration, afterDuration };
-            }
-        } catch (_) {
-            // Keep original file when compaction fails.
-        } finally {
-            try { fs.unlinkSync(compactPath); } catch (_) {}
+async function compactSpeechAudio(audioPath) {
+    const compactPath = `${audioPath}.compact.mp3`;
+    try {
+        const beforeDuration = await probeAudioDurationSeconds(audioPath);
+        const cmd = `ffmpeg -nostdin -y -v error -i "${audioPath}" -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.45" -c:a libmp3lame -q:a 3 "${compactPath}"`;
+        await execAsync(cmd);
+        const afterDuration = await probeAudioDurationSeconds(compactPath);
+        if (afterDuration && (!beforeDuration || afterDuration >= 0.35)) {
+            fs.renameSync(compactPath, audioPath);
+            return { beforeDuration, afterDuration };
         }
-        return null;
+    } catch (_) {
+        // Keep original file when compaction fails.
+    } finally {
+        try { fs.unlinkSync(compactPath); } catch (_) {}
     }
+    return null;
 }
 
 function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16) {
@@ -1348,26 +1360,28 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
 
                 if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                     try {
-                        addJobLog(`[Chatterbox TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
+                        addJobLog(`[Gemini TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
+                        const parsedVo = parseVoiceover(scene.voiceover);
                         const payload = JSON.stringify({
                             input: {
-                                text: spokenText,
-                                voice: "Andy", // Hardcoded high-quality default voice
-                                temperature: 0.3 // Low temperature for maximum robotic consistency
+                                text: parsedVo.text,
+                                voice: "Charon",
+                                prompt: parsedVo.prompt,
+                                language_code: "en-US"
                             }
                         });
                         const audioUrl = await callReplicateWithRetry(
                             payload, 
                             replicateApiKey.trim(), 
                             addJobLog, 
-                            "https://api.replicate.com/v1/models/resemble-ai/chatterbox-turbo/predictions"
+                            "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                         );
                         const audioBuffer = await httpsGet(audioUrl);
                         await fs.promises.writeFile(audioPath, audioBuffer);
-                        addJobLog(`✓ [Chatterbox TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                        addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {
-                        addJobLog(`⚠️ Chatterbox TTS failed for scene ${i+1}: ${cbErr.message}. Saving silent fallback.`);
+                        addJobLog(`⚠️ Gemini TTS failed for scene ${i+1}: ${cbErr.message}. Saving silent fallback.`);
                     }
                 }
 
@@ -1481,7 +1495,7 @@ function startBackendAssembly(script, providedOutputPath) {
         addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos...`);
         
         try {
-            const batchSize = 1;
+            const batchSize = Math.max(1, parseInt(config.concurrency, 10) || 1);
             for (let i = 0; i < scenes.length; i += batchSize) {
                 if (activeJob.status === 'idle') {
                     addJobLog(`🛑 Compilation cancelled by user.`);
@@ -2078,6 +2092,15 @@ const server = http.createServer((req, res) => {
             try {
                 const newConfig = JSON.parse(body);
                 const currentConfig = readConfig();
+
+                // Prevent overwriting real keys with masked keys from the client
+                const keysToSkip = ['apiKey', 'geminiApiKey', 'elevenlabsApiKey', 'falApiKey', 'replicateApiKey'];
+                for (const key of keysToSkip) {
+                    if (newConfig[key] && newConfig[key].startsWith('***')) {
+                        delete newConfig[key];
+                    }
+                }
+
                 const mergedConfig = { ...currentConfig, ...newConfig };
                 writeConfig(mergedConfig);
                 res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -100,8 +100,8 @@ export function startBackendAssembly(script, providedOutputPath) {
         addJobLog(`⚙️ Compiling ${scenes.length} individual scene videos in parallel batches...`);
         
         try {
-            // Sequential encoding is slower but much more reliable on constrained runners.
-            const batchSize = 1;
+            // Sequential encoding by default; specifiable via config.concurrency for faster parallel renders on high-end hosts.
+            const batchSize = Math.max(1, parseInt(config.concurrency, 10) || 1);
             for (let i = 0; i < scenes.length; i += batchSize) {
                 if (activeJob.status === 'idle') {
                     addJobLog(`🛑 Compilation cancelled by user.`);

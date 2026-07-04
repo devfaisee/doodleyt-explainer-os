@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { downloadFile } from './utils/downloadFile.js';
 import { apiFetch, getAssetUrl } from './apiClient.js';
-import { DEFAULT_VISUAL_DNA, DEFAULT_STYLE_REFS } from './store/pipelineStore.js';
+import { usePipelineStore, DEFAULT_VISUAL_DNA, DEFAULT_STYLE_REFS } from './store/pipelineStore.js';
 import TerminalView from './components/TerminalView';
 import TopicsView from './components/TopicsView';
 import SandboxView from './components/SandboxView';
@@ -54,40 +54,40 @@ function App() {
     const [activeTab, setActiveTab] = useState('terminal');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     
-    // Core parameters
-    const [apiKey, setApiKey] = useState('');
-    const [geminiApiKey, setGeminiApiKey] = useState('');
-    const [falApiKey, setFalApiKey] = useState('');
-    const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
-    const [model, setModel] = useState('deepseek/deepseek-v4-flash');
-    const [outputPath, setOutputPath] = useState('');
-    const [characters, setCharacters] = useState([]);
-    const [videoType, setVideoType] = useState('long');
-    const [targetDuration, setTargetDuration] = useState(8); // target in minutes (2, 5, 8, 10, 12, 15, 20, 25)
-    
-    const [visualDNA, setVisualDNA] = useState(DEFAULT_VISUAL_DNA);
-    const [styleReferences, setStyleReferences] = useState(DEFAULT_STYLE_REFS);
-    
-    const [topicBank, setTopicBank] = useState(DEFAULT_TOPICS);
-    const [customNicheInput, setCustomNicheInput] = useState('');
-    const [selectedTopic, setSelectedTopic] = useState(DEFAULT_TOPICS[0]);
-    
-    const [pipelineLogs, setPipelineLogs] = useState([]);
-    const [currentScript, setCurrentScript] = useState(() => {
-        try {
-            const cached = localStorage.getItem('doodleyt_current_script');
-            return cached ? JSON.parse(cached) : null;
-        } catch (e) {
-            console.error('Failed to parse cached script', e);
-            localStorage.removeItem('doodleyt_current_script');
-            return null;
-        }
-    });
+    // Consume global state from the Zustand store
+    const {
+        isGenerating, setField, synthesisStatus, compileStatus, serverStatus,
+        apiKey, geminiApiKey, falApiKey, elevenlabsApiKey, model, outputPath,
+        videoType, targetDuration, visualDNA, styleReferences, characters,
+        topicBank, customNicheInput, selectedTopic, currentScript, pipelineLogs,
+        pipelineStages, scriptHistory, historyLoading, activeHistoryFilename, addLog
+    } = usePipelineStore();
 
-    // Script History state
-    const [scriptHistory, setScriptHistory] = useState([]);
-    const [historyLoading, setHistoryLoading] = useState(false);
-    const [activeHistoryFilename, setActiveHistoryFilename] = useState(null);
+    // Map setter functions to Zustand store to keep App.jsx code compatible
+    const setIsGenerating = (val) => setField('isGenerating', val);
+    const setSynthesisStatus = (val) => setField('synthesisStatus', val);
+    const setCompileStatus = (val) => setField('compileStatus', val);
+    const setServerStatus = (val) => setField('serverStatus', val);
+    const setApiKey = (val) => setField('apiKey', val);
+    const setGeminiApiKey = (val) => setField('geminiApiKey', val);
+    const setFalApiKey = (val) => setField('falApiKey', val);
+    const setElevenlabsApiKey = (val) => setField('elevenlabsApiKey', val);
+    const setModel = (val) => setField('model', val);
+    const setOutputPath = (val) => setField('outputPath', val);
+    const setCharacters = (val) => setField('characters', val);
+    const setVideoType = (val) => setField('videoType', val);
+    const setTargetDuration = (val) => setField('targetDuration', val);
+    const setVisualDNA = (val) => setField('visualDNA', val);
+    const setStyleReferences = (val) => setField('styleReferences', val);
+    const setTopicBank = (val) => setField('topicBank', val);
+    const setCustomNicheInput = (val) => setField('customNicheInput', val);
+    const setSelectedTopic = (val) => setField('selectedTopic', val);
+    const setPipelineLogs = (val) => setField('pipelineLogs', val);
+    const setCurrentScript = (val) => setField('currentScript', val);
+    const setScriptHistory = (val) => setField('scriptHistory', val);
+    const setHistoryLoading = (val) => setField('historyLoading', val);
+    const setActiveHistoryFilename = (val) => setField('activeHistoryFilename', val);
+    const setPipelineStages = (val) => setField('pipelineStages', val);
     const [showHistoryPanel, setShowHistoryPanel] = useState(false);
     const [showCostPanel, setShowCostPanel] = useState(false);
     const [copiedField, setCopiedField] = useState(null);
@@ -116,10 +116,7 @@ function App() {
         }
     }, [currentScript]);
 
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [synthesisStatus, setSynthesisStatus] = useState('idle');
-    const [compileStatus, setCompileStatus] = useState('idle');
-    const [serverStatus, setServerStatus] = useState('Checking...');
+
 
     // Debounced sync to server for sandbox script changes
     useEffect(() => {
@@ -157,7 +154,12 @@ function App() {
         return list;
     };
 
-    const [pipelineStages, setPipelineStages] = useState(() => buildDefaultStages(videoType, targetDuration));
+    // Initialize stages on mount if they aren't configured yet
+    useEffect(() => {
+        if (!pipelineStages || pipelineStages.length === 0) {
+            setPipelineStages(buildDefaultStages(videoType, targetDuration));
+        }
+    }, []);
 
     // Keep checklist structure synced with length selection
     const hasMountedStages = useRef(false);
@@ -171,10 +173,6 @@ function App() {
 
     const logEndRef = useRef(null);
     const pollIntervalRef = useRef(null);
-
-    const addLog = (msg) => {
-        setPipelineLogs(prev => [...prev.slice(-499), `[${new Date().toLocaleTimeString()}] ${msg}`]);
-    };
 
     const syncScriptHistory = async () => {
         try {

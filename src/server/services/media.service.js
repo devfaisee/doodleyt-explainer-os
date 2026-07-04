@@ -51,4 +51,16 @@ export function extractSpokenText(voiceover) {
     return voiceover.replace(/^Read\s+[^:]+:\s*/i, '').trim();
 }
 
+export function parseVoiceover(voiceover) {
+    if (!voiceover) return { prompt: "Say the following in a clear, professional tone.", text: "" };
+    const matches = [...voiceover.matchAll(/"([^"]+)"/g)];
+    if (matches.length > 0) {
+        const text = matches[matches.length - 1][1];
+        const stylePart = voiceover.substring(0, voiceover.indexOf(matches[matches.length - 1][0])).trim();
+        const prompt = stylePart.replace(/:\s*$/, '').trim();
+        return { prompt: prompt || "Say the following.", text };
+    }
+    return { prompt: "Say the following.", text: voiceover.replace(/^Read\s+[^:]+:\s*/i, '').trim() };
+}
+
 export const MOCK_PNG_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAACXBIWXMAAAABAAAAAQBPJcTWAAAAe0lEQVR4nNXOMQ0AAAjAsJHMv2ZEcJBVQYc4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4iZM4vwNXCyFoAP6hilguAAAAAElFTkSuQmCC";
