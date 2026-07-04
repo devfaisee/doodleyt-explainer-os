@@ -1522,6 +1522,7 @@ function startBackendAssembly(script, providedOutputPath) {
                     }
 
                     await ensurePngFormat(imgPath);
+                    await ensureMp3Format(audioPath);
 
                     // Dynamic check/write of fallback assets if missing
                     if (!fs.existsSync(imgPath)) {
@@ -1754,6 +1755,28 @@ async function ensurePngFormat(filePath) {
         return true;
     } catch (e) {
         addJobLog(`⚠️ Error verifying image format for ${path.basename(filePath)}: ${e.message}`);
+        return false;
+    }
+}
+
+async function ensureMp3Format(filePath) {
+    try {
+        if (!fs.existsSync(filePath)) return false;
+        const buffer = await fs.promises.readFile(filePath);
+        // Check if WAV magic bytes: RIFF (0x52 0x49 0x46 0x46)
+        if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
+            addJobLog(`[Audio Guard] Detected WAV format disguised as MP3 for ${path.basename(filePath)}. Converting to real MP3...`);
+            const tempWav = filePath + '.tmp.wav';
+            await fs.promises.writeFile(tempWav, buffer);
+            try {
+                await execAsync(`ffmpeg -y -v error -i "${tempWav}" -codec:a libmp3lame -qscale:a 2 "${filePath}"`);
+            } finally {
+                try { fs.unlinkSync(tempWav); } catch (_) {}
+            }
+        }
+        return true;
+    } catch (e) {
+        addJobLog(`⚠️ Error verifying audio format for ${path.basename(filePath)}: ${e.message}`);
         return false;
     }
 }

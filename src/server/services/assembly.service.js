@@ -34,6 +34,28 @@ const ensurePngFormat = async (filePath) => {
     }
 };
 
+const ensureMp3Format = async (filePath) => {
+    try {
+        if (!fs.existsSync(filePath)) return false;
+        const buffer = await fs.promises.readFile(filePath);
+        // Check if WAV magic bytes: RIFF (0x52 0x49 0x46 0x46)
+        if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
+            addJobLog(`[Audio Guard] Detected WAV format disguised as MP3 for ${path.basename(filePath)}. Converting to real MP3...`);
+            const tempWav = filePath + '.tmp.wav';
+            await fs.promises.writeFile(tempWav, buffer);
+            try {
+                await execFileAsync('ffmpeg', ['-y', '-v', 'error', '-i', tempWav, '-codec:a', 'libmp3lame', '-qscale:a', '2', filePath]);
+            } finally {
+                try { fs.unlinkSync(tempWav); } catch (_) {}
+            }
+        }
+        return true;
+    } catch (e) {
+        addJobLog(`⚠️ Error verifying audio format for ${path.basename(filePath)}: ${e.message}`);
+        return false;
+    }
+};
+
 // Concurrency-safe temp files purger
 const cleanAllTempFiles = (targetDir) => {
     try {
@@ -128,6 +150,9 @@ export function startBackendAssembly(script, providedOutputPath) {
 
                     // Strict magic bytes PNG validation
                     await ensurePngFormat(imgPath);
+
+                    // Strict magic bytes MP3 validation
+                    await ensureMp3Format(audioPath);
 
                     if (!fs.existsSync(imgPath)) {
                         fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
