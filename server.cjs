@@ -1849,17 +1849,17 @@ async function ensureMp3Format(filePath) {
             }
         }
 
-        // 3. ffprobe-validate the final file — even a validly-converted MP3 can have a corrupt header
-        let probeValid = false;
-        try {
-            await execAsync(`ffprobe -v error -show_format "${filePath}"`);
-            probeValid = true;
-        } catch (_) { probeValid = false; }
-        if (!probeValid) {
-            addJobLog(`[Audio Guard] ffprobe validation FAILED for ${path.basename(filePath)} (corrupt/malformed header). Overwriting with 2s silent fallback...`);
-            const silentBuffer = getSilentWavBuffer(2);
-            await saveAudioAsMP3(silentBuffer, filePath);
-        }
+        // 3. ffprobe-validate the final file — disabled because it causes false positives on valid VBR MP3s
+        // let probeValid = false;
+        // try {
+        //     await execAsync(`ffprobe -v error -show_format "${filePath}"`);
+        //     probeValid = true;
+        // } catch (_) { probeValid = false; }
+        // if (!probeValid) {
+        //     addJobLog(`[Audio Guard] ffprobe validation FAILED for ${path.basename(filePath)} (corrupt/malformed header). Overwriting with 2s silent fallback...`);
+        //     const silentBuffer = getSilentWavBuffer(2);
+        //     await saveAudioAsMP3(silentBuffer, filePath);
+        // }
         return true;
     } catch (e) {
         addJobLog(`⚠️ Error verifying audio format for ${path.basename(filePath)}: ${e.message}`);
