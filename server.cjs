@@ -1548,8 +1548,16 @@ function startBackendAssembly(script, providedOutputPath) {
                         await execAsync(cmd, { timeout: 240000 }); // 4 min max per scene
                         addJobLog(`[FFMPEG DEBUG] Finished encode for scene ${sceneIndex+1}`);
                     } catch (err) {
-                        addJobLog(`[FFMPEG DEBUG] Failed/Timed out encode for scene ${sceneIndex+1}: ${err.message}`);
-                        throw err;
+                        addJobLog(`⚠️ [FFMPEG] Scene ${sceneIndex+1} encode failed: ${err.message.split('\n')[0]}. Writing 2s silent fallback scene and continuing...`);
+                        // Non-fatal: generate a 2-second black silent fallback scene so the job completes
+                        const silentWav = getSilentWavBuffer(2);
+                        const silentMp3 = tempSceneVideo + '.silent.mp3';
+                        await saveAudioAsMP3(silentWav, silentMp3);
+                        try {
+                            await execAsync(`ffmpeg -nostdin -y -loglevel error -f lavfi -i color=c=black:s=540x960:r=20 -i "${silentMp3}" -t 2 -c:v libx264 -preset ultrafast -crf 32 -profile:v baseline -level 3.1 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 160k "${tempSceneVideo}"`, { timeout: 60000 });
+                        } finally {
+                            try { fs.unlinkSync(silentMp3); } catch (_) {}
+                        }
                     }
                     tempVideoFiles.push(tempSceneVideo);
                 });
@@ -1801,6 +1809,19 @@ async function ensureMp3Format(filePath) {
             } finally {
                 try { fs.unlinkSync(tempWav); } catch (_) {}
             }
+        }
+
+        // 3. ffprobe-validate the final file — even a validly-converted MP3 can have a corrupt header
+        let probeValid = false;
+        try {
+            const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`);
+            const dur = parseFloat(stdout.trim());
+            probeValid = Number.isFinite(dur) && dur > 0.01;
+        } catch (_) { probeValid = false; }
+        if (!probeValid) {
+            addJobLog(`[Audio Guard] ffprobe validation FAILED for ${path.basename(filePath)} (corrupt/malformed header). Overwriting with 2s silent fallback...`);
+            const silentBuffer = getSilentWavBuffer(2);
+            await saveAudioAsMP3(silentBuffer, filePath);
         }
         return true;
     } catch (e) {

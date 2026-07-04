@@ -52,6 +52,21 @@ const ensurePngFormat = async (filePath) => {
     }
 };
 
+const probeAudioValid = async (filePath) => {
+    try {
+        const { stdout } = await execFileAsync('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            filePath
+        ]);
+        const dur = parseFloat(stdout.trim());
+        return Number.isFinite(dur) && dur > 0.01;
+    } catch (_) {
+        return false;
+    }
+};
+
 const ensureMp3Format = async (filePath) => {
     try {
         if (!fs.existsSync(filePath)) return false;
@@ -75,6 +90,14 @@ const ensureMp3Format = async (filePath) => {
             } finally {
                 try { fs.unlinkSync(tempWav); } catch (_) {}
             }
+        }
+
+        // 3. ffprobe-validate the final file — even a validly-converted MP3 can have a corrupt header
+        const valid = await probeAudioValid(filePath);
+        if (!valid) {
+            addJobLog(`[Audio Guard] ffprobe validation FAILED for ${path.basename(filePath)} (corrupt/malformed header). Overwriting with 2s silent fallback...`);
+            const silentBuffer = getSilentWavBuffer(2);
+            await saveAudioAsMP3(silentBuffer, filePath);
         }
         return true;
     } catch (e) {
@@ -195,7 +218,7 @@ export function startBackendAssembly(script, providedOutputPath) {
                         ? `scale=540:960:force_original_aspect_ratio=increase,crop=540:960,fps=20`
                         : `scale=960:540:force_original_aspect_ratio=increase,crop=960:540,fps=20`;
                     
-                    addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}...`);
+                    addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}... cmd: ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 20 -i "${imgPath}" -i "${audioPath}" ... "${tempSceneVideo}"`);
                     try {
                         await execFileAsync('ffmpeg', [
                             '-nostdin', '-y', '-loglevel', 'error',
@@ -220,9 +243,28 @@ export function startBackendAssembly(script, providedOutputPath) {
                             '-b:a', '160k',
                             tempSceneVideo
                         ], { timeout: 240000 });
+                        addJobLog(`[FFMPEG DEBUG] Finished encode for scene ${sceneIndex+1}`);
                     } catch (err) {
-                        addJobLog(`[FFMPEG DEBUG] Failed/Timed out encode for scene ${sceneIndex+1}: ${err.message}`);
-                        throw err;
+                        addJobLog(`⚠️ [FFMPEG] Scene ${sceneIndex+1} encode failed: ${err.message.split('\n')[0]}. Writing 2s silent fallback scene and continuing...`);
+                        // Non-fatal: generate a 2-second black silent fallback scene so the job completes
+                        const silentWav = getSilentWavBuffer(2);
+                        const silentMp3 = tempSceneVideo + '.silent.mp3';
+                        await saveAudioAsMP3(silentWav, silentMp3);
+                        try {
+                            await execFileAsync('ffmpeg', [
+                                '-nostdin', '-y', '-loglevel', 'error',
+                                '-f', 'lavfi', '-i', 'color=c=black:s=540x960:r=20',
+                                '-i', silentMp3,
+                                '-t', '2',
+                                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '32',
+                                '-profile:v', 'baseline', '-level', '3.1', '-pix_fmt', 'yuv420p',
+                                '-movflags', '+faststart',
+                                '-c:a', 'aac', '-b:a', '160k',
+                                tempSceneVideo
+                            ], { timeout: 60000 });
+                        } finally {
+                            try { fs.unlinkSync(silentMp3); } catch (_) {}
+                        }
                     }
                     return tempSceneVideo;
                 });
