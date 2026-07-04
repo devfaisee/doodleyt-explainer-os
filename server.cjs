@@ -713,19 +713,26 @@ async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl
                 throw new Error("No image URL returned: " + JSON.stringify(resJson));
             }
         } catch (err) {
-            if (err.message.includes('429')) {
-                let delayMs = 12000; // Default 12 seconds
+            let delayMs = 12000;
+            const is429 = err.message.includes('429');
+            
+            if (is429) {
                 try {
                     const errorStr = err.message.substring(err.message.indexOf('{'));
                     const errObj = JSON.parse(errorStr);
                     if (errObj.retry_after) delayMs = (errObj.retry_after + 1) * 1000;
                 } catch(e) {}
                 addJobLog(`⏳ Replicate Rate Limit 429. Pacing requests... waiting ${Math.round(delayMs/1000)}s.`);
-                await new Promise(r => setTimeout(r, delayMs));
-                retries--;
-                if (retries === 0) throw new Error(`Replicate failed after 5 retries: ${err.message}`);
             } else {
-                throw err;
+                delayMs = (6 - retries) * 4000; // 4s, 8s, 12s, 16s backoff
+                addJobLog(`⚠️ Replicate API Error: ${err.message}. Retrying in ${delayMs/1000}s... (${retries - 1} attempts left)`);
+            }
+            
+            await new Promise(r => setTimeout(r, delayMs));
+            retries--;
+            if (retries === 0) {
+                addJobLog(`❌ Replicate failed permanently after 5 retries.`);
+                throw new Error(`Replicate failed after 5 retries: ${err.message}`);
             }
         }
     }
