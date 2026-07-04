@@ -540,9 +540,6 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
     ];
-    if (isJson) {
-        messages.push({ role: "assistant", content: "{\n  \"title\":" });
-    }
     const payload = JSON.stringify({
         model: model || 'deepseek/deepseek-v4-flash',
         messages,
@@ -580,13 +577,8 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
                 activeJob.llmTokens.output += data.usage.completion_tokens || 0;
             }
             let textResponse = data.choices[0].message.content;
-            const match = textResponse.match(/<final_answer>([\s\S]*?)<\/final_answer>/);
-            if (match) {
-                textResponse = match[1];
-            }
-            if (isJson && !textResponse.startsWith("{")) {
-                textResponse = "{\n  \"title\":" + textResponse;
-            }
+            const finalAnswerMatch = textResponse.match(/<final_answer>([\s\S]*?)<\/final_answer>/);
+            if (finalAnswerMatch) textResponse = finalAnswerMatch[1];
             return textResponse;
         } catch (e) {
             lastError = e;
@@ -596,6 +588,31 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
     throw new Error(`OpenRouter Call Failed: ${lastError.message}`);
 }
 
+function repairJson(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    let text = raw.trim();
+    const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) text = fenceMatch[1].trim();
+    const braceMatch = text.match(/\{[\s\S]*\}/);
+    if (!braceMatch) return null;
+    text = braceMatch[0];
+    try { return JSON.parse(text); } catch (_) {}
+    // Repair: remove trailing commas
+    let repaired = text.replace(/,\s*([\]}])/g, '$1');
+    try { return JSON.parse(repaired); } catch (_) {}
+    // Repair: fix unquoted string values
+    repaired = repaired.replace(/:\s*([A-Za-z][A-Za-z0-9 _\-'\.]*?)(\s*[,\}\]])/g, (m, v, end) => {
+        const trimmed = v.trim();
+        if (['true', 'false', 'null'].includes(trimmed)) return m;
+        return `: "${trimmed}"${end}`;
+    });
+    repaired = repaired.replace(/,\s*([\]}])/g, '$1');
+    try { return JSON.parse(repaired); } catch (_) {}
+    // Repair: fix single-quoted strings
+    repaired = repaired.replace(/'([^'\\]*)'/g, '"$1"');
+    try { return JSON.parse(repaired); } catch (_) {}
+    return null;
+}
 function extractSpokenText(voiceover) {
     if (!voiceover) return '';
     const matches = [...voiceover.matchAll(/"([^"]+)"/g)];
@@ -873,7 +890,8 @@ VIRAL TITLE LAWS (Strictly Enforced):
             const designJsonMatch = designRaw.match(/\{[\s\S]*\}/);
             if (!designJsonMatch) throw new Error("Stage 1 failed to return JSON.");
             
-            const designData = JSON.parse(designJsonMatch[0]);
+            const designData = repairJson(designJsonMatch[0]);
+            if (!designData) throw new Error('Stage 1 failed to produce valid JSON even after auto-repair.');
             let finalScriptData = { title: '', category: '', nicheReason: '', thumbnail: '', characters: [] };
             finalScriptData = { ...finalScriptData, ...designData };
             
@@ -991,7 +1009,9 @@ Return strictly a JSON object matching this schema:
                 const actJsonMatch = actRaw.match(/\{[\s\S]*\}/);
                 if (!actJsonMatch) throw new Error(`Stage ${j + 1} (Act ${j}) failed to return JSON.`);
                 
-                const actData = JSON.parse(actJsonMatch[0]);
+                const actData = repairJson(actJsonMatch[0]);
+                if (!actData) throw new Error(`Stage ${j + 1} (Act ${j}) failed to produce valid JSON even after auto-repair.`);
+                if (!Array.isArray(actData.scenes)) throw new Error(`Stage ${j + 1} (Act ${j}) output scenes property is not an array.`);
                 accumulatedScenes = [...accumulatedScenes, ...actData.scenes];
                 addJobLog(`✓ Act ${j} compiled successfully (${actData.scenes.length} scenes).`);
                 updateJobStageStatus(stageId, 'completed', `${j + 1}. Act ${j} Completed (${actData.scenes.length} scenes)`);

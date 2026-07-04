@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { activeJob, addJobLog, writeLatestScript, buildDefaultStages, updateJobStageStatus } from './job.service.js';
 import { getEffectiveApiKey, readConfig, writeConfig, STYLE_REFS_DIR } from '../utils/config.js';
-import { callOpenRouter, callGeminiAPI } from './llm.service.js';
+import { callOpenRouter, callGeminiAPI, repairJson } from './llm.service.js';
 import { saveScriptToHistory } from './history.service.js';
 import { extractSpokenText } from './media.service.js';
 
@@ -222,7 +222,8 @@ Return strictly a JSON object:
         const designJsonMatch = designRaw.match(/\{[\s\S]*\}/);
         if (!designJsonMatch) throw new Error("Stage 1 failed to return JSON.");
         
-        const designData = JSON.parse(designJsonMatch[0]);
+        const designData = repairJson(designJsonMatch[0]);
+        if (!designData) throw new Error('Stage 1 failed to produce valid JSON even after auto-repair.');
         let finalScriptData = { title: '', category: '', nicheReason: '', thumbnail: '', characters: [] };
         finalScriptData = { ...finalScriptData, ...designData };
         
@@ -333,7 +334,8 @@ Return strictly a JSON object matching this schema:
             const actJsonMatch = actRaw.match(/\{[\s\S]*\}/);
             if (!actJsonMatch) throw new Error(`Stage ${j + 1} (Act ${j}) failed to return JSON.`);
             
-            const actData = JSON.parse(actJsonMatch[0]);
+            const actData = repairJson(actJsonMatch[0]);
+            if (!actData) throw new Error(`Stage ${j + 1} (Act ${j}) failed to produce valid JSON even after auto-repair.`);
             if (!Array.isArray(actData.scenes)) throw new Error(`Stage ${j + 1} (Act ${j}) output scenes property is not an array.`);
             
             accumulatedScenes = [...accumulatedScenes, ...actData.scenes];
