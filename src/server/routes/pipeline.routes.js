@@ -156,7 +156,7 @@ router.post('/regenerate-asset', async (req, res) => {
                         "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                     );
                     const audioBuffer = await httpsGet(audioUrl);
-                    await fs.promises.writeFile(audioPath, audioBuffer);
+                    await saveAudioAsMP3(audioBuffer, audioPath);
                     console.log(`✓ [Regenerate] Gemini TTS voiceover saved.`);
                     audioGenerated = true;
                 } catch (cbErr) {

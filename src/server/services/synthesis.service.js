@@ -193,7 +193,7 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                             "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                         );
                         const audioBuffer = await httpsGet(audioUrl);
-                        await fs.promises.writeFile(audioPath, audioBuffer);
+                        await saveAudioAsMP3(audioBuffer, audioPath);
                         addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {

@@ -1377,7 +1377,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                         );
                         const audioBuffer = await httpsGet(audioUrl);
-                        await fs.promises.writeFile(audioPath, audioBuffer);
+                        await saveAudioAsMP3(audioBuffer, audioPath);
                         addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {
@@ -1893,26 +1893,28 @@ const server = http.createServer((req, res) => {
 
                     if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                         try {
-                            console.log(`[Regenerate] Chatterbox TTS generating voiceover for scene ${sceneIndex + 1}...`);
+                            console.log(`[Regenerate] Gemini TTS generating voiceover for scene ${sceneIndex + 1}...`);
+                            const parsedVo = parseVoiceover(text);
                             const payload = JSON.stringify({
                                 input: {
-                                    text: spokenText,
-                                    voice: "Andy", // Hardcoded high-quality default voice
-                                    temperature: 0.3 // Low temperature for maximum robotic consistency
+                                    text: parsedVo.text,
+                                    voice: "Charon",
+                                    prompt: parsedVo.prompt,
+                                    language_code: "en-US"
                                 }
                             });
                             const audioUrl = await callReplicateWithRetry(
                                 payload, 
                                 replicateApiKey.trim(), 
                                 mockLog, 
-                                "https://api.replicate.com/v1/models/resemble-ai/chatterbox-turbo/predictions"
+                                "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                             );
                             const audioBuffer = await httpsGet(audioUrl);
-                            await fs.promises.writeFile(audioPath, audioBuffer);
-                            console.log(`✓ [Regenerate] Chatterbox TTS voiceover saved.`);
+                            await saveAudioAsMP3(audioBuffer, audioPath);
+                            console.log(`✓ [Regenerate] Gemini TTS voiceover saved.`);
                             audioGenerated = true;
                         } catch (cbErr) {
-                            console.log(`⚠️ [Regenerate] Chatterbox TTS failed: ${cbErr.message}.`);
+                            console.log(`⚠️ [Regenerate] Gemini TTS failed: ${cbErr.message}.`);
                         }
                     }
 
