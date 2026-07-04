@@ -1852,9 +1852,8 @@ async function ensureMp3Format(filePath) {
         // 3. ffprobe-validate the final file — even a validly-converted MP3 can have a corrupt header
         let probeValid = false;
         try {
-            const { stdout } = await execAsync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`);
-            const dur = parseFloat(stdout.trim());
-            probeValid = Number.isFinite(dur) && dur > 0.01;
+            await execAsync(`ffprobe -v error -show_format "${filePath}"`);
+            probeValid = true;
         } catch (_) { probeValid = false; }
         if (!probeValid) {
             addJobLog(`[Audio Guard] ffprobe validation FAILED for ${path.basename(filePath)} (corrupt/malformed header). Overwriting with 2s silent fallback...`);

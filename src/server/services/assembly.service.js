@@ -54,14 +54,10 @@ const ensurePngFormat = async (filePath) => {
 
 const probeAudioValid = async (filePath) => {
     try {
-        const { stdout } = await execFileAsync('ffprobe', [
-            '-v', 'error',
-            '-show_entries', 'format=duration',
-            '-of', 'default=noprint_wrappers=1:nokey=1',
-            filePath
-        ]);
-        const dur = parseFloat(stdout.trim());
-        return Number.isFinite(dur) && dur > 0.01;
+        // Just checking if ffprobe can read the format without error.
+        // -show_entries format=duration often returns N/A for valid VBR MP3s, causing false positives.
+        await execFileAsync('ffprobe', ['-v', 'error', '-show_format', filePath]);
+        return true;
     } catch (_) {
         return false;
     }
