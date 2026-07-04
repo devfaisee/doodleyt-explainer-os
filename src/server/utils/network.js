@@ -63,3 +63,14 @@ export async function fetchImageBuffer(imgUrl) {
     }
     return await httpsGet(imgUrl);
 }
+
+// Downloads audio from a data: URI (base64) or a regular HTTPS URL.
+// Gemini TTS on Replicate returns data:audio/...;base64,... — not an HTTPS link.
+export async function downloadAudioFromUrl(urlOrDataUri) {
+    if (typeof urlOrDataUri === 'string' && urlOrDataUri.startsWith('data:')) {
+        const commaIdx = urlOrDataUri.indexOf(',');
+        if (commaIdx === -1) throw new Error('Invalid data URI: no comma separator');
+        return Buffer.from(urlOrDataUri.slice(commaIdx + 1), 'base64');
+    }
+    return await httpsGet(urlOrDataUri);
+}

@@ -6,7 +6,7 @@ import { updateScriptInHistory } from './history.service.js';
 import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from './ffmpeg.service.js';
 import { ensureDir } from '../utils/fileSystem.js';
 import { readConfig } from '../utils/config.js';
-import { fetchImageBuffer, httpsGet } from '../utils/network.js';
+import { fetchImageBuffer, httpsGet, downloadAudioFromUrl } from '../utils/network.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
@@ -192,7 +192,8 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                             addJobLog, 
                             "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                         );
-                        const audioBuffer = await httpsGet(audioUrl);
+                        addJobLog(`[Gemini TTS] Audio output type: ${typeof audioUrl === 'string' ? (audioUrl.startsWith('data:') ? 'data-uri (base64)' : 'https-url') : typeof audioUrl}`);
+                        const audioBuffer = await downloadAudioFromUrl(audioUrl);
                         await saveAudioAsMP3(audioBuffer, audioPath);
                         addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;

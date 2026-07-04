@@ -1399,7 +1399,8 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             addJobLog, 
                             "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                         );
-                        const audioBuffer = await httpsGet(audioUrl);
+                        addJobLog(`[Gemini TTS] Audio URL type: ${typeof audioUrl === 'string' ? (audioUrl.startsWith('data:') ? 'data-uri' : 'https-url') : typeof audioUrl}`);
+                        const audioBuffer = await downloadAudioFromUrl(audioUrl);
                         await saveAudioAsMP3(audioBuffer, audioPath);
                         addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
@@ -1737,6 +1738,20 @@ function httpsGet(url, maxRedirects = 5) {
     });
 }
 
+// Downloads audio from either an HTTPS URL or a data: URI (base64-encoded).
+// Gemini TTS on Replicate returns data:audio/...;base64,... URIs, not HTTPS URLs.
+async function downloadAudioFromUrl(urlOrDataUri) {
+    if (typeof urlOrDataUri === 'string' && urlOrDataUri.startsWith('data:')) {
+        // Parse: data:[mediatype];base64,<data>
+        const commaIdx = urlOrDataUri.indexOf(',');
+        if (commaIdx === -1) throw new Error('Invalid data URI: no comma separator');
+        const base64Data = urlOrDataUri.slice(commaIdx + 1);
+        return Buffer.from(base64Data, 'base64');
+    }
+    // Regular HTTPS URL
+    return await httpsGet(urlOrDataUri);
+}
+
 // Generate valid silent PCM WAV buffer
 function getSilentWavBuffer(durationSeconds = 2) {
     const sampleRate = 8000;
@@ -2004,7 +2019,7 @@ const server = http.createServer((req, res) => {
                                 mockLog, 
                                 "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                             );
-                            const audioBuffer = await httpsGet(audioUrl);
+                            const audioBuffer = await downloadAudioFromUrl(audioUrl);
                             await saveAudioAsMP3(audioBuffer, audioPath);
                             console.log(`✓ [Regenerate] Gemini TTS voiceover saved.`);
                             audioGenerated = true;
