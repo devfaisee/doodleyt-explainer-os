@@ -89,14 +89,17 @@ function getAudioFileName(title, sceneIndex) {
 
 // Converts a WAV buffer to an MP3 file at destPath using FFmpeg.
 // Writes a temp WAV first, converts, then removes the temp.
-function saveAudioAsMP3(wavBuffer, destPath) {
+function saveAudioAsMP3(inputBuffer, destPath) {
+    // Write buffer to a neutral .bin temp file — ffmpeg auto-detects the format.
+    // This handles WAV, MP3, OGG, FLAC, or any other format that Replicate/TTS APIs return.
     return new Promise((resolve, reject) => {
-        const tempWav = destPath.replace(/\.mp3$/, '_tmp.wav');
-        fs.writeFile(tempWav, wavBuffer, (writeErr) => {
+        const tempInput = destPath.replace(/\.mp3$/, '_tmp.bin');
+        fs.writeFile(tempInput, inputBuffer, (writeErr) => {
             if (writeErr) return reject(writeErr);
-            const cmd = `ffmpeg -nostdin -y -i "${tempWav}" -codec:a libmp3lame -qscale:a 2 "${destPath}"`;
+            // No -f flag: ffmpeg probes format automatically
+            const cmd = `ffmpeg -nostdin -y -i "${tempInput}" -codec:a libmp3lame -qscale:a 2 "${destPath}"`;
             exec(cmd, (ffErr) => {
-                try { fs.unlinkSync(tempWav); } catch (_) {}
+                try { fs.unlinkSync(tempInput); } catch (_) {}
                 if (ffErr) return reject(new Error(`FFmpeg MP3 conversion failed: ${ffErr.message}`));
                 resolve();
             });

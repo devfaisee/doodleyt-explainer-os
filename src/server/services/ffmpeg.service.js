@@ -63,16 +63,19 @@ export function getAudioFileName(title, sceneIndex) {
     return `${prefix}-voiceover-${padded}.mp3`;
 }
 
-export function saveAudioAsMP3(wavBuffer, destPath) {
+export function saveAudioAsMP3(inputBuffer, destPath) {
+    // Write to a neutral .bin temp file — ffmpeg auto-detects format.
+    // Handles WAV, MP3, OGG, FLAC, or any format Replicate TTS APIs return.
     return new Promise((resolve, reject) => {
-        const tempWav = destPath.replace(/\.mp3$/, '_tmp.wav');
-        fs.writeFile(tempWav, wavBuffer, (writeErr) => {
+        const tempInput = destPath.replace(/\.mp3$/, '_tmp.bin');
+        fs.writeFile(tempInput, inputBuffer, (writeErr) => {
             if (writeErr) return reject(writeErr);
             
+            // No -f flag: ffmpeg probes and detects format automatically
             const ffmpeg = spawn('ffmpeg', [
                 '-nostdin',
                 '-y',
-                '-i', tempWav,
+                '-i', tempInput,
                 '-codec:a', 'libmp3lame',
                 '-qscale:a', '2',
                 destPath
@@ -84,7 +87,7 @@ export function saveAudioAsMP3(wavBuffer, destPath) {
             });
             
             ffmpeg.on('close', (code) => {
-                try { fs.unlinkSync(tempWav); } catch (_) {}
+                try { fs.unlinkSync(tempInput); } catch (_) {}
                 if (code !== 0) {
                     return reject(new Error(`FFmpeg MP3 conversion failed with code ${code}. Stderr: ${stderr}`));
                 }
@@ -92,7 +95,7 @@ export function saveAudioAsMP3(wavBuffer, destPath) {
             });
             
             ffmpeg.on('error', (err) => {
-                try { fs.unlinkSync(tempWav); } catch (_) {}
+                try { fs.unlinkSync(tempInput); } catch (_) {}
                 reject(err);
             });
         });
