@@ -1742,8 +1742,17 @@ async function ensurePngFormat(filePath) {
     try {
         if (!fs.existsSync(filePath)) return false;
         const buffer = await fs.promises.readFile(filePath);
+        
+        // 1. Check if empty or too small to be a valid image
+        if (buffer.length < 100) {
+            addJobLog(`[Image Guard] File ${path.basename(filePath)} is empty or too small (${buffer.length} bytes). Overwriting with safe mock canvas fallback...`);
+            await fs.promises.writeFile(filePath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+            return true;
+        }
+
+        // 2. Check if JPEG magic bytes: FF D8
         if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
-            addJobLog(`[Image Guard] Detected JPEG bytes in ${path.basename(filePath)}. Converting to real PNG...`);
+            addJobLog(`[Image Guard] Detected progressive JPEG format disguised as PNG for ${path.basename(filePath)}. Converting to real PNG...`);
             const tempJpg = filePath + '.tmp.jpg';
             await fs.promises.writeFile(tempJpg, buffer);
             try {
@@ -1751,7 +1760,17 @@ async function ensurePngFormat(filePath) {
             } finally {
                 try { fs.unlinkSync(tempJpg); } catch (_) {}
             }
+            return true;
         }
+
+        // 3. Check if valid PNG magic bytes: 89 50 4E 47
+        if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+            return true;
+        }
+
+        // 4. If neither, it is corrupt. Overwrite with safe fallback.
+        addJobLog(`[Image Guard] Detected corrupt/invalid image format for ${path.basename(filePath)}. Overwriting with safe mock canvas fallback...`);
+        await fs.promises.writeFile(filePath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
         return true;
     } catch (e) {
         addJobLog(`⚠️ Error verifying image format for ${path.basename(filePath)}: ${e.message}`);
@@ -1763,7 +1782,16 @@ async function ensureMp3Format(filePath) {
     try {
         if (!fs.existsSync(filePath)) return false;
         const buffer = await fs.promises.readFile(filePath);
-        // Check if WAV magic bytes: RIFF (0x52 0x49 0x46 0x46)
+        
+        // 1. Check if empty or too small to be a valid audio file
+        if (buffer.length < 100) {
+            addJobLog(`[Audio Guard] File ${path.basename(filePath)} is empty or too small (${buffer.length} bytes). Writing silent fallback...`);
+            const silentBuffer = getSilentWavBuffer(2);
+            await saveAudioAsMP3(silentBuffer, filePath);
+            return true;
+        }
+
+        // 2. Check if WAV magic bytes: RIFF (0x52 0x49 0x46 0x46)
         if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
             addJobLog(`[Audio Guard] Detected WAV format disguised as MP3 for ${path.basename(filePath)}. Converting to real MP3...`);
             const tempWav = filePath + '.tmp.wav';
