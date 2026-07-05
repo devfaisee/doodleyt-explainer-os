@@ -224,7 +224,7 @@ export function startBackendAssembly(script, providedOutputPath) {
                             '-i', audioPath,
                             '-map', '0:v:0',
                             '-map', '1:a:0',
-                            '-af', 'apad=pad_dur=0.35',
+                            '-af', 'apad=pad_dur=0.1',
                             '-shortest',
                             '-c:v', 'libx264',
                             '-preset', 'ultrafast',

@@ -981,7 +981,7 @@ SCRIPTWRITING & PACING LAWS:
 2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 6 words, ideal is 3 to 5 words per scene).
    - If a sentence is long, you MUST split it across multiple consecutive scenes.
-   - Prefixed Emotional Performance (Tagging): Prefix the "voiceover" text for every single scene with an acting instruction (e.g., 'Read with quiet, chilling authority: "..."', 'Read with profound fascination: "..."', 'Read softly and deliberately: "..."'). Always wrap the spoken clause inside double quotes inside the string.
+   - Prefixed Emotional Performance (Tagging): Prefix the "voiceover" text for every single scene with a VARIED acting instruction that matches the emotional beat of that specific moment. You MUST vary these directions naturally across scenes — never use the same direction for more than 2 consecutive scenes. Examples across the full emotional spectrum: 'Read with gripping intensity: "..."', 'Read in a calm, matter-of-fact tone: "..."', 'Read with quiet authority: "..."', 'Read with building excitement: "..."', 'Read with deadpan irony: "..."', 'Read with warm curiosity: "..."', 'Read with eerie stillness: "..."', 'Read conversationally: "..."'. Always wrap the spoken clause inside double quotes inside the string.
    - Calculate duration strictly using only the spoken words inside the double quotes.
 3. Literal Visual Syncing (CRITICAL): The "prompt" field MUST exactly match the words being spoken. The visuals must perfectly depict the literal concepts or metaphors the voiceover is describing in that exact moment.
 4. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Use these metrics:
@@ -1073,7 +1073,7 @@ Return strictly a JSON object matching this schema:
                 } else if (words.length > 6) {
                     addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 6). Splitting...`);
                     const prefixMatch = voiceover.match(/^(Read\s+[^:]+:\s*)/i);
-                    const prefix = prefixMatch ? prefixMatch[1] : 'Read with quiet authority: ';
+                    const prefix = prefixMatch ? prefixMatch[1] : (voiceover.match(/^([^"]+:\s*)/)?.[1] || 'Read with steady narration: ');
                     const splitChunks = splitSpokenText(spoken, 6);
                     splitChunks.forEach((partSpoken, partIndex) => {
                         const partWords = partSpoken.split(/\s+/).filter(Boolean);
@@ -1190,16 +1190,27 @@ Return only the corrected prompt text, nothing else.`;
             if (finalScriptData.scenes && finalScriptData.scenes[0] && finalScriptData.scenes[0].voiceover) {
                 try {
                     const originalHook = finalScriptData.scenes[0].voiceover;
-                    const systemPrompt = "You are an expert hook writer. Reply with ONLY the raw rewritten text. NO conversational filler, NO quotes around the text, NO explanations.";
-                    const prompt = `Original: "${originalHook}"\nRewrite this to be an extremely aggressive, curiosity-inducing opening hook for a YouTube short.`;
-                    const newHook = await callOpenRouter(systemPrompt, prompt, apiKey, model, false);
-                    const cleanHook = newHook.replace(/^["']|["']$/g, '').trim();
+                    const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"<voice direction matching topic mood>\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
+                    const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be an extremely aggressive, curiosity-inducing opening hook for a YouTube short. Choose a voice direction that perfectly matches the topic mood (e.g., 'Read with gripping intensity', 'Read with dead-serious authority', 'Read with eerie calm', 'Read with raw fascination'). Do NOT always use urgency or whispering.`;
+                    let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, model, false);
+                    // Try to parse JSON response, fall back to raw text
+                    let cleanHook, hookDirection;
+                    try {
+                        const hookRaw = hookResponse.replace(/```(?:json)?\s*([\s\S]*?)```/, '$1').trim();
+                        const hookJson = JSON.parse(hookRaw.match(/\{[\s\S]*\}/)?.[0] || hookRaw);
+                        cleanHook = (hookJson.text || '').replace(/^["']|["']$/g, '').trim();
+                        hookDirection = (hookJson.direction || '').replace(/:+\s*$/, '').trim();
+                    } catch (_) {
+                        cleanHook = hookResponse.replace(/^["']|["']$/g, '').trim();
+                        hookDirection = '';
+                    }
+                    if (!hookDirection) hookDirection = 'Read with gripping intensity';
+                    const hookPrefix = `${hookDirection}: `;
                     const refusalWords = ['kindly provide', 'sure', 'here is the', 'i cannot', 'as an ai', 'i can help', "i'm here to help", "im here to help", "here's"];
                     const isRefusal = refusalWords.some(w => cleanHook.toLowerCase().includes(w));
                     
                     if (cleanHook && cleanHook.length > 5 && !isRefusal) {
                         const maxHookWords = 6;
-                        const hookPrefix = 'Read with urgent curiosity: ';
                         const hookWords = cleanHook.split(/\s+/).filter(Boolean);
                         const hookChunks = [];
                         for (let i = 0; i < hookWords.length; i += maxHookWords) {
@@ -1572,7 +1583,7 @@ function startBackendAssembly(script, providedOutputPath) {
                         : `scale=960:540:force_original_aspect_ratio=increase,crop=960:540,fps=20`;
                     
                     // Browser-safe output: H.264/AAC while keeping encode load low for Railway.
-                    const cmd = `ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 20 -i "${imgPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -af "apad=pad_dur=0.35" -shortest -c:v libx264 -preset ultrafast -tune stillimage -crf 32 -profile:v baseline -level 3.1 -pix_fmt yuv420p -movflags +faststart -vf "${scaleFilter}" -c:a aac -b:a 160k "${tempSceneVideo}"`;
+                    const cmd = `ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 20 -i "${imgPath}" -i "${audioPath}" -map 0:v:0 -map 1:a:0 -af "apad=pad_dur=0.1" -shortest -c:v libx264 -preset ultrafast -tune stillimage -crf 32 -profile:v baseline -level 3.1 -pix_fmt yuv420p -movflags +faststart -vf "${scaleFilter}" -c:a aac -b:a 160k "${tempSceneVideo}"`;
                     
                     addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}... cmd: ${cmd}`);
                     try {
