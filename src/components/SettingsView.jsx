@@ -56,7 +56,7 @@ export default function SettingsView({
                                 value={model}
                                 onChange={(e) => setModel(e.target.value)}
                             >
-                                <option value="deepseek/deepseek-v4-flash">deepseek/deepseek-v4-flash (DeepSeek V4 Flash - Recommended)</option>
+                                <option value="deepseek/deepseek-chat">deepseek/deepseek-chat (DeepSeek V4 Flash - Recommended)</option>
                                 <option value="deepseek/deepseek-chat">deepseek/deepseek-chat (DeepSeek V3)</option>
                                 <option value="google/gemini-2.5-flash">google/gemini-2.5-flash</option>
                                 <option value="google/gemini-2.5-pro">google/gemini-2.5-pro</option>

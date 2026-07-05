@@ -362,7 +362,7 @@ function App() {
                 const cachedGeminiKey = localStorage.getItem('doodleyt_gemini_key') || '';
                 const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
                 const cachedElevenlabsKey = localStorage.getItem('doodleyt_elevenlabs_key') || '';
-                const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
+                const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-chat';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || './output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
                 const cachedVisualDNA = localStorage.getItem('doodleyt_visual_dna') || DEFAULT_VISUAL_DNA;
@@ -432,7 +432,7 @@ function App() {
 
     // Brainstorms 10 viral ideas covering all core categories
     const generateTopicsViaAI = async () => {
-        addLog('Inquiring local server to brainstorm 10 viral niche matrices...');
+        addLog('🧠 Brainstorming 10 viral niche matrices via DeepSeek...');
         setIsGenerating(true);
         try {
             const response = await apiFetch('/api/brainstorm-topics', {

@@ -234,7 +234,7 @@ router.post('/brainstorm-topics', async (req, res) => {
     try {
         const { apiKey: providedApiKey, model: providedModel } = req.body;
         const apiKey = getEffectiveApiKey(providedApiKey);
-        const model = providedModel || 'deepseek/deepseek-v4-flash';
+        const model = providedModel || 'deepseek/deepseek-chat';
         
         const systemPrompt = "You are a professional YouTube strategist and niche brainstorming expert.";
         const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
@@ -283,7 +283,7 @@ router.post('/fix-prompt', async (req, res) => {
     try {
         const { prompt, characters: providedChars, apiKey: providedApiKey, model: providedModel } = req.body;
         const apiKey = getEffectiveApiKey(providedApiKey);
-        const model = providedModel || 'deepseek/deepseek-v4-flash';
+        const model = providedModel || 'deepseek/deepseek-chat';
         
         const charsString = (providedChars || []).map(c => `- **${c.name}**: ${c.description}`).join('\n');
         const systemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.";

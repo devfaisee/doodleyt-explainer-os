@@ -112,7 +112,7 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
     }
 
     const apiKey = getEffectiveApiKey(providedApiKey);
-    const model = providedModel || 'deepseek/deepseek-v4-flash';
+    const model = providedModel || 'deepseek/deepseek-chat';
     
     // Set initial job state
     activeJob.status = 'running';
@@ -483,7 +483,7 @@ Return only the corrected prompt text, nothing else.`;
         
         // --- COST CALCULATOR (LLM BASE) ---
         const MODEL_RATES = {
-            'deepseek/deepseek-v4-flash': { input: 0.09, output: 0.18 },
+            'deepseek/deepseek-chat': { input: 0.09, output: 0.18 },
             'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
             'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 }
         };

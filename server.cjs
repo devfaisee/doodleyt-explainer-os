@@ -172,7 +172,7 @@ function readConfig() {
     }
     return {
         apiKey: FIXATED_KEY,
-        model: 'deepseek/deepseek-v4-flash',
+        model: 'deepseek/deepseek-chat',
         outputPath: path.join(__dirname, 'output'),
         visualDNA: "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).",
         styleReferences: ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'],
@@ -544,7 +544,7 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
         { role: 'user', content: userPrompt }
     ];
     const payload = JSON.stringify({
-        model: model || 'deepseek/deepseek-v4-flash',
+        model: model || 'deepseek/deepseek-chat',
         messages,
         max_tokens: 16000,
         response_format: isJson ? { type: 'json_object' } : undefined
@@ -774,7 +774,7 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     videoType = videoType || 'short';
     targetDuration = targetDuration || 5;
     const apiKey = getEffectiveApiKey(providedApiKey);
-    const model = providedModel || 'deepseek/deepseek-v4-flash';
+    const model = providedModel || 'deepseek/deepseek-chat';
     
     // Set initial job state
     activeJob.status = 'running';
@@ -1170,7 +1170,7 @@ Return only the corrected prompt text, nothing else.`;
             
             // --- COST CALCULATOR (LLM BASE) ---
             const MODEL_RATES = {
-                'deepseek/deepseek-v4-flash': { input: 0.09, output: 0.18 },
+                'deepseek/deepseek-chat': { input: 0.09, output: 0.18 },
                 'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
                 'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 }
             };
@@ -2355,7 +2355,7 @@ const server = http.createServer((req, res) => {
             try {
                 const { apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
                 const apiKey = getEffectiveApiKey(providedApiKey);
-                const model = providedModel || 'deepseek/deepseek-v4-flash';
+                const model = providedModel || 'deepseek/deepseek-chat';
                 
                 const systemPrompt = "You are a professional YouTube strategist and niche brainstorming expert.";
                 const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
@@ -2418,7 +2418,7 @@ Format your response strictly as a JSON object:
             try {
                 const { prompt, characters: providedChars, apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
                 const apiKey = getEffectiveApiKey(providedApiKey);
-                const model = providedModel || 'deepseek/deepseek-v4-flash';
+                const model = providedModel || 'deepseek/deepseek-chat';
                 
                 const charsString = (providedChars || []).map(c => `- **${c.name}**: ${c.description}`).join('\n');
                 const systemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.";
