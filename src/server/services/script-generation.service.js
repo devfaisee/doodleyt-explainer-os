@@ -301,7 +301,7 @@ SCRIPTWRITING & PACING LAWS:
 2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 6 words, ideal is 3 to 5 words per scene).
    - If a sentence is long, you MUST split it across multiple consecutive scenes.
-   - Prefixed Emotional Performance (Tagging): Prefix the "voiceover" text for every single scene with a VARIED acting instruction that matches the emotional beat of that specific moment. You MUST vary these directions naturally across scenes — never use the same direction for more than 2 consecutive scenes. Examples across the full emotional spectrum: 'Read with gripping intensity: "..."', 'Read in a calm, matter-of-fact tone: "..."', 'Read with quiet authority: "..."', 'Read with building excitement: "..."', 'Read with deadpan irony: "..."', 'Read with warm curiosity: "..."', 'Read with eerie stillness: "..."', 'Read conversationally: "..."'. Always wrap the spoken clause inside double quotes inside the string.
+   - Prefixed Emotional Performance (Tagging): You are the voice director. For EVERY scene, you must prefix the voiceover with a custom acting instruction that you creatively design to match the exact emotional beat of that moment in the story. Your directions must feel like a real film director coaching an actor — specific to what's being said, not generic. Vary the emotional tone naturally across the narrative arc: the hook needs raw impact, explanations need grounded clarity, reveals need controlled intensity, and conclusions need poetic weight. NEVER repeat the same direction for more than 2 consecutive scenes. Format: '<Your custom direction>: "<spoken text>"'. Always wrap the spoken clause inside double quotes inside the string.
    - Calculate duration strictly using only the spoken words inside the double quotes.
 3. Literal Visual Syncing (CRITICAL): The "prompt" field MUST exactly match the words being spoken. The visuals must perfectly depict the literal concepts or metaphors the voiceover is describing in that exact moment.
 4. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Use these metrics:
@@ -382,14 +382,21 @@ Return strictly a JSON object matching this schema:
             const words = spoken.split(/\s+/).filter(w => w.length > 0);
             
             if (!spoken || spoken.length === 0) {
-                addJobLog(`⚠️ Scene ${idx + 1}: Empty voiceover detected. Setting default quiet voiceover.`);
-                scene.voiceover = 'Read with quiet pause: "..."';
-                scene.duration = 2;
-                splitSanitizedScenes.push(scene);
+                addJobLog(`⚠️ Scene ${idx + 1}: Empty voiceover detected. Removing scene.`);
+                // Skip empty scenes entirely instead of inserting hardcoded filler
+                continue;
             } else if (words.length > 6) {
                 addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 6). Splitting...`);
-                const prefixMatch = voiceover.match(/^(Read\s+[^:]+:\s*)/i);
-                const prefix = prefixMatch ? prefixMatch[1] : (voiceover.match(/^([^"]+:\s*)/)?.[1] || 'Read with steady narration: ');
+                // Intelligent direction extraction: try multiple patterns to preserve the LLM's original creative direction
+                const directionPatterns = [
+                    voiceover.match(/^(Read\s+[^:]+:\s*)/i),       // "Read with X: "
+                    voiceover.match(/^(Say\s+[^:]+:\s*)/i),        // "Say with X: "
+                    voiceover.match(/^(Speak\s+[^:]+:\s*)/i),      // "Speak with X: "
+                    voiceover.match(/^(Narrate\s+[^:]+:\s*)/i),    // "Narrate with X: "
+                    voiceover.match(/^(Deliver\s+[^:]+:\s*)/i),    // "Deliver with X: "
+                    voiceover.match(/^([^"]+:\s*)/),                // Any prefix before first quote
+                ];
+                const prefix = directionPatterns.find(m => m)?.[1] || `${voiceover.split('"')[0].trim() || 'Narrate naturally'}: `;
                 const splitChunks = splitSpokenText(spoken, 6);
                 splitChunks.forEach((partSpoken, partIndex) => {
                     const partWords = partSpoken.split(/\s+/).filter(Boolean);
