@@ -953,7 +953,9 @@ Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every sing
 2. 0:03-0:15 (The Existential Rug-Pull): Subvert the premise immediately.
 3. 0:15-0:45 (The Escalating Descent): High information density. Rapid-fire, escalating facts.
 4. 0:45-0:55 (The Mind-Bending Reveal): The ultimate climax of the awe.
-5. 0:55-0:60 (The Seamless Loop): End on an ambiguous or perfectly circular final thought that flawlessly bleeds back into the opening hook to maximize re-watches.`;
+5. 0:55-0:60 (The Seamless Loop): End on an ambiguous or perfectly circular final thought that flawlessly bleeds back into the opening hook to maximize re-watches.
+   - SEAMLESS LOOP LAW: The final scene's voiceover must end mid-thought or with a grammatical setup (e.g. ending with a preposition like "because...") so that it naturally completes its meaning when it loops back to the very first scene of the video.
+   - CRITICAL WARNING: Never copy, repeat, or append the opening scenes or their voiceovers/prompts at the end of the script! The final scene must be completely unique. The loop is created purely by the grammatical flow of the final spoken words leading back to the first spoken words. Do not copy the first scene.`;
                 } else {
                     if (j === 1) {
                         actTitleText = 'Act 1 (The Cold Open & The Thesis)';
@@ -981,7 +983,7 @@ SCRIPTWRITING & PACING LAWS:
 1. Mesmerizing Storytelling: Use short, punchy sentences. Ask profound questions, then answer them with mind-bending facts. The tone is cinematic and serious.
 2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 6 words, ideal is 3 to 5 words per scene).
-   - If a sentence is long, you MUST split it across multiple consecutive scenes.
+   - Sentence Splitting Law: If a sentence is long, you MUST split it across multiple consecutive scenes. However, you MUST split only at natural grammatical boundaries (clauses, punctuation, or complete phrases). Never end a scene's voiceover with a hanging conjunction (and, or, but), preposition (of, in, at, with, to), pronoun/article (the, a, an, this, that), or copula verb (is, are, was, were). Each scene's voiceover chunk must sound like a complete, natural spoken phrase on its own when read aloud, without leaving the speaker hanging on a dangling word.
    - Prefixed Emotional Performance (Tagging): To keep the narration professional, clean, and highly engaging (like Vsauce, LEMMiNO, or Aperture), the narrator should maintain a consistent, confident, and professional documentary tone throughout the video, with only subtle, natural shifts. Avoid dramatic overacting or rapid emotional swings. Most narration should use calm, engaging, and authoritative tones. Only inject subtle tone tags (e.g. 'Read with quiet fascination: "..."', 'Read with calm authority: "..."', 'Read with thoughtful pause: "..."', 'Read with subtle intrigue: "..."') to highlight important transitions, Hooks, or Climaxes. Keep the overall narrative voice highly unified and consistent. Format: '<Acting instruction>: "<spoken text>"'. Always wrap the spoken clause inside double quotes inside the string.
    - Calculate duration strictly using only the spoken words inside the double quotes.
 3. Literal Visual Syncing (CRITICAL): The "prompt" field MUST exactly match the words being spoken. The visuals must perfectly depict the literal concepts or metaphors the voiceover is describing in that exact moment.
@@ -991,6 +993,8 @@ SCRIPTWRITING & PACING LAWS:
    Never put more than 6 spoken words in a single scene.
 5. Aspect Ratio: The layout format is ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}. Make sure all visual prompts specify this format.
 6. Single Unified Image Prompt: In the "prompt" field, write one single unified prompt blending the camera direction, the EXACT literal action reflecting the voiceover (following the Stateless Prompt Rule), and text overlays ONLY if necessary.
+   - Robustness Law: To prevent the image generator (Flux) from generating uncanny, distorted, or creepy drawings (especially for body parts like hands, eyes, or faces), never write simple, short, or generic prompts like "A human hand". You must describe the subject and context with rich, specific details. For example, instead of "A human hand", write: "A clean, hand-drawn 2D vector cartoon illustration of a human hand held up against a solid background, with fingers slightly parted and clean black pen outlines. Flat coloring."
+   - Explicitly describe the environment, the posture, the details of any objects, and the precise expression. Complete descriptions yield high quality, whereas simple words yield uncanny drawings.
 Never output the exact same visual prompt for different scenes.
 
 Generate as many consecutive scenes as you intelligently decide are needed for this act of the video (aim for approximately 15 to 30 scenes to keep the pacing correct, but you have full creative control over the exact count based on how many scenes are needed to explain the content beautifully without rushing or lagging).
