@@ -301,7 +301,7 @@ SCRIPTWRITING & PACING LAWS:
 2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 6 words, ideal is 3 to 5 words per scene).
    - If a sentence is long, you MUST split it across multiple consecutive scenes.
-   - Prefixed Emotional Performance (Tagging): You are the voice director. For EVERY scene, you must prefix the voiceover with a custom acting instruction that you creatively design to match the exact emotional beat of that moment in the story. Your directions must feel like a real film director coaching an actor — specific to what's being said, not generic. Vary the emotional tone naturally across the narrative arc: the hook needs raw impact, explanations need grounded clarity, reveals need controlled intensity, and conclusions need poetic weight. NEVER repeat the same direction for more than 2 consecutive scenes. Format: '<Your custom direction>: "<spoken text>"'. Always wrap the spoken clause inside double quotes inside the string.
+   - Prefixed Emotional Performance (Tagging): To keep the narration professional, clean, and highly engaging (like Vsauce, LEMMiNO, or Aperture), the narrator should maintain a consistent, confident, and professional documentary tone throughout the video, with only subtle, natural shifts. Avoid dramatic overacting or rapid emotional swings. Most narration should use calm, engaging, and authoritative tones. Only inject subtle tone tags (e.g. 'Read with quiet fascination: "..."', 'Read with calm authority: "..."', 'Read with thoughtful pause: "..."', 'Read with subtle intrigue: "..."') to highlight important transitions, Hooks, or Climaxes. Keep the overall narrative voice highly unified and consistent. Format: '<Acting instruction>: "<spoken text>"'. Always wrap the spoken clause inside double quotes inside the string.
    - Calculate duration strictly using only the spoken words inside the double quotes.
 3. Literal Visual Syncing (CRITICAL): The "prompt" field MUST exactly match the words being spoken. The visuals must perfectly depict the literal concepts or metaphors the voiceover is describing in that exact moment.
 4. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Use these metrics:
@@ -511,7 +511,7 @@ Return only the corrected prompt text, nothing else.`;
                 const originalHook = finalScriptData.scenes[0].voiceover;
                 const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"<voice direction matching topic mood>\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
                 const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be an extremely aggressive, curiosity-inducing opening hook for a YouTube short. Choose a voice direction that perfectly matches the topic mood (e.g., 'Read with gripping intensity', 'Read with dead-serious authority', 'Read with eerie calm', 'Read with raw fascination'). Do NOT always use urgency or whispering.`;
-                let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, model, false);
+                let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, model, true);
                 let cleanHook, hookDirection;
                 try {
                     const hookRaw = hookResponse.replace(/```(?:json)?\s*([\s\S]*?)```/, '$1').trim();
