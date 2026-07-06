@@ -201,11 +201,10 @@ export function startBackendAssembly(script, providedOutputPath) {
                     await ensureMp3Format(audioPath);
 
                     if (!fs.existsSync(imgPath)) {
-                        fs.writeFileSync(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                        throw new Error(`Compiled image for Scene ${sceneIndex+1} is missing: ${imgPath}`);
                     }
                     if (!fs.existsSync(audioPath)) {
-                        const duration = parseFloat(scene.duration) || 2;
-                        await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
+                        throw new Error(`Compiled audio for Scene ${sceneIndex+1} is missing: ${audioPath}`);
                     }
 
                     const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
@@ -241,26 +240,8 @@ export function startBackendAssembly(script, providedOutputPath) {
                         ], { timeout: 240000 });
                         addJobLog(`[FFMPEG DEBUG] Finished encode for scene ${sceneIndex+1}`);
                     } catch (err) {
-                        addJobLog(`⚠️ [FFMPEG] Scene ${sceneIndex+1} encode failed: ${err.message.split('\n')[0]}. Writing 2s silent fallback scene and continuing...`);
-                        // Non-fatal: generate a 2-second black silent fallback scene so the job completes
-                        const silentWav = getSilentWavBuffer(2);
-                        const silentMp3 = tempSceneVideo + '.silent.mp3';
-                        await saveAudioAsMP3(silentWav, silentMp3);
-                        try {
-                            await execFileAsync('ffmpeg', [
-                                '-nostdin', '-y', '-loglevel', 'error',
-                                '-f', 'lavfi', '-i', 'color=c=black:s=540x960:r=20',
-                                '-i', silentMp3,
-                                '-t', '2',
-                                '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '32',
-                                '-profile:v', 'baseline', '-level', '3.1', '-pix_fmt', 'yuv420p',
-                                '-movflags', '+faststart',
-                                '-c:a', 'aac', '-b:a', '160k',
-                                tempSceneVideo
-                            ], { timeout: 60000 });
-                        } finally {
-                            try { fs.unlinkSync(silentMp3); } catch (_) {}
-                        }
+                        addJobLog(`❌ [FFMPEG] Scene ${sceneIndex+1} encode failed: ${err.message}`);
+                        throw new Error(`Failed to compile Scene ${sceneIndex+1}: ${err.message}`);
                     }
                     return tempSceneVideo;
                 });

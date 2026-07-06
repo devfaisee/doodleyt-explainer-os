@@ -142,31 +142,32 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                     let imgBuffer = null;
                     let imgGenerated = false;
 
-                    if (true) {
-                        try {
-                            addJobLog(`[Replicate] Scene ${i+1}/${scenes.length} generating image...`);
-                            const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
-                            const payload = JSON.stringify({
-                                input: {
-                                    prompt: scene.prompt,
-                                    aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
-                                    output_format: "png"
-                                }
-                            });
-                            const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
-                            imgBuffer = await fetchImageBuffer(imgUrl);
-                            imgGenerated = true;
-                            addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
-                        } catch (err) {
-                            addJobLog(`⚠️ [Replicate] failed for scene ${i+1}: ${err.message}. Saving fallback.`);
+                    try {
+                        addJobLog(`[Replicate] Scene ${i+1}/${scenes.length} generating image...`);
+                        const replicateApiKey = process.env.REPLICATE_API_KEY || falApiKey;
+                        if (!replicateApiKey || replicateApiKey.trim().length <= 10) {
+                            throw new Error(`Missing Replicate API Key for image generation`);
                         }
+                        const payload = JSON.stringify({
+                            input: {
+                                prompt: scene.prompt,
+                                aspect_ratio: script.videoType === 'short' ? '9:16' : '16:9',
+                                output_format: "png"
+                            }
+                        });
+                        const imgUrl = await callReplicateWithRetry(payload, replicateApiKey, addJobLog);
+                        imgBuffer = await fetchImageBuffer(imgUrl);
+                        imgGenerated = true;
+                        addJobLog(`✓ [Replicate] Scene ${i+1}/${scenes.length} image completed.`);
+                    } catch (err) {
+                        addJobLog(`❌ [Replicate] failed for scene ${i+1}: ${err.message}`);
+                        throw new Error(`Failed to generate image for Scene ${i+1}: ${err.message}`);
                     }
 
                     if (imgGenerated && imgBuffer) {
                         await fs.promises.writeFile(imgPath, imgBuffer);
                     } else {
-                        addJobLog(`ℹ️ Saving mock canvas image for scene ${i+1}`);
-                        await fs.promises.writeFile(imgPath, Buffer.from(MOCK_PNG_BASE64, 'base64'));
+                        throw new Error(`Failed to write image buffer for Scene ${i+1}`);
                     }
                 }
                 
@@ -174,7 +175,15 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                 const spokenText = extractSpokenText(scene.voiceover);
                 let audioGenerated = false;
 
-                if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
+                if (!spokenText) {
+                    const duration = parseFloat(scene.duration) || 2;
+                    await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
+                    addJobLog(`ℹ️ Scene ${i+1} has no spoken text. Saved silent pause block.`);
+                    audioGenerated = true;
+                } else {
+                    if (!replicateApiKey || replicateApiKey.trim().length <= 10) {
+                        throw new Error(`Missing Replicate API Key for voiceover generation in Scene ${i+1}`);
+                    }
                     try {
                         addJobLog(`[Gemini TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
                         const parsedVo = parseVoiceover(scene.voiceover);
@@ -198,17 +207,8 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                         addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {
-                        addJobLog(`⚠️ Gemini TTS failed for scene ${i+1}: ${cbErr.message}. Saving silent fallback.`);
-                    }
-                }
-
-                if (!audioGenerated) {
-                    const duration = parseFloat(scene.duration) || 2;
-                    await saveAudioAsMP3(getSilentWavBuffer(duration), audioPath);
-                    if (!spokenText) {
-                        addJobLog(`ℹ️ Scene ${i+1} has no spoken text. Saved silent block.`);
-                    } else {
-                        addJobLog(`ℹ️ Saved silent fallback for Scene ${i+1} due to API failures.`);
+                        addJobLog(`❌ Gemini TTS failed for scene ${i+1}: ${cbErr.message}`);
+                        throw new Error(`Failed to generate voiceover for Scene ${i+1}: ${cbErr.message}`);
                     }
                 }
 
