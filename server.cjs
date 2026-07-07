@@ -2435,6 +2435,7 @@ Format your response strictly as a JSON object:
     }
 
     if (pathname === '/api/load-brainstorm' && req.method === 'GET') {
+        const config = readConfig();
         const targetDir = config.outputPath || path.join(__dirname, 'output');
         const brainstormPath = path.join(targetDir, 'brainstormed_ideas.json');
         try {
@@ -2464,6 +2465,7 @@ Format your response strictly as a JSON object:
             }
         });
         req.on('end', async () => {
+            const config = readConfig();
             const targetDir = config.outputPath || path.join(__dirname, 'output');
             const brainstormPath = path.join(targetDir, 'brainstormed_ideas.json');
             try {

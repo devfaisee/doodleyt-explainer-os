@@ -321,8 +321,6 @@ router.post('/save-brainstorm', async (req, res) => {
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
-});ssage });
-    }
 });
 
 router.post('/fix-prompt', async (req, res) => {
