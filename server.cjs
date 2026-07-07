@@ -2027,28 +2027,28 @@ const server = http.createServer((req, res) => {
 
                     if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                         try {
-                            console.log(`[Regenerate] Gemini TTS generating voiceover for scene ${sceneIndex + 1}...`);
+                            console.log(`[Regenerate] Kokoro TTS generating voiceover for scene ${sceneIndex + 1}...`);
                             const parsedVo = parseVoiceover(text);
                             const payload = JSON.stringify({
+                                version: "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                                 input: {
                                     text: parsedVo.text,
-                                    voice: "Charon",
-                                    prompt: parsedVo.prompt,
-                                    language_code: "en-US"
+                                    voice: "bm_daniel",
+                                    speed: 0.95
                                 }
                             });
                             const audioUrl = await callReplicateWithRetry(
                                 payload, 
                                 replicateApiKey.trim(), 
                                 mockLog, 
-                                "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
+                                "https://api.replicate.com/v1/predictions"
                             );
                             const audioBuffer = await downloadAudioFromUrl(audioUrl);
                             await saveAudioAsMP3(audioBuffer, audioPath);
-                            console.log(`✓ [Regenerate] Gemini TTS voiceover saved.`);
+                            console.log(`✓ [Regenerate] Kokoro TTS voiceover saved.`);
                             audioGenerated = true;
                         } catch (cbErr) {
-                            console.log(`⚠️ [Regenerate] Gemini TTS failed: ${cbErr.message}.`);
+                            console.log(`⚠️ [Regenerate] Kokoro TTS failed: ${cbErr.message}.`);
                         }
                     }
 
