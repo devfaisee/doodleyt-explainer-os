@@ -62,7 +62,9 @@ export const usePipelineStore = create((set, get) => ({
     activeHistoryFilename: null,
     
     // Actions
-    setField: (field, value) => set({ [field]: value }),
+    setField: (field, value) => set(state => ({ 
+        [field]: typeof value === 'function' ? value(state[field]) : value 
+    })),
     
     addLog: (msg) => set(state => ({
         pipelineLogs: [...state.pipelineLogs.slice(-499), `[${new Date().toLocaleTimeString()}] ${msg}`]
