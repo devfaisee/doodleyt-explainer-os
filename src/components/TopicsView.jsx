@@ -18,13 +18,22 @@ export default function TopicsView({
                     <h2 className="text-xl font-bold text-white mb-1">Niche Brainstormer Matrix</h2>
                     <p className="text-sm text-neutral-400">Autonomously researches highly targeted, specific, bizarre niches. Click any topic to load it into the terminal.</p>
                 </div>
-                <button 
-                    onClick={generateTopicsViaAI}
-                    disabled={isGenerating}
-                    className="bg-neutral-800 hover:bg-neutral-750 disabled:bg-neutral-900 disabled:text-neutral-600 border border-neutral-700 text-white font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2"
-                >
-                    Research AI Niches
-                </button>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => generateTopicsViaAI(false)}
+                        disabled={isGenerating}
+                        className="bg-neutral-800 hover:bg-neutral-750 disabled:bg-neutral-900 disabled:text-neutral-600 border border-neutral-700 text-white font-semibold px-5 py-2.5 rounded-xl transition flex items-center gap-2"
+                    >
+                        Research Standard Niches
+                    </button>
+                    <button 
+                        onClick={() => generateTopicsViaAI(true)}
+                        disabled={isGenerating}
+                        className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-neutral-800 disabled:text-neutral-600 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-900/20 transition flex items-center gap-2"
+                    >
+                        ✨ Invent New Niches
+                    </button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

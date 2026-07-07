@@ -233,7 +233,7 @@ router.post('/assemble-video', (req, res) => {
 
 router.post('/brainstorm-topics', async (req, res) => {
     try {
-        const { apiKey: providedApiKey, model: providedModel } = req.body;
+        const { apiKey: providedApiKey, model: providedModel, inventNiches } = req.body;
         const apiKey = getEffectiveApiKey(providedApiKey);
         
         let primaryModel = providedModel || 'deepseek/deepseek-v4-flash';
@@ -274,8 +274,11 @@ PSYCHOLOGICAL TITLE FORMULAS (Use these to construct titles dynamically; do NOT 
 5. THE DISSOCIATED ENIGMA: Why Ancient Builders/People [Performed a Bizarre, Seemingly Illogical Action]
    - Focus: Archaeology and lost civilizations.`;
 
-        const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for 'Doodle Theory'.
-You MUST generate exactly one topic for each of these 10 core categories:
+        let userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for 'Doodle Theory'.\n`;
+        if (inventNiches) {
+            userPrompt += `Instead of using standard categories, you MUST INVENT 10 completely original, bizarre, fascinating, and unexplored educational niches (e.g. "Digital Archaeology", "Deep-Sea Economics", "Micro-Biological Warfare", "Psychology of Geometry", etc.).\nFor each of your 10 invented niches, provide exactly one mind-blowing video topic.\n\n`;
+        } else {
+            userPrompt += `You MUST generate exactly one topic for each of these 10 core categories:
 1. Evolutionary Anthropology & Ancient Human History
 2. Behavioral Psychology & Famous Social Experiments
 3. Biological Anomalies & Human Body Mysteries
@@ -285,9 +288,10 @@ You MUST generate exactly one topic for each of these 10 core categories:
 7. Bizarre Historical Events & Mass Hysteria
 8. Military & Technological Blunders
 9. Existential Space & Cosmic Anomalies
-10. Psychology of Beliefs & Secret Societies
+10. Psychology of Beliefs & Secret Societies\n\n`;
+        }
 
-VIRAL TITLE LAWS (Strictly Enforced):
+        userPrompt += `VIRAL TITLE LAWS (Strictly Enforced):
 - Length: 5 to 9 words maximum.
 - Curiosity Gap: Withhold the core resolution or punchline. Make the viewer think "Wait, what does that mean?"
 - Formatting: Sentence case. No emojis. No ending punctuation. No clickbait questions (do not start with "Is this the...?").

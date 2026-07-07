@@ -440,15 +440,15 @@ function App() {
         return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
-    // Brainstorms 10 viral ideas covering all core categories
-    const generateTopicsViaAI = async () => {
-        addLog('🧠 Brainstorming 10 viral niche matrices via DeepSeek...');
+    // Brainstorms 10 viral ideas covering all core categories (or invents new ones)
+    const generateTopicsViaAI = async (invent = false) => {
+        addLog(invent ? '🧠 Inventing 10 completely original, bizarre niches via DeepSeek...' : '🧠 Brainstorming 10 viral niche matrices via DeepSeek...');
         setIsGenerating(true);
         try {
             const response = await apiFetch('/api/brainstorm-topics', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiKey, model })
+                body: JSON.stringify({ apiKey, model, inventNiches: invent })
             });
             
             if (!response.ok) {
@@ -464,7 +464,7 @@ function App() {
                 
                 setTopicBank(merged);
                 setSelectedTopic(merged[0]);
-                addLog('✓ Received 10 custom YouTube ideas based on our categories.');
+                addLog(invent ? '✓ Invented 10 bizarre new educational niches and generated topics for them.' : '✓ Received 10 custom YouTube ideas based on our categories.');
                 
                 // Auto-save the new topics to the server
                 await apiFetch('/api/save-brainstorm', {
