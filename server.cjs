@@ -850,18 +850,20 @@ The topic must fit within our core 10 categories:
 VIRAL TITLE LAWS (Strictly Enforced):
 - Short & Striking: Length must be 5 to 9 words maximum.
 - Curiosity Gap Formula: Withhold the core secret, answer, or resolution.
+- Cognitive Dissonance / Impossibility Gap: Frame the title around an impossible paradox or a rule of nature/logic being broken (e.g., "The Island Where Time Runs Backward", "The Silent Disease Hidden In Your Teeth"). The viewer must feel it is physically impossible, yet scientifically true.
 - Provocative Addressing: Speak directly to the viewer (e.g., "Why Your Brain Fights Sleep at 3 AM").
-- Existential/Primal Shock: Highlight deep ancestral fears or reality-breaking facts.
+- Existential/Primal Shock: Highlight deep ancestral fears, hidden anomalies, or reality-breaking facts.
 - Formatting: Use sentence case. Never use ending punctuation or clickbait emojis.
     
     CHARACTER DESIGN RULES:
     Design 1-3 custom characters needed for this script. For each character, design a Character Card with a detailed physical description as a cartoon character. Art style: clean hand-drawn 2D cartoon outlines, solid flat colors, white background.
     
-    AI THUMBNAIL PROMPT LAW:
-    Create a highly visual thumbnail description. The layout must feature:
-    1. A clean, hand-drawn 2D cartoon illustration showing an extreme emotional charge (e.g., sweating profusely, jaw dropped in shock, eyes wide with horror, screaming in panic) on a solid white background, with smooth outlines and flat color fills.
-    2. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "POISON!") in red, black, or blue, which complements the title but does not copy it.
-    3. The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
+    AI THUMBNAIL PROMPT LAW (Maximum Click-Through Rate):
+    Create a highly visual, psychological thumbnail description. The layout must feature:
+    1. A clean, hand-drawn 2D cartoon illustration showing an extreme emotional charge or a visual mystery/red herring (e.g. a hand missing a shadow, a clock with melting numbers, or a brain with a locked padlock on it) with clean, smooth outlines and flat color fills.
+    2. A high-contrast color scheme: Use a single solid, bright, eye-catching color for the flat background (such as bright yellow, hot crimson, or solid black) to stand out on the YouTube feed.
+    3. A bold capitalized text overlay of 1-3 words (e.g., "DON'T LOOK", "TOO LATE", "LOCK!") written inside double quotes in the prompt. Specify that the text should be bold, hand-drawn uppercase letters in a highly contrasting color (like yellow text on black, or red text on white) with a thick black outline.
+    4. The aspect ratio for the video layout is: ${videoType === 'short' ? '9:16 vertical portrait format' : '16:9 widescreen landscape format'}.
     
     SEO METADATA GENERATION (Critical for YouTube Publishing):
     Generate platform-perfect SEO data for YouTube:
