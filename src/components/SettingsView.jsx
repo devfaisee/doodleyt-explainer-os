@@ -56,9 +56,10 @@ export default function SettingsView({
                                 value={model}
                                 onChange={(e) => setModel(e.target.value)}
                             >
-                                <option value="deepseek/deepseek-v4-flash">deepseek/deepseek-v4-flash (DeepSeek V4 Flash - Recommended)</option>
-                                <option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet (Best for Ideas/Titles)</option>
-                                <option value="meta-llama/llama-3.1-70b-instruct">meta-llama/llama-3.1-70b-instruct</option>
+                                <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (QC & Analytical)</option>
+                                <option value="anthropic/claude-sonnet-5">Claude Sonnet 5 (Ideation & Hooks)</option>
+                                <option value="z-ai/glm-5.2">GLM 5.2 (Script Drafting & Pacing)</option>
+                                <option value="stepfun/step-3.7-flash">Step 3.7 Flash (SEO & Tags)</option>
                             </select>
                             <input 
                                 type="text" 

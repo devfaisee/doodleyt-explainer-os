@@ -775,13 +775,18 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     const apiKey = getEffectiveApiKey(providedApiKey);
     const userModel = providedModel || 'deepseek/deepseek-v4-flash';
     
-    // Optimized Division of Labor:
-    // Gemini 2.5 Flash handles creative storytelling, natural speech, and hooks.
-    // DeepSeek Chat/V4 handles strict JSON structuring and analytical QC logic.
-    let creativeModel = 'anthropic/claude-3.5-sonnet';
-    let scriptingModel = 'deepseek/deepseek-v4-flash';
+    // ═══════════════════════════════════════════════════════════════
+    // PERFECT STACK — Model Division (Based on Empirical LLM Testing)
+    // ═══════════════════════════════════════════════════════════════
+    // Claude Sonnet 5:       Ideation, niche design, titles, hooks (won Test 1 & 3)
+    // GLM 5.2:               Script drafting & pacing (won Test 2 — flawless documentary voice)
+    // DeepSeek V4 Flash:     QC, JSON fixing, analytical tasks (best strict parser)
+    // ═══════════════════════════════════════════════════════════════
+    let creativeModel = 'anthropic/claude-sonnet-5';
+    let scriptingModel = 'z-ai/glm-5.2';
+    let qcModel = 'deepseek/deepseek-v4-flash';
     
-    if (userModel && !userModel.includes('claude') && !userModel.includes('deepseek')) {
+    if (userModel && !userModel.includes('claude') && !userModel.includes('glm') && !userModel.includes('deepseek')) {
         creativeModel = userModel;
     }
     
@@ -800,7 +805,7 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
         (async () => {
             const config = readConfig();
             addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
-            addJobLog(`🧠 Model Split: Creative tasks ->  | Scripting/QC tasks -> `);
+            addJobLog(`🧠 Model Split: Ideation/Hooks → ${creativeModel} | Scripts → ${scriptingModel} | QC → ${qcModel}`);
             addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
             
             try {
@@ -1147,7 +1152,7 @@ Return only the corrected prompt text, nothing else.`;
                         try {
                             let correctedText;
                             const qcSystemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions. Additionally, ensure the corrected prompt is highly descriptive, detailed, and robust (e.g. if the prompt mentions a hand or face, describe it with detailed characteristics like 'clean cartoon felt pen outlines, flat colors, hand held open' to avoid uncanny drawings).";
-                            correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, deepseekModel);
+                            correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, qcModel);
                             
                             scene.prompt = correctedText.trim();
                             const checkAgain = validatePromptText(scene.prompt);
@@ -1176,7 +1181,9 @@ Return only the corrected prompt text, nothing else.`;
             const MODEL_RATES = {
                 'deepseek/deepseek-v4-flash': { input: 0.09, output: 0.18 },
                 'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
-                'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 }
+                'anthropic/claude-sonnet-5': { input: 3.0, output: 15.0 },
+                'z-ai/glm-5.2': { input: 0.10, output: 0.10 },
+                'stepfun/step-3.7-flash': { input: 0.20, output: 1.15 }
             };
             const rates = MODEL_RATES[model] || { input: 0.5, output: 1.5 };
             const tokens = activeJob.llmTokens || { input: 0, output: 0 };
@@ -2364,7 +2371,7 @@ const server = http.createServer((req, res) => {
                 let primaryModel = providedModel || 'deepseek/deepseek-v4-flash';
                 // Upgrade to a flagship reasoning/creative model for brainstorming to get elite quality ideas
                 if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-v4-flash') {
-                    primaryModel = 'anthropic/claude-3.5-sonnet';
+                    primaryModel = 'anthropic/claude-sonnet-5';
                 }
 
                 // Load existing script titles to exclude them from the brainstorm prompt

@@ -239,7 +239,7 @@ router.post('/brainstorm-topics', async (req, res) => {
         let primaryModel = providedModel || 'deepseek/deepseek-v4-flash';
         // Upgrade to a flagship reasoning/creative model for brainstorming to get elite quality ideas
         if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-v4-flash') {
-            primaryModel = 'anthropic/claude-3.5-sonnet';
+            primaryModel = 'anthropic/claude-sonnet-5';
         }
 
         // Load existing script titles to exclude them from the brainstorm prompt
