@@ -2396,12 +2396,17 @@ Your job is to discover obscure, mind-blowing, and highly viral topics that comb
 You avoid generic, cliché, or simple ideas (like "Why Your Brain Needs Sleep" or "The Mystery of Stonehenge").
 Instead, you find highly specific, lesser-known, counter-intuitive historical events, scientific experiments, space anomalies, and biological mysteries.
 
-ELITE VIRAL EXPLAINER EXAMPLES FOR TONE ANCHORING:
-- "The Silent Disease Hidden In Your Ancestors' Teeth" (Evolutionary Anthropology)
-- "Inside the Silence Room That Terrifies the Human Mind" (Behavioral Psychology)
-- "The Rare Genetic Anomaly That Makes Bones Unbreakable" (Biological Anomalies)
-- "The Obscure Software Typo That Wiped Out a Spacecraft" (Technological Blunders)
-- "Why Ancient Builders Deliberately Buried Their Oldest Temple" (Archaeological Mysteries)`;
+PSYCHOLOGICAL TITLE FORMULAS (Use these to construct titles dynamically; do NOT repeat the specific subjects like teeth, bones, or temples):
+1. THE ANOMALY METAPHOR: [Specific, Obscure Feature/Event] That [Subverts Modern Expectations]
+   - Focus: A counter-intuitive discovery about human history or biology.
+2. THE ISOLATED PSYCHOLOGY: Inside the [Extreme/Obscure Environment/Condition] That [Forces a Weird Human Reaction]
+   - Focus: A psychological state or social experiment.
+3. THE HIDDEN PARADOX: The [Bizarre/Lesser-Known Trait] That [Causes a Massive Counter-Intuitive Benefit/Cost]
+   - Focus: Biological anomalies or physical mysteries.
+4. THE CHAOTIC CASCADE: The [Obscure/Tiny Catalyst] That [Caused a Historic Catastrophic Event]
+   - Focus: Historical blunders or technology failures.
+5. THE DISSOCIATED ENIGMA: Why Ancient Builders/People [Performed a Bizarre, Seemingly Illogical Action]
+   - Focus: Archaeology and lost civilizations.`;
 
                 const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for 'Doodle Theory'.
 You MUST generate exactly one topic for each of these 10 core categories:
