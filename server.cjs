@@ -775,7 +775,17 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     videoType = videoType || 'short';
     targetDuration = targetDuration || 5;
     const apiKey = getEffectiveApiKey(providedApiKey);
-    const model = providedModel || 'deepseek/deepseek-chat';
+    const userModel = providedModel || 'deepseek/deepseek-chat';
+    
+    // Optimized Division of Labor:
+    // Gemini 2.5 Flash handles creative storytelling, natural speech, and hooks.
+    // DeepSeek Chat/V4 handles strict JSON structuring and analytical QC logic.
+    let geminiModel = 'google/gemini-2.5-flash';
+    let deepseekModel = 'deepseek/deepseek-chat';
+    
+    if (userModel && !userModel.includes('flash') && !userModel.includes('deepseek')) {
+        geminiModel = userModel;
+    }
     
     // Set initial job state
     activeJob.status = 'running';
@@ -791,16 +801,8 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
         // Run the actual generation asynchronously
         (async () => {
             const config = readConfig();
-            const geminiKey = config.geminiApiKey;
-            const useGemini = false; // Always use OpenRouter (DeepSeek V4) for text tasks
-            const geminiModelName = (model && model.includes('pro')) ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-
             addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
-            if (useGemini) {
-                addJobLog(`🤖 Routing script writing to Google Gemini API (${geminiModelName})`);
-            } else {
-                addJobLog(`🧠 Routing script writing to OpenRouter (${model})`);
-            }
+            addJobLog(`🧠 Model Split: Creative tasks -> ${geminiModel} | Structured tasks -> ${deepseekModel}`);
             addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
             
             try {
@@ -824,16 +826,16 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
             } catch(e) {
                 addJobLog(`⚠️ Style reference injection failed: ${e.message}`);
             }
-
+ 
             let designSystemPrompt = `You are an elite YouTube strategist, visual architect, and master storyteller for the channel "Doodle Theory".
 The channel explains bizarre evolutionary anthropology, behavioral psychology experiments, human biology, cosmic anomalies, and historical mysteries using clean, hand-drawn 2D vector-style cartoon illustrations.
 Your narratives are profound, gripping, existential, and cinematic. You do not use cheap humor; you captivate through deep curiosity and mesmerizing storytelling.
 Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.join(', ') : styleReferences}.
 Visual DNA: ${visualDNA}`;
             designSystemPrompt += dynamicStyleInjection;
-
-            const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
-${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, profound sub-niche.` : `Generate an extremely specific, deeply profound and weird niche topic.`}
+ 
+            const designUserPrompt = `Autonomously select a highly engaging, curiosity-driven niche video topic that strikes a perfect balance between high-volume evergreen search (topics people actively search for year after year like ancient history, cosmic mysteries, human biology) and an irresistible curiosity gap. Avoid topics that are so obscure that no one would search for them. Take a popular topic and find a fascinating, counter-intuitive angle.
+${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly search-friendly, profound sub-niche.` : `Generate a highly search-friendly, deeply profound and weird niche topic.`}
 
 The topic must fit within our core 10 categories:
 1. Evolutionary Anthropology & Ancient Human History
@@ -893,7 +895,7 @@ VIRAL TITLE LAWS (Strictly Enforced):
                     designResponse = await callGeminiAPI(designSystemPrompt, designUserPrompt, geminiKey, geminiModelName, true);
                 } else {
                     addJobLog(`🧠 Routing Stage 1 Niche Design through OpenRouter...`);
-                    designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model, true);
+                    designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, geminiModel, true);
                 }
                 if (activeJob.status === 'idle') return; // Cancelled
             // Robust JSON extraction: strip markdown code fences first, then fall back to regex
@@ -1019,7 +1021,7 @@ Return strictly a JSON object matching this schema:
                 if (useGemini) {
                     actResponse = await callGeminiAPI(actSystemPrompt, actUserPrompt, geminiKey, geminiModelName, true);
                 } else {
-                    actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model, true);
+                    actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, geminiModel, true);
                 }
                 if (activeJob.status === 'idle') return; // Cancelled
                 // Robust JSON extraction: strip markdown code fences first, then fall back to regex
@@ -1159,7 +1161,7 @@ Return only the corrected prompt text, nothing else.`;
                             if (useGemini) {
                                 correctedText = await callGeminiAPI(qcSystemPrompt, prompt, geminiKey, geminiModelName, false);
                             } else {
-                                correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, model);
+                                correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, deepseekModel);
                             }
                             
                             scene.prompt = correctedText.trim();
@@ -1209,7 +1211,7 @@ Return only the corrected prompt text, nothing else.`;
                     const originalHook = finalScriptData.scenes[0].voiceover;
                     const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"Narrate professionally\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
                     const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be a highly engaging, simple, and curiosity-inducing opening hook for a YouTube video. The voice direction must be "Narrate professionally" to maintain a consistent, calm, and professional narration tone. Do NOT use urgent, shouting, or whispering tones.`;
-                    let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, model, true);
+                    let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, geminiModel, true);
                     // Try to parse JSON response, fall back to raw text
                     let cleanHook, hookDirection;
                     try {
@@ -2394,9 +2396,11 @@ const server = http.createServer((req, res) => {
                     : '';
 
                 const systemPrompt = `You are a world-class YouTube strategist, niche researcher, and head of ideation for the channel "Doodle Theory".
-Your job is to discover obscure, mind-blowing, and highly viral topics that combine deep curiosity, scientific fact, and psychological fascination.
-You avoid generic, cliché, or simple ideas (like "Why Your Brain Needs Sleep" or "The Mystery of Stonehenge").
-Instead, you find highly specific, lesser-known, counter-intuitive historical events, scientific experiments, space anomalies, and biological mysteries.
+Your goal is to design topics that strike a PERFECT balance between:
+1. HIGH-VOLUME EVERGREEN SEARCH: Topics centered on popular keywords that people actively search for year after year (e.g. ancient civilizations, deep space anomalies, human biology paradoxes, behavioral psychology).
+2. HIGH-CTR CURIOSITY GAPS: Framing those popular topics with an irresistible, mysterious, and reality-bending angle (so browse feed viewers click instantly).
+
+You must strictly avoid ideas that are so bizarre or obscure that no one would ever search for them. Instead, take a popular, search-friendly topic and give it a fascinating, counter-intuitive twist.
 
 PSYCHOLOGICAL TITLE FORMULAS (Use these to construct titles dynamically; do NOT repeat the specific subjects like teeth, bones, or temples):
 1. THE ANOMALY METAPHOR: [Specific, Obscure Feature/Event] That [Subverts Modern Expectations]

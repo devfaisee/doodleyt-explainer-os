@@ -109,10 +109,18 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
         activeJob.error = "Invalid video type. Must be 'short' or 'long'.";
         addJobLog(`❌ Generation failed: ${activeJob.error}`);
         return;
+       const apiKey = getEffectiveApiKey(providedApiKey);
+    const userModel = providedModel || 'deepseek/deepseek-chat';
+    
+    // Optimized Division of Labor:
+    // Gemini 2.5 Flash handles creative storytelling, natural speech, and hooks.
+    // DeepSeek Chat/V4 handles strict JSON structuring and analytical QC logic.
+    let geminiModel = 'google/gemini-2.5-flash';
+    let deepseekModel = 'deepseek/deepseek-chat';
+    
+    if (userModel && !userModel.includes('flash') && !userModel.includes('deepseek')) {
+        geminiModel = userModel;
     }
-
-    const apiKey = getEffectiveApiKey(providedApiKey);
-    const model = providedModel || 'deepseek/deepseek-chat';
     
     // Set initial job state
     activeJob.status = 'running';
@@ -128,7 +136,7 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
     (async () => {
         const config = readConfig();
         addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
-        addJobLog(`🧠 Routing script writing to OpenRouter (${model})`);
+        addJobLog(`🧠 Model Split: Creative tasks -> ${geminiModel} | Structured tasks -> ${deepseekModel}`);
         addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${parsedDuration} min`} (Scene count determined dynamically by LLM)`);
         
         // Stage 1: Niche & Custom Character Design
@@ -159,8 +167,8 @@ Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.jo
 Visual DNA: ${visualDNA}`;
         designSystemPrompt += dynamicStyleInjection;
 
-        const designUserPrompt = `Autonomously select an extremely specific, bizarre, curiosity-driven niche video topic.
-${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly specific, profound sub-niche.` : `Generate an extremely specific, deeply profound and weird niche topic.`}
+        const designUserPrompt = `Autonomously select a highly engaging, curiosity-driven niche video topic that strikes a perfect balance between high-volume evergreen search (topics people actively search for year after year like ancient history, cosmic mysteries, human biology) and an irresistible curiosity gap. Avoid topics that are so obscure that no one would search for them. Take a popular topic and find a fascinating, counter-intuitive angle.
+${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly search-friendly, profound sub-niche.` : `Generate a highly search-friendly, deeply profound and weird niche topic.`}
 
 The topic must fit within our core 10 categories:
 1. Evolutionary Anthropology & Ancient Human History
@@ -215,7 +223,7 @@ Return strictly a JSON object:
 }`;
 
         addJobLog(`🧠 Routing Stage 1 Niche Design through OpenRouter...`);
-        const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, model, true);
+        const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, geminiModel, true);
         if (activeJob.status === 'idle') return; // Cancelled
         
         let designRaw = designResponse;
@@ -334,7 +342,7 @@ Return strictly a JSON object matching this schema:
   ]
 }`;
 
-            const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, model, true);
+            const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, geminiModel, true);
             if (activeJob.status === 'idle') return; // Cancelled
             
             let actRaw = actResponse;
@@ -472,7 +480,7 @@ Return only the corrected prompt text, nothing else.`;
 
                     try {
                         const qcSystemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions. Additionally, ensure the corrected prompt is highly descriptive, detailed, and robust (e.g. if the prompt mentions a hand or face, describe it with detailed characteristics like 'clean cartoon felt pen outlines, flat colors, hand held open' to avoid uncanny drawings).";
-                        const correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, model);
+                        const correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, deepseekModel);
                         
                         scene.prompt = correctedText.trim();
                         const checkAgain = validatePromptText(scene.prompt);
@@ -520,7 +528,7 @@ Return only the corrected prompt text, nothing else.`;
                 const originalHook = finalScriptData.scenes[0].voiceover;
                 const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"Narrate professionally\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
                 const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be a highly engaging, simple, and curiosity-inducing opening hook for a YouTube video. The voice direction must be "Narrate professionally" to maintain a consistent, calm, and professional narration tone. Do NOT use urgent, shouting, or whispering tones.`;
-                let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, model, true);
+                let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, geminiModel, true);
                 let cleanHook, hookDirection;
                 try {
                     const hookRaw = hookResponse.replace(/```(?:json)?\s*([\s\S]*?)```/, '$1').trim();
