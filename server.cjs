@@ -1433,7 +1433,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             input: {
                                 text: parsedVo.text,
                                 voice: "Charon",
-                                prompt: "A calm, clear, neutral, and highly professional documentary narration voice. Steady pacing, clear articulation, authoritative and informative tone with no emotional overacting, no whispering, no dramatic style shifts, and no anger.",
+                                prompt: "A calm, clear, neutral, and highly professional documentary narration voice. Steady pacing, clear articulation, authoritative and informative delivery. Consistent tone, objective presentation, and stable speech dynamics.",
                                 language_code: "en-US"
                             }
                         });
@@ -2377,7 +2377,7 @@ const server = http.createServer((req, res) => {
                 let primaryModel = providedModel || 'deepseek/deepseek-chat';
                 // Upgrade to a flagship reasoning/creative model for brainstorming to get elite quality ideas
                 if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-chat') {
-                    primaryModel = 'google/gemini-2.5-pro';
+                    primaryModel = 'google/gemini-2.5-flash';
                 }
 
                 // Load existing script titles to exclude them from the brainstorm prompt
