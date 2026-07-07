@@ -2371,7 +2371,12 @@ const server = http.createServer((req, res) => {
             try {
                 const { apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
                 const apiKey = getEffectiveApiKey(providedApiKey);
-                const model = providedModel || 'deepseek/deepseek-chat';
+                
+                let primaryModel = providedModel || 'deepseek/deepseek-chat';
+                // Upgrade to a flagship reasoning/creative model for brainstorming to get elite quality ideas
+                if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-chat') {
+                    primaryModel = 'google/gemini-2.5-pro';
+                }
 
                 // Load existing script titles to exclude them from the brainstorm prompt
                 let existingTitles = [];
@@ -2386,9 +2391,20 @@ const server = http.createServer((req, res) => {
                     ? `\n\nEXCLUDED TITLES (Already generated / used - DO NOT repeat or suggest similar concepts to these under any circumstances):\n` + existingTitles.slice(0, 100).map(t => `- "${t}"`).join('\n')
                     : '';
 
-                const systemPrompt = "You are a professional YouTube strategist and niche brainstorming expert.";
-                const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
-The channel focuses strictly on these 10 core categories, and you must generate exactly one topic per category:
+                const systemPrompt = `You are a world-class YouTube strategist, niche researcher, and head of ideation for the channel "Doodle Theory".
+Your job is to discover obscure, mind-blowing, and highly viral topics that combine deep curiosity, scientific fact, and psychological fascination.
+You avoid generic, cliché, or simple ideas (like "Why Your Brain Needs Sleep" or "The Mystery of Stonehenge").
+Instead, you find highly specific, lesser-known, counter-intuitive historical events, scientific experiments, space anomalies, and biological mysteries.
+
+ELITE VIRAL EXPLAINER EXAMPLES FOR TONE ANCHORING:
+- "The Silent Disease Hidden In Your Ancestors' Teeth" (Evolutionary Anthropology)
+- "Inside the Silence Room That Terrifies the Human Mind" (Behavioral Psychology)
+- "The Rare Genetic Anomaly That Makes Bones Unbreakable" (Biological Anomalies)
+- "The Obscure Software Typo That Wiped Out a Spacecraft" (Technological Blunders)
+- "Why Ancient Builders Deliberately Buried Their Oldest Temple" (Archaeological Mysteries)`;
+
+                const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for 'Doodle Theory'.
+You MUST generate exactly one topic for each of these 10 core categories:
 1. Evolutionary Anthropology & Ancient Human History
 2. Behavioral Psychology & Famous Social Experiments
 3. Biological Anomalies & Human Body Mysteries
@@ -2400,23 +2416,30 @@ The channel focuses strictly on these 10 core categories, and you must generate 
 9. Existential Space & Cosmic Anomalies
 10. Psychology of Beliefs & Secret Societies
 
-VIRAL TITLE LAWS:
-- Short & Striking: 5 to 9 words max.
-- Curiosity Gap Formula: Withhold the core secret.
-- Speak directly to the viewer.
-- Sentence case. No clickbait emojis or ending punctuation.
+VIRAL TITLE LAWS (Strictly Enforced):
+- Length: 5 to 9 words maximum.
+- Curiosity Gap: Withhold the core resolution or punchline. Make the viewer think "Wait, what does that mean?"
+- Formatting: Sentence case. No emojis. No ending punctuation. No clickbait questions (do not start with "Is this the...?").
+- Direct and Grounded: Frame the title as a provocative, undeniable statement or direct query.
 ${excludeSection}
 
 For each category, return the brainstormed topic metadata.
 Format your response strictly as a JSON object:
 {
   "topics": [
-    { "id": 1, "title": "[Title 1]", "cat": "[Category 1]", "curiosity": 9.8, "novelty": 9.5, "relatability": 9.2, "hook": "[1 sentence hook]" },
+    { "id": 1, "title": "[Title 1]", "cat": "[Category 1]", "curiosity": 9.8, "novelty": 9.5, "relatability": 9.2, "hook": "[1 sentence hook explaining the specific bizarre fact behind the video]" },
     ...
   ]
 }`;
                 
-                const response = await callOpenRouter(systemPrompt, userPrompt, apiKey, model, true);
+                let response;
+                try {
+                    response = await callOpenRouter(systemPrompt, userPrompt, apiKey, primaryModel, true);
+                } catch (err) {
+                    console.warn(`Brainstorm failed with primary model ${primaryModel}, falling back...`, err);
+                    const fallbackModel = providedModel || 'deepseek/deepseek-chat';
+                    response = await callOpenRouter(systemPrompt, userPrompt, apiKey, fallbackModel, true);
+                }
                 
                 let raw = response;
                 const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
