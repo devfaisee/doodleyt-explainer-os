@@ -325,6 +325,16 @@ function App() {
                 if (data.visualDNA) setVisualDNA(data.visualDNA);
                 if (data.styleReferences) setStyleReferences(data.styleReferences);
                 
+                // Load brainstormed topics on startup
+                apiFetch('/api/load-brainstorm')
+                    .then(res => res.json())
+                    .then(brainstormData => {
+                        if (brainstormData.topics && brainstormData.topics.length > 0) {
+                            setTopicBank(brainstormData.topics);
+                        }
+                    })
+                    .catch(e => console.error('Failed to load brainstormed topics:', e));
+
                 // Fetch active background job status on load
                 apiFetch('/api/generation-status')
                     .then(res => res.json())
@@ -448,9 +458,20 @@ function App() {
             
             const data = await response.json();
             if (data.topics && data.topics.length > 0) {
-                setTopicBank(data.topics);
-                setSelectedTopic(data.topics[0]);
+                // Ensure unique numeric IDs for React map keys and unique titles
+                const newTopics = data.topics.map((t, idx) => ({ ...t, id: Date.now() + idx }));
+                const merged = [...newTopics, ...topicBank.filter(old => !newTopics.some(newT => newT.title === old.title))].slice(0, 50);
+                
+                setTopicBank(merged);
+                setSelectedTopic(merged[0]);
                 addLog('✓ Received 10 custom YouTube ideas based on our categories.');
+                
+                // Auto-save the new topics to the server
+                await apiFetch('/api/save-brainstorm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topics: merged })
+                });
             } else {
                 throw new Error('Invalid brainstorm response structure');
             }
@@ -458,6 +479,21 @@ function App() {
             addLog(`❌ Error generating niches: ${e.message}`);
         } finally {
             setIsGenerating(false);
+        }
+    };
+
+    const removeBrainstormTopic = async (id) => {
+        const updated = topicBank.filter(t => t.id !== id);
+        setTopicBank(updated);
+        try {
+            await apiFetch('/api/save-brainstorm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topics: updated })
+            });
+            addLog('✓ Removed brainstorm topic.');
+        } catch (e) {
+            console.error('Failed to save brainstormed topics:', e);
         }
     };
 
@@ -1395,6 +1431,7 @@ ${currentScript.thumbnail}
                             setActiveTab={setActiveTab}
                             isGenerating={isGenerating}
                             generateTopicsViaAI={generateTopicsViaAI}
+                            removeBrainstormTopic={removeBrainstormTopic}
                         />
                     )}
 

@@ -8,7 +8,8 @@ export default function TopicsView({
     addLog,
     setActiveTab,
     isGenerating,
-    generateTopicsViaAI
+    generateTopicsViaAI,
+    removeBrainstormTopic
 }) {
     return (
         <div className="space-y-6 max-w-4xl">
@@ -45,9 +46,19 @@ export default function TopicsView({
                         <div>
                             <div className="flex justify-between items-center mb-3">
                                 <span className="text-[10px] font-mono bg-neutral-800 text-neutral-350 px-2 py-1 rounded-md font-bold uppercase tracking-wider">{t.cat}</span>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 items-center">
                                     <span className="text-[11px] font-bold font-mono text-blue-400">C: {t.curiosity}</span>
                                     <span className="text-[11px] font-bold font-mono text-emerald-400">N: {t.novelty}</span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeBrainstormTopic(t.id);
+                                        }}
+                                        className="text-neutral-500 hover:text-red-400 transition ml-2 p-1 text-xs"
+                                        title="Dismiss Idea"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
                             </div>
                             <h4 className="font-extrabold text-base text-neutral-100 line-clamp-2 leading-snug">{t.title}</h4>

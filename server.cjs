@@ -2369,7 +2369,20 @@ const server = http.createServer((req, res) => {
                 const { apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
                 const apiKey = getEffectiveApiKey(providedApiKey);
                 const model = providedModel || 'deepseek/deepseek-chat';
-                
+
+                // Load existing script titles to exclude them from the brainstorm prompt
+                let existingTitles = [];
+                try {
+                    const scriptsList = await listScriptHistory();
+                    existingTitles = (scriptsList || []).map(s => s.title).filter(Boolean);
+                } catch (historyErr) {
+                    console.error("Failed to load script history for exclusions:", historyErr);
+                }
+
+                const excludeSection = existingTitles.length > 0
+                    ? `\n\nEXCLUDED TITLES (Already generated / used - DO NOT repeat or suggest similar concepts to these under any circumstances):\n` + existingTitles.slice(0, 100).map(t => `- "${t}"`).join('\n')
+                    : '';
+
                 const systemPrompt = "You are a professional YouTube strategist and niche brainstorming expert.";
                 const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
 The channel focuses strictly on these 10 core categories, and you must generate exactly one topic per category:
@@ -2389,6 +2402,7 @@ VIRAL TITLE LAWS:
 - Curiosity Gap Formula: Withhold the core secret.
 - Speak directly to the viewer.
 - Sentence case. No clickbait emojis or ending punctuation.
+${excludeSection}
 
 For each category, return the brainstormed topic metadata.
 Format your response strictly as a JSON object:
@@ -2409,6 +2423,52 @@ Format your response strictly as a JSON object:
                 
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(jsonMatch[0]);
+            } catch (e) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    if (pathname === '/api/load-brainstorm' && req.method === 'GET') {
+        const targetDir = config.outputPath || path.join(__dirname, 'output');
+        const brainstormPath = path.join(targetDir, 'brainstormed_ideas.json');
+        try {
+            if (fs.existsSync(brainstormPath)) {
+                const data = fs.readFileSync(brainstormPath, 'utf8');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(data);
+            } else {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ topics: [] }));
+            }
+        } catch (e) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: e.message }));
+        }
+        return;
+    }
+
+    if (pathname === '/api/save-brainstorm' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => {
+            body += chunk;
+            if (body.length > MAX_BODY) {
+                req.destroy();
+                res.writeHead(413, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Request body too large.' }));
+            }
+        });
+        req.on('end', async () => {
+            const targetDir = config.outputPath || path.join(__dirname, 'output');
+            const brainstormPath = path.join(targetDir, 'brainstormed_ideas.json');
+            try {
+                const parsed = JSON.parse(body);
+                ensureDir(targetDir);
+                fs.writeFileSync(brainstormPath, JSON.stringify(parsed, null, 2), 'utf8');
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true }));
             } catch (e) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: e.message }));

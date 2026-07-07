@@ -14,7 +14,8 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execFileAsync = promisify(execFile);
+import { listScriptHistory } from '../services/history.service.js';
+
 
 const probeAudioDurationSeconds = async (audioPath) => {
     try {
@@ -235,6 +236,19 @@ router.post('/brainstorm-topics', async (req, res) => {
         const { apiKey: providedApiKey, model: providedModel } = req.body;
         const apiKey = getEffectiveApiKey(providedApiKey);
         const model = providedModel || 'deepseek/deepseek-chat';
+
+        // Load existing script titles to exclude them from the brainstorm prompt
+        let existingTitles = [];
+        try {
+            const scriptsList = await listScriptHistory();
+            existingTitles = (scriptsList || []).map(s => s.title).filter(Boolean);
+        } catch (historyErr) {
+            console.error("Failed to load script history for exclusions:", historyErr);
+        }
+
+        const excludeSection = existingTitles.length > 0
+            ? `\n\nEXCLUDED TITLES (Already generated / used - DO NOT repeat or suggest similar concepts to these under any circumstances):\n` + existingTitles.slice(0, 100).map(t => `- "${t}"`).join('\n')
+            : '';
         
         const systemPrompt = "You are a professional YouTube strategist and niche brainstorming expert.";
         const userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for the YouTube channel 'Doodle Theory'.
@@ -255,6 +269,7 @@ VIRAL TITLE LAWS:
 - Curiosity Gap Formula: Withhold the core secret.
 - Speak directly to the viewer.
 - Sentence case. No clickbait emojis or ending punctuation.
+${excludeSection}
 
 For each category, return the brainstormed topic metadata.
 Format your response strictly as a JSON object:
@@ -276,6 +291,37 @@ Format your response strictly as a JSON object:
         res.json(JSON.parse(jsonMatch[0]));
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+router.get('/load-brainstorm', async (req, res) => {
+    const config = readConfig();
+    const targetDir = config.outputPath || path.join(process.cwd(), 'output');
+    const brainstormPath = path.join(targetDir, 'brainstormed_ideas.json');
+    try {
+        if (fs.existsSync(brainstormPath)) {
+            const data = fs.readFileSync(brainstormPath, 'utf8');
+            res.json(JSON.parse(data));
+        } else {
+            res.json({ topics: [] });
+        }
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+router.post('/save-brainstorm', async (req, res) => {
+    const config = readConfig();
+    const targetDir = config.outputPath || path.join(process.cwd(), 'output');
+    const brainstormPath = path.join(targetDir, 'brainstormed_ideas.json');
+    try {
+        ensureDir(targetDir);
+        fs.writeFileSync(brainstormPath, JSON.stringify(req.body, null, 2), 'utf8');
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});ssage });
     }
 });
 
