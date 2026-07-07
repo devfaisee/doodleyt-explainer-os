@@ -888,13 +888,8 @@ VIRAL TITLE LAWS (Strictly Enforced):
     }`;
     
                 let designResponse;
-                if (useGemini) {
-                    addJobLog(`🧠 Routing Stage 1 Niche Design through Google Gemini API...`);
-                    designResponse = await callGeminiAPI(designSystemPrompt, designUserPrompt, geminiKey, geminiModelName, true);
-                } else {
-                    addJobLog(`🧠 Routing Stage 1 Niche Design through OpenRouter...`);
-                    designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, geminiModel, true);
-                }
+                addJobLog(`🧠 [Stage 1] Routing Niche Design → OpenRouter (${geminiModel})`);
+                designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, geminiModel, true);
                 if (activeJob.status === 'idle') return; // Cancelled
             // Robust JSON extraction: strip markdown code fences first, then fall back to regex
             let designRaw = designResponse;
@@ -1016,11 +1011,7 @@ Return strictly a JSON object matching this schema:
 }`;
 
                 let actResponse;
-                if (useGemini) {
-                    actResponse = await callGeminiAPI(actSystemPrompt, actUserPrompt, geminiKey, geminiModelName, true);
-                } else {
-                    actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, geminiModel, true);
-                }
+                actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, geminiModel, true);
                 if (activeJob.status === 'idle') return; // Cancelled
                 // Robust JSON extraction: strip markdown code fences first, then fall back to regex
                 let actRaw = actResponse;
@@ -1156,11 +1147,7 @@ Return only the corrected prompt text, nothing else.`;
                         try {
                             let correctedText;
                             const qcSystemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions. Additionally, ensure the corrected prompt is highly descriptive, detailed, and robust (e.g. if the prompt mentions a hand or face, describe it with detailed characteristics like 'clean cartoon felt pen outlines, flat colors, hand held open' to avoid uncanny drawings).";
-                            if (useGemini) {
-                                correctedText = await callGeminiAPI(qcSystemPrompt, prompt, geminiKey, geminiModelName, false);
-                            } else {
-                                correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, deepseekModel);
-                            }
+                            correctedText = await callOpenRouter(qcSystemPrompt, prompt, apiKey, deepseekModel);
                             
                             scene.prompt = correctedText.trim();
                             const checkAgain = validatePromptText(scene.prompt);
