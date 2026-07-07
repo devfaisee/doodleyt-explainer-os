@@ -29,7 +29,7 @@ export const usePipelineStore = create((set, get) => ({
     geminiApiKey: '',
     falApiKey: '',
     elevenlabsApiKey: '',
-    model: 'deepseek/deepseek-chat',
+    model: 'deepseek/deepseek-v4-flash',
     outputPath: '',
     videoType: 'long',
     targetDuration: 8,

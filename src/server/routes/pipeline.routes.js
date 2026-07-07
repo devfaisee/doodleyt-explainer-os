@@ -146,7 +146,7 @@ router.post('/regenerate-asset', async (req, res) => {
                         input: {
                             text: parsedVo.text,
                             voice: "Charon",
-                            prompt: parsedVo.prompt || "A calm, clear, neutral, and highly professional documentary narration voice.",
+                            prompt: parsedVo.prompt || "A highly professional, calm, and grounded documentary narrator. NO dramatic overacting.",
                             language_code: "en-US"
                         }
                     });
@@ -236,9 +236,9 @@ router.post('/brainstorm-topics', async (req, res) => {
         const { apiKey: providedApiKey, model: providedModel } = req.body;
         const apiKey = getEffectiveApiKey(providedApiKey);
         
-        let primaryModel = providedModel || 'deepseek/deepseek-chat';
+        let primaryModel = providedModel || 'deepseek/deepseek-v4-flash';
         // Upgrade to a flagship reasoning/creative model for brainstorming to get elite quality ideas
-        if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-chat') {
+        if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-v4-flash') {
             primaryModel = 'google/gemini-2.5-flash';
         }
 
@@ -308,7 +308,7 @@ Format your response strictly as a JSON object:
             response = await callOpenRouter(systemPrompt, userPrompt, apiKey, primaryModel, true);
         } catch (err) {
             console.warn(`Brainstorm failed with primary model ${primaryModel}, falling back...`, err);
-            const fallbackModel = providedModel || 'deepseek/deepseek-chat';
+            const fallbackModel = providedModel || 'deepseek/deepseek-v4-flash';
             response = await callOpenRouter(systemPrompt, userPrompt, apiKey, fallbackModel, true);
         }
         
@@ -357,7 +357,7 @@ router.post('/fix-prompt', async (req, res) => {
     try {
         const { prompt, characters: providedChars, apiKey: providedApiKey, model: providedModel } = req.body;
         const apiKey = getEffectiveApiKey(providedApiKey);
-        const model = providedModel || 'deepseek/deepseek-chat';
+        const model = providedModel || 'deepseek/deepseek-v4-flash';
         
         const charsString = (providedChars || []).map(c => `- **${c.name}**: ${c.description}`).join('\n');
         const systemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.";

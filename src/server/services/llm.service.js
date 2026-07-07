@@ -61,7 +61,7 @@ export async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, is
         { role: 'user', content: userPrompt }
     ];
     const payload = JSON.stringify({
-        model: model || 'deepseek/deepseek-chat',
+        model: model || 'deepseek/deepseek-v4-flash',
         messages,
         response_format: isJson ? { type: 'json_object' } : undefined
     });

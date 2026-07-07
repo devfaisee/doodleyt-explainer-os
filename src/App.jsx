@@ -372,7 +372,7 @@ function App() {
                 const cachedGeminiKey = localStorage.getItem('doodleyt_gemini_key') || '';
                 const cachedFalKey = localStorage.getItem('doodleyt_fal_key') || '';
                 const cachedElevenlabsKey = localStorage.getItem('doodleyt_elevenlabs_key') || '';
-                const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-chat';
+                const cachedModel = localStorage.getItem('doodleyt_model') || 'deepseek/deepseek-v4-flash';
                 const cachedPath = localStorage.getItem('doodleyt_output_path') || './output';
                 const cachedChars = localStorage.getItem('doodleyt_characters');
                 const cachedVisualDNA = localStorage.getItem('doodleyt_visual_dna') || DEFAULT_VISUAL_DNA;

@@ -110,13 +110,13 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
         addJobLog(`❌ Generation failed: ${activeJob.error}`);
         return;
        const apiKey = getEffectiveApiKey(providedApiKey);
-    const userModel = providedModel || 'deepseek/deepseek-chat';
+    const userModel = providedModel || 'deepseek/deepseek-v4-flash';
     
     // Optimized Division of Labor:
     // Gemini 2.5 Flash handles creative storytelling, natural speech, and hooks.
     // DeepSeek Chat/V4 handles strict JSON structuring and analytical QC logic.
     let geminiModel = 'google/gemini-2.5-flash';
-    let deepseekModel = 'deepseek/deepseek-chat';
+    let deepseekModel = 'deepseek/deepseek-v4-flash';
     
     if (userModel && !userModel.includes('flash') && !userModel.includes('deepseek')) {
         geminiModel = userModel;
@@ -507,7 +507,7 @@ Return only the corrected prompt text, nothing else.`;
         
         // --- COST CALCULATOR (LLM BASE) ---
         const MODEL_RATES = {
-            'deepseek/deepseek-chat': { input: 0.09, output: 0.18 },
+            'deepseek/deepseek-v4-flash': { input: 0.09, output: 0.18 },
             'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
             'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 }
         };

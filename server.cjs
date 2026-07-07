@@ -172,7 +172,7 @@ function readConfig() {
     }
     return {
         apiKey: FIXATED_KEY,
-        model: 'deepseek/deepseek-chat',
+        model: 'deepseek/deepseek-v4-flash',
         outputPath: path.join(__dirname, 'output'),
         visualDNA: "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).",
         styleReferences: ['18154.jpg', '18153.jpg', '18152.jpg', '18142.jpg', '18146.jpg', '18143.jpg', '18147.jpg', '18151.jpg', '18149.jpg', '18159.jpg'],
@@ -544,7 +544,7 @@ async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, isJson = 
         { role: 'user', content: userPrompt }
     ];
     const payload = JSON.stringify({
-        model: model || 'deepseek/deepseek-chat',
+        model: model || 'deepseek/deepseek-v4-flash',
         messages,
         max_tokens: 16000,
         response_format: isJson ? { type: 'json_object' } : undefined
@@ -773,13 +773,13 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     videoType = videoType || 'short';
     targetDuration = targetDuration || 5;
     const apiKey = getEffectiveApiKey(providedApiKey);
-    const userModel = providedModel || 'deepseek/deepseek-chat';
+    const userModel = providedModel || 'deepseek/deepseek-v4-flash';
     
     // Optimized Division of Labor:
     // Gemini 2.5 Flash handles creative storytelling, natural speech, and hooks.
     // DeepSeek Chat/V4 handles strict JSON structuring and analytical QC logic.
     let geminiModel = 'google/gemini-2.5-flash';
-    let deepseekModel = 'deepseek/deepseek-chat';
+    let deepseekModel = 'deepseek/deepseek-v4-flash';
     
     if (userModel && !userModel.includes('flash') && !userModel.includes('deepseek')) {
         geminiModel = userModel;
@@ -1174,7 +1174,7 @@ Return only the corrected prompt text, nothing else.`;
             
             // --- COST CALCULATOR (LLM BASE) ---
             const MODEL_RATES = {
-                'deepseek/deepseek-chat': { input: 0.09, output: 0.18 },
+                'deepseek/deepseek-v4-flash': { input: 0.09, output: 0.18 },
                 'deepseek/deepseek-r1': { input: 0.55, output: 2.19 },
                 'anthropic/claude-3.5-sonnet': { input: 3.0, output: 15.0 }
             };
@@ -1420,7 +1420,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             input: {
                                 text: parsedVo.text,
                                 voice: "Charon",
-                                prompt: "A calm, clear, neutral, and highly professional documentary narration voice. Steady pacing, clear articulation, authoritative and informative delivery. Consistent tone, objective presentation, and stable speech dynamics.",
+                                prompt: "A highly professional, calm, and grounded documentary narrator. Completely consistent natural speaking volume. NO dramatic overacting, NO whispering, NO shouting. Steady conversational pacing, objective tone, and stable speech dynamics.",
                                 language_code: "en-US"
                             }
                         });
@@ -2020,7 +2020,7 @@ const server = http.createServer((req, res) => {
                                 input: {
                                     text: parsedVo.text,
                                     voice: "Charon",
-                                    prompt: parsedVo.prompt || "A calm, clear, neutral, and highly professional documentary narration voice.",
+                                    prompt: parsedVo.prompt || "A highly professional, calm, and grounded documentary narrator. NO dramatic overacting.",
                                     language_code: "en-US"
                                 }
                             });
@@ -2361,9 +2361,9 @@ const server = http.createServer((req, res) => {
                 const { apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
                 const apiKey = getEffectiveApiKey(providedApiKey);
                 
-                let primaryModel = providedModel || 'deepseek/deepseek-chat';
+                let primaryModel = providedModel || 'deepseek/deepseek-v4-flash';
                 // Upgrade to a flagship reasoning/creative model for brainstorming to get elite quality ideas
-                if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-chat') {
+                if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-v4-flash') {
                     primaryModel = 'google/gemini-2.5-flash';
                 }
 
@@ -2433,7 +2433,7 @@ Format your response strictly as a JSON object:
                     response = await callOpenRouter(systemPrompt, userPrompt, apiKey, primaryModel, true);
                 } catch (err) {
                     console.warn(`Brainstorm failed with primary model ${primaryModel}, falling back...`, err);
-                    const fallbackModel = providedModel || 'deepseek/deepseek-chat';
+                    const fallbackModel = providedModel || 'deepseek/deepseek-v4-flash';
                     response = await callOpenRouter(systemPrompt, userPrompt, apiKey, fallbackModel, true);
                 }
                 
@@ -2515,7 +2515,7 @@ Format your response strictly as a JSON object:
             try {
                 const { prompt, characters: providedChars, apiKey: providedApiKey, model: providedModel } = JSON.parse(body);
                 const apiKey = getEffectiveApiKey(providedApiKey);
-                const model = providedModel || 'deepseek/deepseek-chat';
+                const model = providedModel || 'deepseek/deepseek-v4-flash';
                 
                 const charsString = (providedChars || []).map(c => `- **${c.name}**: ${c.description}`).join('\n');
                 const systemPrompt = "You are an AI assistant that corrects image generator prompts to be stateless and pronoun-free. You must strictly avoid pronouns (he, she, it, they, his, her, their, its) and relative references (same, previous, earlier, above, below, again). Specifically, never output the word 'above' or 'below' or 'same' or 'he' or 'his' in your output under any circumstances. Replace them with concrete, absolute descriptions.";
