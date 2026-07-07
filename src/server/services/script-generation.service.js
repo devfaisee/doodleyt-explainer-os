@@ -113,13 +113,14 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
     const userModel = providedModel || 'deepseek/deepseek-v4-flash';
     
     // Optimized Division of Labor:
-    // Gemini 2.5 Flash handles creative storytelling, natural speech, and hooks.
-    // DeepSeek Chat/V4 handles strict JSON structuring and analytical QC logic.
-    let geminiModel = 'google/gemini-2.5-flash';
-    let deepseekModel = 'deepseek/deepseek-v4-flash';
+        // Optimized Division of Labor (Based on LLM Testing):
+// Claude 3.5 Sonnet handles ideation, niches, titles, and hooks.
+// DeepSeek V4 Flash handles the brutal, gripping script pacing, JSON formatting, and analytical QC.
+    let creativeModel = 'anthropic/claude-3.5-sonnet';
+    let scriptingModel = 'deepseek/deepseek-v4-flash';
     
-    if (userModel && !userModel.includes('flash') && !userModel.includes('deepseek')) {
-        geminiModel = userModel;
+    if (userModel && !userModel.includes('claude') && !userModel.includes('deepseek')) {
+        creativeModel = userModel;
     }
     
     // Set initial job state
@@ -136,7 +137,7 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
     (async () => {
         const config = readConfig();
         addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
-        addJobLog(`🧠 Model Split: Creative tasks -> ${geminiModel} | Structured tasks -> ${deepseekModel}`);
+        addJobLog(`🧠 Model Split: Creative tasks ->  | Scripting/QC tasks -> `);
         addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${parsedDuration} min`} (Scene count determined dynamically by LLM)`);
         
         // Stage 1: Niche & Custom Character Design
@@ -223,7 +224,7 @@ Return strictly a JSON object:
 }`;
 
         addJobLog(`🧠 Routing Stage 1 Niche Design through OpenRouter...`);
-        const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, geminiModel, true);
+        const designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, creativeModel, true);
         if (activeJob.status === 'idle') return; // Cancelled
         
         let designRaw = designResponse;
@@ -342,7 +343,7 @@ Return strictly a JSON object matching this schema:
   ]
 }`;
 
-            const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, geminiModel, true);
+            const actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, scriptingModel, true);
             if (activeJob.status === 'idle') return; // Cancelled
             
             let actRaw = actResponse;
@@ -528,7 +529,7 @@ Return only the corrected prompt text, nothing else.`;
                 const originalHook = finalScriptData.scenes[0].voiceover;
                 const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"Narrate professionally\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
                 const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be a highly engaging, simple, and curiosity-inducing opening hook for a YouTube video. The voice direction must be "Narrate professionally" to maintain a consistent, calm, and professional narration tone. Do NOT use urgent, shouting, or whispering tones.`;
-                let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, geminiModel, true);
+                let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, creativeModel, true);
                 let cleanHook, hookDirection;
                 try {
                     const hookRaw = hookResponse.replace(/```(?:json)?\s*([\s\S]*?)```/, '$1').trim();

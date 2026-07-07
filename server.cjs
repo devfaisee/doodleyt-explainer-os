@@ -778,11 +778,11 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     // Optimized Division of Labor:
     // Gemini 2.5 Flash handles creative storytelling, natural speech, and hooks.
     // DeepSeek Chat/V4 handles strict JSON structuring and analytical QC logic.
-    let geminiModel = 'google/gemini-2.5-flash';
-    let deepseekModel = 'deepseek/deepseek-v4-flash';
+    let creativeModel = 'anthropic/claude-3.5-sonnet';
+    let scriptingModel = 'deepseek/deepseek-v4-flash';
     
-    if (userModel && !userModel.includes('flash') && !userModel.includes('deepseek')) {
-        geminiModel = userModel;
+    if (userModel && !userModel.includes('claude') && !userModel.includes('deepseek')) {
+        creativeModel = userModel;
     }
     
     // Set initial job state
@@ -800,7 +800,7 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
         (async () => {
             const config = readConfig();
             addJobLog(`⚙️ Booting Dynamic Multistage Pipeline Orchestrator...`);
-            addJobLog(`🧠 Model Split: Creative tasks -> ${geminiModel} | Structured tasks -> ${deepseekModel}`);
+            addJobLog(`🧠 Model Split: Creative tasks ->  | Scripting/QC tasks -> `);
             addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${targetDuration} min`} (Scene count determined dynamically by LLM)`);
             
             try {
@@ -888,8 +888,8 @@ VIRAL TITLE LAWS (Strictly Enforced):
     }`;
     
                 let designResponse;
-                addJobLog(`🧠 [Stage 1] Routing Niche Design → OpenRouter (${geminiModel})`);
-                designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, geminiModel, true);
+                addJobLog(`🧠 [Stage 1] Routing Niche Design → OpenRouter ()`);
+                designResponse = await callOpenRouter(designSystemPrompt, designUserPrompt, apiKey, creativeModel, true);
                 if (activeJob.status === 'idle') return; // Cancelled
             // Robust JSON extraction: strip markdown code fences first, then fall back to regex
             let designRaw = designResponse;
@@ -1011,7 +1011,7 @@ Return strictly a JSON object matching this schema:
 }`;
 
                 let actResponse;
-                actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, geminiModel, true);
+                actResponse = await callOpenRouter(actSystemPrompt, actUserPrompt, apiKey, scriptingModel, true);
                 if (activeJob.status === 'idle') return; // Cancelled
                 // Robust JSON extraction: strip markdown code fences first, then fall back to regex
                 let actRaw = actResponse;
@@ -1196,7 +1196,7 @@ Return only the corrected prompt text, nothing else.`;
                     const originalHook = finalScriptData.scenes[0].voiceover;
                     const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"Narrate professionally\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
                     const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be a highly engaging, simple, and curiosity-inducing opening hook for a YouTube video. The voice direction must be "Narrate professionally" to maintain a consistent, calm, and professional narration tone. Do NOT use urgent, shouting, or whispering tones.`;
-                    let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, geminiModel, true);
+                    let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, creativeModel, true);
                     // Try to parse JSON response, fall back to raw text
                     let cleanHook, hookDirection;
                     try {
@@ -2364,7 +2364,7 @@ const server = http.createServer((req, res) => {
                 let primaryModel = providedModel || 'deepseek/deepseek-v4-flash';
                 // Upgrade to a flagship reasoning/creative model for brainstorming to get elite quality ideas
                 if (primaryModel.includes('flash') || primaryModel === 'deepseek/deepseek-v4-flash') {
-                    primaryModel = 'google/gemini-2.5-flash';
+                    primaryModel = 'anthropic/claude-3.5-sonnet';
                 }
 
                 // Load existing script titles to exclude them from the brainstorm prompt
