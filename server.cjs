@@ -651,7 +651,7 @@ async function compactSpeechAudio(audioPath) {
     const compactPath = `${audioPath}.compact.mp3`;
     try {
         const beforeDuration = await probeAudioDurationSeconds(audioPath);
-        const cmd = `ffmpeg -nostdin -y -v error -i "${audioPath}" -af "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.45" -c:a libmp3lame -q:a 3 "${compactPath}"`;
+        const cmd = `ffmpeg -nostdin -y -v error -i "${audioPath}" -af "silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse" -c:a libmp3lame -q:a 3 "${compactPath}"`;
         await execAsync(cmd);
         const afterDuration = await probeAudioDurationSeconds(compactPath);
         if (afterDuration && (!beforeDuration || afterDuration >= 0.35)) {

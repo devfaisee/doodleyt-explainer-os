@@ -37,7 +37,7 @@ const compactSpeechAudio = async (audioPath) => {
             '-y',
             '-v', 'error',
             '-i', audioPath,
-            '-af', 'silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.12:stop_periods=-1:stop_threshold=-45dB:stop_silence=0.45',
+            '-af', 'silenceremove=start_periods=1:start_threshold=-50dB,areverse,silenceremove=start_periods=1:start_threshold=-50dB,areverse',
             '-c:a', 'libmp3lame',
             '-q:a', '3',
             compactPath
