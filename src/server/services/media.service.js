@@ -1,7 +1,8 @@
 import { httpsPost, fetchImageBuffer } from '../utils/network.js';
 
 export async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl = "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions") {
-    let retries = 5;
+    const MAX_RETRIES = 8;
+    let retries = MAX_RETRIES;
     while (retries > 0) {
         try {
             const res = await httpsPost(
@@ -26,26 +27,29 @@ export async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endp
                 throw new Error("No output returned: " + JSON.stringify(resJson));
             }
         } catch (err) {
-            let delayMs = 12000;
+            let delayMs;
             const is429 = err.message.includes('429');
+            const attempt = MAX_RETRIES - retries + 1;
             
             if (is429) {
                 try {
                     const errorStr = err.message.substring(err.message.indexOf('{'));
                     const errObj = JSON.parse(errorStr);
                     if (errObj.retry_after) delayMs = (errObj.retry_after + 1) * 1000;
-                } catch(e) {}
+                    else delayMs = 10000;
+                } catch(e) { delayMs = 10000; }
                 addJobLog(`⏳ Replicate Rate Limit 429. Pacing requests... waiting ${Math.round(delayMs/1000)}s.`);
             } else {
-                delayMs = (6 - retries) * 4000;
-                addJobLog(`⚠️ Replicate API Error: ${err.message}. Retrying in ${delayMs/1000}s... (${retries - 1} attempts left)`);
+                // Exponential backoff: 5s, 10s, 15s, 20s, 25s, 30s, 35s, 40s
+                delayMs = attempt * 5000;
+                addJobLog(`⚠️ Replicate API Error (attempt ${attempt}/${MAX_RETRIES}): Retrying in ${delayMs/1000}s...`);
             }
             
             await new Promise(r => setTimeout(r, delayMs));
             retries--;
             if (retries === 0) {
-                addJobLog(`❌ Replicate failed permanently after 5 retries.`);
-                throw new Error(`Replicate failed after 5 retries: ${err.message}`);
+                addJobLog(`❌ Replicate failed permanently after ${MAX_RETRIES} retries.`);
+                throw new Error(`Replicate failed after ${MAX_RETRIES} retries: ${err.message}`);
             }
         }
     }

@@ -1399,7 +1399,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                     }
                 }
                 
-                // Audio synthesis — Kokoro-82M (Primary: censorship-free, 97M+ runs) -> Silent (Fallback)
+                // Audio synthesis — Gemini TTS
                 const replicateApiKey = process.env.REPLICATE_API_KEY || (readConfig().replicateApiKey) || falApiKey;
                 const spokenText = extractSpokenText(scene.voiceover);
                 let audioGenerated = false;
@@ -1414,29 +1414,29 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         throw new Error(`Missing Replicate API Key for voiceover generation in Scene ${i+1}`);
                     }
                     try {
-                        addJobLog(`[Kokoro TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
+                        addJobLog(`[Gemini TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
                         const parsedVo = parseVoiceover(scene.voiceover);
                         const payload = JSON.stringify({
-                            version: "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                             input: {
                                 text: parsedVo.text,
-                                voice: "bm_daniel",
-                                speed: 0.95
+                                voice: "Charon",
+                                prompt: "A calm, clear, neutral, and highly professional documentary narration voice. Steady pacing, clear articulation, authoritative and informative delivery. Consistent tone, objective presentation, and stable speech dynamics.",
+                                language_code: "en-US"
                             }
                         });
                         const audioUrl = await callReplicateWithRetry(
                             payload, 
                             replicateApiKey.trim(), 
                             addJobLog, 
-                            "https://api.replicate.com/v1/predictions"
+                            "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                         );
-                        addJobLog(`[Kokoro TTS] Audio URL type: ${typeof audioUrl === 'string' ? (audioUrl.startsWith('data:') ? 'data-uri' : 'https-url') : typeof audioUrl}`);
+                        addJobLog(`[Gemini TTS] Audio URL type: ${typeof audioUrl === 'string' ? (audioUrl.startsWith('data:') ? 'data-uri' : 'https-url') : typeof audioUrl}`);
                         const audioBuffer = await downloadAudioFromUrl(audioUrl);
                         await saveAudioAsMP3(audioBuffer, audioPath);
-                        addJobLog(`✓ [Kokoro TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                        addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {
-                        addJobLog(`❌ Kokoro TTS failed for scene ${i+1}: ${cbErr.message}`);
+                        addJobLog(`❌ Gemini TTS failed for scene ${i+1}: ${cbErr.message}`);
                         throw new Error(`Failed to generate voiceover for Scene ${i+1}: ${cbErr.message}`);
                     }
                 }
@@ -2014,28 +2014,28 @@ const server = http.createServer((req, res) => {
 
                     if (replicateApiKey && replicateApiKey.trim().length > 10 && spokenText) {
                         try {
-                            console.log(`[Regenerate] Kokoro TTS generating voiceover for scene ${sceneIndex + 1}...`);
+                            console.log(`[Regenerate] Gemini TTS generating voiceover for scene ${sceneIndex + 1}...`);
                             const parsedVo = parseVoiceover(text);
                             const payload = JSON.stringify({
-                                version: "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                                 input: {
                                     text: parsedVo.text,
-                                    voice: "bm_daniel",
-                                    speed: 0.95
+                                    voice: "Charon",
+                                    prompt: parsedVo.prompt || "A calm, clear, neutral, and highly professional documentary narration voice.",
+                                    language_code: "en-US"
                                 }
                             });
                             const audioUrl = await callReplicateWithRetry(
                                 payload, 
                                 replicateApiKey.trim(), 
                                 mockLog, 
-                                "https://api.replicate.com/v1/predictions"
+                                "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
                             );
                             const audioBuffer = await downloadAudioFromUrl(audioUrl);
                             await saveAudioAsMP3(audioBuffer, audioPath);
-                            console.log(`✓ [Regenerate] Kokoro TTS voiceover saved.`);
+                            console.log(`✓ [Regenerate] Gemini TTS voiceover saved.`);
                             audioGenerated = true;
                         } catch (cbErr) {
-                            console.log(`⚠️ [Regenerate] Kokoro TTS failed: ${cbErr.message}.`);
+                            console.log(`⚠️ [Regenerate] Gemini TTS failed: ${cbErr.message}.`);
                         }
                     }
 
