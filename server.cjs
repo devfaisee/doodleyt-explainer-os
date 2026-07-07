@@ -937,9 +937,9 @@ ${charactersListString}`;
                 
                 let actSystemPrompt = `You are the master storyteller, scriptwriter, and visual director for "Doodle Theory".
 You write scripts in JSON format.
-Channel Tone: Mesmerizing, cinematic, deeply existential, and profound. The narrator speaks with quiet authority, taking the viewer on a gripping psychological or scientific journey. No chaotic humor, no sarcasm—just pure, captivating fascination (think Vsauce, LEMMiNO, or Aperture).
-Narrative Arc: Start with a deeply relatable, grounded premise ("Look at your hand", "Tonight, you'll flip a switch"), then immediately pull the rug out with an existential shock ("But you can't prove any of it is real", "For 99.9% of history, that switch didn't exist"). Build the story step-by-step using short, punchy sentences.
-Art Style DNA: Crude whiteboard cartoon illustration style. Hand-drawn felt-pen black outlines, flat solid color fills. Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments. Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.
+Channel Tone: Clean, informative, highly professional documentary narration. The narrator explains concepts with clear, authoritative simplicity, making complex topics easy for anyone to understand (think Vsauce, LEMMiNO, or Aperture). No dramatic overacting, no whispering, no anger, and no theatrical voice acting.
+Narrative Clarity & Pacing: Start with a clear, relatable, and grounded premise. Explain the science or history step-by-step using simple, punchy, active-voice sentences. Avoid overly complex academic jargon or convoluted philosophical concepts. Keep the explanation direct, fascinating, and easy to follow.
+Art Style DNA: Whiteboard cartoon illustration style. Hand-drawn felt-pen black outlines, flat solid color fills. Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments. Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.
 Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every single frame must exactly depict what the narrator is talking about in that exact moment.`;
                 actSystemPrompt += dynamicStyleInjection;
 
@@ -980,11 +980,11 @@ ${charactersPromptGuide}
 
 
 SCRIPTWRITING & PACING LAWS:
-1. Mesmerizing Storytelling: Use short, punchy sentences. Ask profound questions, then answer them with mind-bending facts. The tone is cinematic and serious.
+1. Clear, Simple Storytelling: Use short, punchy, active-voice sentences. Explain complex ideas using simple, everyday language and concrete analogies. Keep descriptions direct and extremely easy to understand. Do not make the explanation overly complex, academic, or philosophical.
 2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 6 words, ideal is 3 to 5 words per scene).
    - Sentence Splitting Law: If a sentence is long, you MUST split it across multiple consecutive scenes. However, you MUST split only at natural grammatical boundaries (clauses, punctuation, or complete phrases). Never end a scene's voiceover with a hanging conjunction (and, or, but), preposition (of, in, at, with, to), pronoun/article (the, a, an, this, that), or copula verb (is, are, was, were). Each scene's voiceover chunk must sound like a complete, natural spoken phrase on its own when read aloud, without leaving the speaker hanging on a dangling word.
-   - Prefixed Emotional Performance (Tagging): To keep the narration professional, clean, and highly engaging (like Vsauce, LEMMiNO, or Aperture), the narrator should maintain a consistent, confident, and professional documentary tone throughout the video, with only subtle, natural shifts. Avoid dramatic overacting or rapid emotional swings. Most narration should use calm, engaging, and authoritative tones. Only inject subtle tone tags (e.g. 'Read with quiet fascination: "..."', 'Read with calm authority: "..."', 'Read with thoughtful pause: "..."', 'Read with subtle intrigue: "..."') to highlight important transitions, Hooks, or Climaxes. Keep the overall narrative voice highly unified and consistent. Format: '<Acting instruction>: "<spoken text>"'. Always wrap the spoken clause inside double quotes inside the string.
+   - Prefixed Professional Narration (Tagging): To maintain a completely consistent, professional, and neutral documentary tone, you must prefix the voiceover for every single scene with the exact same prefix: 'Narrate professionally: "..."'. Never use varied emotional tags, whispering, or shouting directions. Always wrap the spoken clause inside double quotes inside the string.
    - Calculate duration strictly using only the spoken words inside the double quotes.
 3. Literal Visual Syncing (CRITICAL): The "prompt" field MUST exactly match the words being spoken. The visuals must perfectly depict the literal concepts or metaphors the voiceover is describing in that exact moment.
 4. Perfect Voiceover-to-Duration Math: The "duration" field must match the actual speaking time of the voiceover text. Use these metrics:
@@ -1004,7 +1004,7 @@ Return strictly a JSON object matching this schema:
   "scenes": [
     {
       "duration": [2 or 3],
-      "voiceover": "[Voice performance instruction followed by spoken clause inside double quotes, e.g. 'Read with energy and enthusiasm: \"Hey everyone!\"']",
+      "voiceover": "Narrate professionally: \"[spoken text]\"",
       "prompt": "[Complete, unified stateless visual prompt blending camera direction, action, and extremely rare text overlay instructions. Follow Stateless Prompt Rule. White background]"
     }
   ]
@@ -1202,8 +1202,8 @@ Return only the corrected prompt text, nothing else.`;
             if (finalScriptData.scenes && finalScriptData.scenes[0] && finalScriptData.scenes[0].voiceover) {
                 try {
                     const originalHook = finalScriptData.scenes[0].voiceover;
-                    const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"<voice direction matching topic mood>\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
-                    const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be an extremely aggressive, curiosity-inducing opening hook for a YouTube short. Choose a voice direction that perfectly matches the topic mood (e.g., 'Read with gripping intensity', 'Read with dead-serious authority', 'Read with eerie calm', 'Read with raw fascination'). Do NOT always use urgency or whispering.`;
+                    const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"Narrate professionally\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
+                    const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be a highly engaging, simple, and curiosity-inducing opening hook for a YouTube video. The voice direction must be "Narrate professionally" to maintain a consistent, calm, and professional narration tone. Do NOT use urgent, shouting, or whispering tones.`;
                     let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, model, true);
                     // Try to parse JSON response, fall back to raw text
                     let cleanHook, hookDirection;
@@ -1216,7 +1216,7 @@ Return only the corrected prompt text, nothing else.`;
                         cleanHook = hookResponse.replace(/^["']|["']$/g, '').trim();
                         hookDirection = '';
                     }
-                    if (!hookDirection) hookDirection = 'Read with gripping intensity';
+                    if (!hookDirection) hookDirection = 'Narrate professionally';
                     const hookPrefix = `${hookDirection}: `;
                     const refusalWords = ['kindly provide', 'sure', 'here is the', 'i cannot', 'as an ai', 'i can help', "i'm here to help", "im here to help", "here's"];
                     const isRefusal = refusalWords.some(w => cleanHook.toLowerCase().includes(w));
@@ -1428,7 +1428,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             input: {
                                 text: parsedVo.text,
                                 voice: "Charon",
-                                prompt: parsedVo.prompt,
+                                prompt: "A calm, clear, neutral, and highly professional documentary narration voice. Steady pacing, clear articulation, authoritative and informative tone with no emotional overacting, no whispering, no dramatic style shifts, and no anger.",
                                 language_code: "en-US"
                             }
                         });

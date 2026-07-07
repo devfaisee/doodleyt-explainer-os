@@ -191,7 +191,7 @@ export function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, provi
                             input: {
                                 text: parsedVo.text,
                                 voice: "Charon",
-                                prompt: parsedVo.prompt,
+                                prompt: "A calm, clear, neutral, and highly professional documentary narration voice. Steady pacing, clear articulation, authoritative and informative tone with no emotional overacting, no whispering, no dramatic style shifts, and no anger.",
                                 language_code: "en-US"
                             }
                         });
