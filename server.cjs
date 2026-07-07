@@ -687,7 +687,6 @@ function pcmToWav(pcmBuffer, sampleRate = 24000, numChannels = 1, bitsPerSample 
 
 async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl = "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions") {
     let retries = 5;
-    let currentPayloadStr = payloadStr;
     while (retries > 0) {
         try {
             const res = await httpsPost(
@@ -697,22 +696,20 @@ async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl
                     "Content-Type": "application/json",
                     "Prefer": "wait"
                 },
-                currentPayloadStr
+                payloadStr
             );
             const resJson = JSON.parse(res.body.toString());
             
-            // Replicate sometimes returns audio outputs as a string (URI) or array.
+            // Replicate returns audio outputs as a string (URI) or array.
             if (resJson.output) {
-                // If the output is an array (like images often are), return the first item
                 if (Array.isArray(resJson.output) && resJson.output.length > 0) {
                     return resJson.output[0];
                 }
-                // If it's a direct string (like audio URIs often are), return it
                 if (typeof resJson.output === 'string') {
                     return resJson.output;
                 }
             } else {
-                throw new Error("No image URL returned: " + JSON.stringify(resJson));
+                throw new Error("No output returned: " + JSON.stringify(resJson));
             }
         } catch (err) {
             let delayMs = 12000;
@@ -726,37 +723,8 @@ async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl
                 } catch(e) {}
                 addJobLog(`⏳ Replicate Rate Limit 429. Pacing requests... waiting ${Math.round(delayMs/1000)}s.`);
             } else {
-                delayMs = (6 - retries) * 4000; // 4s, 8s, 12s, 16s backoff
+                delayMs = (6 - retries) * 4000;
                 addJobLog(`⚠️ Replicate API Error: ${err.message}. Retrying in ${delayMs/1000}s... (${retries - 1} attempts left)`);
-                
-                const isSafetyError = err.message.toLowerCase().includes('sensitive') || err.message.toLowerCase().includes('flagged');
-                if (isSafetyError) {
-                    try {
-                        const parsed = JSON.parse(currentPayloadStr);
-                        if (parsed.input && parsed.input.text) {
-                            const originalText = parsed.input.text;
-                            let modifiedText = originalText;
-                            
-                            if (retries === 5) {
-                                modifiedText = originalText + ".";
-                            } else if (retries === 4) {
-                                modifiedText = "And " + originalText.charAt(0).toLowerCase() + originalText.slice(1);
-                            } else if (retries === 3) {
-                                parsed.input.voice = "Kore";
-                            } else if (retries === 2) {
-                                parsed.input.voice = "Puck";
-                            } else {
-                                modifiedText = originalText.replace(/cannibal|flesh|eat|dead|kill|blood|murder/gi, 'survivor');
-                            }
-                            
-                            parsed.input.text = modifiedText;
-                            currentPayloadStr = JSON.stringify(parsed);
-                            addJobLog(`🛡️ [Safety Guard] Gemini TTS flagged text. Dynamically adjusting payload for retry: voice="${parsed.input.voice}", text="${modifiedText}"`);
-                        }
-                    } catch (e) {
-                        addJobLog(`⚠️ Safety Guard payload correction failed: ${e.message}`);
-                    }
-                }
             }
             
             await new Promise(r => setTimeout(r, delayMs));
@@ -1444,7 +1412,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                     }
                 }
                 
-                // Audio synthesis — Chatterbox Turbo (Primary) -> ElevenLabs (Fallback) -> Silent (Final Fallback)
+                // Audio synthesis — Kokoro-82M (Primary: censorship-free, 97M+ runs) -> Silent (Fallback)
                 const replicateApiKey = process.env.REPLICATE_API_KEY || (readConfig().replicateApiKey) || falApiKey;
                 const spokenText = extractSpokenText(scene.voiceover);
                 let audioGenerated = false;
@@ -1459,29 +1427,29 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                         throw new Error(`Missing Replicate API Key for voiceover generation in Scene ${i+1}`);
                     }
                     try {
-                        addJobLog(`[Gemini TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
+                        addJobLog(`[Kokoro TTS] Scene ${i+1}/${scenes.length} generating voiceover...`);
                         const parsedVo = parseVoiceover(scene.voiceover);
                         const payload = JSON.stringify({
+                            version: "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
                             input: {
                                 text: parsedVo.text,
-                                voice: "Charon",
-                                prompt: "A calm, clear, neutral, and highly professional documentary narration voice. Steady pacing, clear articulation, authoritative and informative delivery. Consistent tone, objective presentation, and stable speech dynamics.",
-                                language_code: "en-US"
+                                voice: "bm_daniel",
+                                speed: 0.95
                             }
                         });
                         const audioUrl = await callReplicateWithRetry(
                             payload, 
                             replicateApiKey.trim(), 
                             addJobLog, 
-                            "https://api.replicate.com/v1/models/google/gemini-3.1-flash-tts/predictions"
+                            "https://api.replicate.com/v1/predictions"
                         );
-                        addJobLog(`[Gemini TTS] Audio URL type: ${typeof audioUrl === 'string' ? (audioUrl.startsWith('data:') ? 'data-uri' : 'https-url') : typeof audioUrl}`);
+                        addJobLog(`[Kokoro TTS] Audio URL type: ${typeof audioUrl === 'string' ? (audioUrl.startsWith('data:') ? 'data-uri' : 'https-url') : typeof audioUrl}`);
                         const audioBuffer = await downloadAudioFromUrl(audioUrl);
                         await saveAudioAsMP3(audioBuffer, audioPath);
-                        addJobLog(`✓ [Gemini TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
+                        addJobLog(`✓ [Kokoro TTS] Scene ${i+1}/${scenes.length} voiceover saved as ${audioFileName}.`);
                         audioGenerated = true;
                     } catch (cbErr) {
-                        addJobLog(`❌ Gemini TTS failed for scene ${i+1}: ${cbErr.message}`);
+                        addJobLog(`❌ Kokoro TTS failed for scene ${i+1}: ${cbErr.message}`);
                         throw new Error(`Failed to generate voiceover for Scene ${i+1}: ${cbErr.message}`);
                     }
                 }

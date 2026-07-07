@@ -2,7 +2,6 @@ import { httpsPost, fetchImageBuffer } from '../utils/network.js';
 
 export async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endpointUrl = "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions") {
     let retries = 5;
-    let currentPayloadStr = payloadStr;
     while (retries > 0) {
         try {
             const res = await httpsPost(
@@ -12,7 +11,7 @@ export async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endp
                     "Content-Type": "application/json",
                     "Prefer": "wait"
                 },
-                currentPayloadStr
+                payloadStr
             );
             const resJson = JSON.parse(res.body.toString());
             
@@ -24,7 +23,7 @@ export async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endp
                     return resJson.output;
                 }
             } else {
-                throw new Error("No image URL returned: " + JSON.stringify(resJson));
+                throw new Error("No output returned: " + JSON.stringify(resJson));
             }
         } catch (err) {
             let delayMs = 12000;
@@ -38,37 +37,8 @@ export async function callReplicateWithRetry(payloadStr, apiKey, addJobLog, endp
                 } catch(e) {}
                 addJobLog(`⏳ Replicate Rate Limit 429. Pacing requests... waiting ${Math.round(delayMs/1000)}s.`);
             } else {
-                delayMs = (6 - retries) * 4000; // 4s, 8s, 12s, 16s backoff
+                delayMs = (6 - retries) * 4000;
                 addJobLog(`⚠️ Replicate API Error: ${err.message}. Retrying in ${delayMs/1000}s... (${retries - 1} attempts left)`);
-                
-                const isSafetyError = err.message.toLowerCase().includes('sensitive') || err.message.toLowerCase().includes('flagged');
-                if (isSafetyError) {
-                    try {
-                        const parsed = JSON.parse(currentPayloadStr);
-                        if (parsed.input && parsed.input.text) {
-                            const originalText = parsed.input.text;
-                            let modifiedText = originalText;
-                            
-                            if (retries === 5) {
-                                modifiedText = originalText + ".";
-                            } else if (retries === 4) {
-                                modifiedText = "And " + originalText.charAt(0).toLowerCase() + originalText.slice(1);
-                            } else if (retries === 3) {
-                                parsed.input.voice = "Kore";
-                            } else if (retries === 2) {
-                                parsed.input.voice = "Puck";
-                            } else {
-                                modifiedText = originalText.replace(/cannibal|flesh|eat|dead|kill|blood|murder/gi, 'survivor');
-                            }
-                            
-                            parsed.input.text = modifiedText;
-                            currentPayloadStr = JSON.stringify(parsed);
-                            addJobLog(`🛡️ [Safety Guard] Gemini TTS flagged text. Dynamically adjusting payload for retry: voice="${parsed.input.voice}", text="${modifiedText}"`);
-                        }
-                    } catch (e) {
-                        addJobLog(`⚠️ Safety Guard payload correction failed: ${e.message}`);
-                    }
-                }
             }
             
             await new Promise(r => setTimeout(r, delayMs));
