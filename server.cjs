@@ -1185,7 +1185,7 @@ Return only the corrected prompt text, nothing else.`;
                 'z-ai/glm-5.2': { input: 0.10, output: 0.10 },
                 'stepfun/step-3.7-flash': { input: 0.20, output: 1.15 }
             };
-            const rates = MODEL_RATES[model] || { input: 0.5, output: 1.5 };
+            const rates = MODEL_RATES[userModel] || { input: 0.5, output: 1.5 };
             const tokens = activeJob.llmTokens || { input: 0, output: 0 };
             const llmCost = (tokens.input * rates.input + tokens.output * rates.output) / 1000000;
             
