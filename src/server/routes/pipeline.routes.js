@@ -146,7 +146,7 @@ router.post('/regenerate-asset', async (req, res) => {
                         input: {
                             text: parsedVo.text,
                             voice: "Charon",
-                            prompt: parsedVo.prompt || "A professional, calm, and grounded documentary narrator.",
+                            // prompt removed to bypass Gemini's aggressive false-positive safety filters
                             language_code: "en-US"
                         }
                     });

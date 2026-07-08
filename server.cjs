@@ -1427,7 +1427,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             input: {
                                 text: parsedVo.text,
                                 voice: "Charon",
-                                prompt: "A professional, calm, and grounded documentary narrator. Consistent natural speaking volume, steady conversational pacing, objective tone, and stable speech dynamics.",
+                                // prompt removed to bypass Gemini's aggressive false-positive safety filters
                                 language_code: "en-US"
                             }
                         });
@@ -2027,7 +2027,7 @@ const server = http.createServer((req, res) => {
                                 input: {
                                     text: parsedVo.text,
                                     voice: "Charon",
-                                    prompt: parsedVo.prompt || "A professional, calm, and grounded documentary narrator.",
+                                    // prompt removed to bypass Gemini's aggressive false-positive safety filters
                                     language_code: "en-US"
                                 }
                             });
