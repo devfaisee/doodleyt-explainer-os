@@ -783,7 +783,7 @@ function startBackendScriptGeneration(topicTheme, videoType, targetDuration, pro
     // DeepSeek V4 Flash:     QC, JSON fixing, analytical tasks (best strict parser)
     // ═══════════════════════════════════════════════════════════════
     let creativeModel = 'anthropic/claude-sonnet-5';
-    let scriptingModel = 'z-ai/glm-5.2';
+    let scriptingModel = 'anthropic/claude-sonnet-5';
     let qcModel = 'deepseek/deepseek-v4-flash';
     
     if (userModel && !userModel.includes('claude') && !userModel.includes('glm') && !userModel.includes('deepseek')) {
