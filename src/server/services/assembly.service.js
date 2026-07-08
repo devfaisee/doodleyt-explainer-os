@@ -234,7 +234,7 @@ export function startBackendAssembly(script, providedOutputPath) {
                             '-level', '3.1',
                             '-pix_fmt', 'yuv420p',
                             '-movflags', '+faststart',
-                            '-vf', `${scaleFilter},${zoomFilter}`,
+                            '-vf', `${scaleFilter}`,
                             '-c:a', 'aac',
                             '-b:a', '256k',
                             tempSceneVideo
