@@ -75,7 +75,7 @@ export async function callOpenRouter(systemPrompt, userPrompt, apiKey, model, is
     let lastError;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload, 300000);
+            const res = await httpsPost('https://openrouter.ai/api/v1/chat/completions', headers, payload, 60000);
             const data = JSON.parse(res.body.toString());
             if (!data.choices || !data.choices[0] || !data.choices[0].message) {
                 throw new Error(data.error?.message || 'Invalid completions response structure');
