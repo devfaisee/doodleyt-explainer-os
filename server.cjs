@@ -1427,7 +1427,7 @@ function startBackendSynthesis(script, falApiKey, elevenlabsApiKey, providedOutp
                             input: {
                                 text: parsedVo.text,
                                 voice: "Charon",
-                                prompt: "A highly professional, calm, and grounded documentary narrator. Completely consistent natural speaking volume. NO dramatic overacting, NO whispering, NO shouting. Steady conversational pacing, objective tone, and stable speech dynamics.",
+                                prompt: "A professional, calm, and grounded documentary narrator. Consistent natural speaking volume, steady conversational pacing, objective tone, and stable speech dynamics.",
                                 language_code: "en-US"
                             }
                         });
@@ -2027,7 +2027,7 @@ const server = http.createServer((req, res) => {
                                 input: {
                                     text: parsedVo.text,
                                     voice: "Charon",
-                                    prompt: parsedVo.prompt || "A highly professional, calm, and grounded documentary narrator. NO dramatic overacting.",
+                                    prompt: parsedVo.prompt || "A professional, calm, and grounded documentary narrator.",
                                     language_code: "en-US"
                                 }
                             });

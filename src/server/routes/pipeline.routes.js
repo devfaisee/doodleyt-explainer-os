@@ -146,7 +146,7 @@ router.post('/regenerate-asset', async (req, res) => {
                         input: {
                             text: parsedVo.text,
                             voice: "Charon",
-                            prompt: parsedVo.prompt || "A highly professional, calm, and grounded documentary narrator. NO dramatic overacting.",
+                            prompt: parsedVo.prompt || "A professional, calm, and grounded documentary narrator.",
                             language_code: "en-US"
                         }
                     });
