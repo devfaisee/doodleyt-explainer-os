@@ -210,15 +210,16 @@ export function startBackendAssembly(script, providedOutputPath) {
                     const tempSceneVideo = path.join(targetDir, `temp_scene_${indexStr}.mp4`);
                     
                     const scaleFilter = script.videoType === 'short' 
-                        ? `scale=540:960:force_original_aspect_ratio=increase,crop=540:960,fps=20`
-                        : `scale=960:540:force_original_aspect_ratio=increase,crop=960:540,fps=20`;
+                        ? `scale=540:960:force_original_aspect_ratio=increase,crop=540:960,fps=24`
+                        : `scale=960:540:force_original_aspect_ratio=increase,crop=960:540,fps=24`;
+                    const zoomFilter = script.videoType === 'short' ? "zoompan=z='min(zoom+0.0015,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=72:s=540x960:fps=24" : "zoompan=z='min(zoom+0.0015,1.2)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=72:s=960x540:fps=24";
                     
-                    addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}... cmd: ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 20 -i "${imgPath}" -i "${audioPath}" ... "${tempSceneVideo}"`);
+                    addJobLog(`[FFMPEG DEBUG] Starting encode for scene ${sceneIndex+1}... cmd: ffmpeg -nostdin -y -loglevel error -loop 1 -framerate 24 -i "${imgPath}" -i "${audioPath}" ... "${tempSceneVideo}"`);
                     try {
                         await execFileAsync('ffmpeg', [
                             '-nostdin', '-y', '-loglevel', 'error',
                             '-loop', '1',
-                            '-framerate', '20',
+                            '-framerate', '24',
                             '-i', imgPath,
                             '-i', audioPath,
                             '-map', '0:v:0',
@@ -226,16 +227,16 @@ export function startBackendAssembly(script, providedOutputPath) {
                             '-af', 'apad=pad_dur=0.1',
                             '-shortest',
                             '-c:v', 'libx264',
-                            '-preset', 'ultrafast',
+                            '-preset', 'medium',
                             '-tune', 'stillimage',
-                            '-crf', '32',
+                            '-crf', '23',
                             '-profile:v', 'baseline',
                             '-level', '3.1',
                             '-pix_fmt', 'yuv420p',
                             '-movflags', '+faststart',
-                            '-vf', scaleFilter,
+                            '-vf', `${scaleFilter},${zoomFilter}`,
                             '-c:a', 'aac',
-                            '-b:a', '160k',
+                            '-b:a', '256k',
                             tempSceneVideo
                         ], { timeout: 240000 });
                         addJobLog(`[FFMPEG DEBUG] Finished encode for scene ${sceneIndex+1}`);
@@ -274,11 +275,11 @@ export function startBackendAssembly(script, providedOutputPath) {
                     '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11',
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
-                    '-crf', '30',
+                    '-crf', '23',
                     '-pix_fmt', 'yuv420p',
                     '-movflags', '+faststart',
                     '-c:a', 'aac',
-                    '-b:a', '160k',
+                    '-b:a', '256k',
                     finalVideoPath
                 ], { timeout: 300000 });
                 addJobLog(`[FFMPEG DEBUG] Finished final concat.`);

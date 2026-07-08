@@ -174,9 +174,9 @@ Visual DNA: ${visualDNA}`;
         designSystemPrompt += dynamicStyleInjection;
 
         const designUserPrompt = `Autonomously select a highly engaging, curiosity-driven niche video topic that strikes a perfect balance between high-volume evergreen search (topics people actively search for year after year like ancient history, cosmic mysteries, human biology) and an irresistible curiosity gap. Avoid topics that are so obscure that no one would search for them. Take a popular topic and find a fascinating, counter-intuitive angle.
-${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly search-friendly, profound sub-niche.` : `Generate a highly search-friendly, deeply profound and weird niche topic.`}
+${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly search-friendly, profound sub-niche. You are free to choose any category or niche that fits this theme.` : `Generate a highly search-friendly, deeply profound and weird niche topic.
 
-The topic must fit within our core 10 categories:
+Use these categories as inspiration, but you are free to go beyond them:
 1. Evolutionary Anthropology & Ancient Human History
 2. Behavioral Psychology & Famous Social Experiments
 3. Biological Anomalies & Human Body Mysteries
@@ -186,7 +186,7 @@ The topic must fit within our core 10 categories:
 7. Bizarre Historical Events & Mass Hysteria
 8. Military & Technological Blunders
 9. Existential Space & Cosmic Anomalies
-10. Psychology of Beliefs & Secret Societies
+10. Psychology of Beliefs & Secret Societies`}
 
 VIRAL TITLE LAWS (Strictly Enforced):
 - Short & Striking: Length must be 5 to 9 words maximum.

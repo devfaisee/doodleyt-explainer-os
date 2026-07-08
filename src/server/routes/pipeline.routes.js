@@ -276,9 +276,9 @@ PSYCHOLOGICAL TITLE FORMULAS (Use these to construct titles dynamically; do NOT 
 
         let userPrompt = `Generate exactly 10 fresh, high-click, curiosity-driven viral video topics for 'Doodle Theory'.\n`;
         if (inventNiches) {
-            userPrompt += `Instead of using standard categories, you MUST INVENT 10 completely original, bizarre, fascinating, and unexplored educational niches (e.g. "Digital Archaeology", "Deep-Sea Economics", "Micro-Biological Warfare", "Psychology of Geometry", etc.).\nFor each of your 10 invented niches, provide exactly one mind-blowing video topic.\n\n`;
+            userPrompt += `Instead of using standard categories, invent 10 completely original, bizarre, fascinating, and unexplored educational niches (e.g. "Digital Archaeology", "Deep-Sea Economics", "Micro-Biological Warfare", "Psychology of Geometry", etc.).\nFor each of your 10 invented niches, provide exactly one mind-blowing video topic.\n\n`;
         } else {
-            userPrompt += `You MUST generate exactly one topic for each of these 10 core categories:
+            userPrompt += `Generate one topic for each of these 10 categories (but feel free to discover even better angles beyond these if inspiration strikes):
 1. Evolutionary Anthropology & Ancient Human History
 2. Behavioral Psychology & Famous Social Experiments
 3. Biological Anomalies & Human Body Mysteries
