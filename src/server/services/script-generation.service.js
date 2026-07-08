@@ -376,24 +376,8 @@ Return strictly a JSON object matching this schema:
             return Math.max(3, Math.ceil(wordCount / 2));
         };
 
-        const splitSpokenText = (spokenText, maxWords = 6) => {
-            const clauses = spokenText
-                .split(/(?<=[.!?;,])\s+/)
-                .map(s => s.trim())
-                .filter(Boolean);
-            const source = clauses.length > 0 ? clauses : [spokenText];
-            const chunks = [];
-            for (const clause of source) {
-                const clauseWords = clause.split(/\s+/).filter(Boolean);
-                if (clauseWords.length <= maxWords) {
-                    chunks.push(clauseWords.join(' '));
-                    continue;
-                }
-                for (let i = 0; i < clauseWords.length; i += maxWords) {
-                    chunks.push(clauseWords.slice(i, i + maxWords).join(' '));
-                }
-            }
-            return chunks.filter(Boolean);
+        const splitSpokenText = (spokenText) => {
+            return [spokenText.trim()];
         };
 
         // Auto-split long voiceovers (> 6 words) and sanitize empty voiceovers
@@ -408,28 +392,6 @@ Return strictly a JSON object matching this schema:
                 addJobLog(`⚠️ Scene ${idx + 1}: Empty voiceover detected. Removing scene.`);
                 // Skip empty scenes entirely instead of inserting hardcoded filler
                 continue;
-            } else if (words.length > 6) {
-                addJobLog(`🔧 QC Auto-Split: Scene ${idx + 1} voiceover has ${words.length} words (limit is 6). Splitting...`);
-                // Intelligent direction extraction: try multiple patterns to preserve the LLM's original creative direction
-                const directionPatterns = [
-                    voiceover.match(/^(Read\s+[^:]+:\s*)/i),       // "Read with X: "
-                    voiceover.match(/^(Say\s+[^:]+:\s*)/i),        // "Say with X: "
-                    voiceover.match(/^(Speak\s+[^:]+:\s*)/i),      // "Speak with X: "
-                    voiceover.match(/^(Narrate\s+[^:]+:\s*)/i),    // "Narrate with X: "
-                    voiceover.match(/^(Deliver\s+[^:]+:\s*)/i),    // "Deliver with X: "
-                    voiceover.match(/^([^"]+:\s*)/),                // Any prefix before first quote
-                ];
-                const prefix = directionPatterns.find(m => m)?.[1] || `${voiceover.split('"')[0].trim() || 'Narrate naturally'}: `;
-                const splitChunks = splitSpokenText(spoken, 6);
-                splitChunks.forEach((partSpoken, partIndex) => {
-                    const partWords = partSpoken.split(/\s+/).filter(Boolean);
-                    splitSanitizedScenes.push({
-                        ...scene,
-                        voiceover: `${prefix}"${partSpoken}"`,
-                        duration: computeSceneDurationFromWords(partWords.length),
-                        prompt: `${scene.prompt} (Part ${partIndex + 1})`
-                    });
-                });
             } else {
                 scene.duration = computeSceneDurationFromWords(words.length);
                 splitSanitizedScenes.push(scene);
@@ -553,29 +515,17 @@ Return only the corrected prompt text, nothing else.`;
                 const isRefusal = refusalWords.some(w => cleanHook.toLowerCase().includes(w));
                 
                 if (cleanHook && cleanHook.length > 5 && !isRefusal) {
-                    const maxHookWords = 6;
-                    const hookWords = cleanHook.split(/\s+/).filter(Boolean);
-                    const hookChunks = [];
-                    for (let i = 0; i < hookWords.length; i += maxHookWords) {
-                        hookChunks.push(hookWords.slice(i, i + maxHookWords).join(' '));
-                    }
-
                     const firstScene = finalScriptData.scenes[0];
-                    const makeHookScene = (spokenChunk, partIndex) => {
-                        const chunkWords = spokenChunk.split(/\s+/).filter(Boolean).length;
-                        return {
-                            ...firstScene,
-                            voiceover: `${hookPrefix}"${spokenChunk}"`,
-                            duration: chunkWords <= 3 ? 2 : 3,
-                            prompt: partIndex === 0 ? firstScene.prompt : `${firstScene.prompt} (Hook Part ${partIndex + 1})`,
-                            qcErrors: firstScene.qcErrors || []
-                        };
+                    const hookWordsLength = cleanHook.split(/\s+/).filter(Boolean).length;
+                    
+                    const newHookScene = {
+                        ...firstScene,
+                        voiceover: `${hookPrefix}"${cleanHook}"`,
+                        duration: computeSceneDurationFromWords(hookWordsLength),
+                        qcErrors: firstScene.qcErrors || []
                     };
 
-                    const hookScenes = hookChunks.length > 0
-                        ? hookChunks.map((chunk, idx) => makeHookScene(chunk, idx))
-                        : [makeHookScene(cleanHook, 0)];
-                    finalScriptData.scenes = [...hookScenes, ...finalScriptData.scenes.slice(1)];
+                    finalScriptData.scenes = [newHookScene, ...finalScriptData.scenes.slice(1)];
 
                     let hookRunningDuration = 0;
                     finalScriptData.scenes = finalScriptData.scenes.map(scene => {
