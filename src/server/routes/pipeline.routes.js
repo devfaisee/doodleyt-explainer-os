@@ -6,7 +6,7 @@ import { startBackendAssembly } from '../services/assembly.service.js';
 import { readConfig, getEffectiveApiKey } from '../utils/config.js';
 import { callReplicateWithRetry, extractSpokenText, parseVoiceover } from '../services/media.service.js';
 import { fetchImageBuffer, httpsGet } from '../utils/network.js';
-import { callOpenRouter } from '../services/llm.service.js';
+import { callOpenRouter, repairJson } from '../services/llm.service.js';
 import { getAudioFileName, saveAudioAsMP3, getSilentWavBuffer } from '../services/ffmpeg.service.js';
 import { ensureDir } from '../utils/fileSystem.js';
 import fs from 'fs';
@@ -317,12 +317,12 @@ Format your response strictly as a JSON object:
         }
         
         let raw = response;
-        const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-        if (fenceMatch) raw = fenceMatch[1].trim();
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("Brainstorm failed to return JSON.");
+        const parsedData = repairJson(raw);
+        if (!parsedData || !parsedData.topics) {
+            throw new Error("Brainstorm failed to return valid JSON array of topics.");
+        }
         
-        res.json(JSON.parse(jsonMatch[0]));
+        res.json(parsedData);
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
