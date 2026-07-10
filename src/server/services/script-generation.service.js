@@ -290,10 +290,10 @@ ${charactersListString}`;
             
             const lastVoContext = j > 1 ? accumulatedScenes.slice(-3).map(s => s.voiceover).join(' | ') : '';
             
-            let actSystemPrompt = `You are the master storyteller, scriptwriter, and visual director for "Doodle Theory".
+            let actSystemPrompt = `You are an elite, top 1% YouTube scriptwriter and master storyteller (equivalent to MagnatesMedia, Aperture, LEMMiNO, or James Jani).
 You write scripts in JSON format.
-Channel Tone: Clean, informative, highly professional documentary narration. The narrator explains concepts with clear, authoritative simplicity, making complex topics easy for anyone to understand (think Vsauce, LEMMiNO, or Aperture). No dramatic overacting, no whispering, no anger, and no theatrical voice acting.
-Narrative Clarity & Pacing: Start with a clear, relatable, and grounded premise. Explain the science or history step-by-step using simple, punchy, active-voice sentences. Avoid overly complex academic jargon or convoluted philosophical concepts. Keep the explanation direct, fascinating, and easy to follow.
+Channel Tone: Cinematic, gripping, and deeply existential. You do NOT write dry academic essays. You write visceral, edge-of-your-seat narratives that grab the viewer by the throat. You speak directly to the viewer. You use powerful pauses, counter-intuitive reveals, and psychological tension to keep them addicted to the screen. The narrator explains concepts with clear, chilling authority.
+Narrative Clarity & Pacing: Start with an earth-shattering hook. Rapid-fire the facts. Cut the fluff. Do not use conversational filler (like "Hey guys", "Let's dive in", or "Welcome back"). Treat the viewer with deep respect by delivering mind-bending truths using simple, punchy, active-voice sentences. Keep the explanation direct, fascinating, and impossible to click away from.
 Art Style DNA: Whiteboard cartoon illustration style. Hand-drawn felt-pen black outlines, flat solid color fills. Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments. Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.
 Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every single frame must exactly depict what the narrator is talking about in that exact moment.
 
@@ -309,10 +309,10 @@ ${videoBlueprint}
             if (videoType === 'short') {
                 actTitleText = 'Full Video Hook & Story (Psychological Short Framework)';
                 actFocusText = `This is a vertical Short. You MUST strictly follow this psychological pacing:
-1. 0:00-0:03 (The Pattern Interrupt): A highly relatable, grounded hook paired with a jarring concept.
-2. 0:03-0:15 (The Existential Rug-Pull): Subvert the premise immediately.
-3. 0:15-0:45 (The Escalating Descent): High information density. Rapid-fire, escalating facts.
-4. 0:45-0:55 (The Mind-Bending Reveal): The ultimate climax of the awe.
+1. 0:00-0:03 (The Pattern Interrupt): A brutal, reality-breaking hook. Do NOT ask questions like "Did you know". State a jarring fact as an absolute truth.
+2. 0:03-0:15 (The Existential Rug-Pull): Immediately subvert what they thought they knew. Destroy their assumption.
+3. 0:15-0:45 (The Escalating Descent): High information density. Rapid-fire facts. Use visceral, descriptive language.
+4. 0:45-0:55 (The Mind-Bending Reveal): The ultimate, chilling climax of awe.
 5. 0:55-0:60 (The Seamless Loop): End on an ambiguous or perfectly circular final thought that flawlessly bleeds back into the opening hook to maximize re-watches.
    - SEAMLESS LOOP LAW: The final scene's voiceover must end mid-thought or with a grammatical setup (e.g. ending with a preposition like "because...") so that it naturally completes its meaning when it loops back to the very first scene of the video.
    - CRITICAL WARNING: Never copy, repeat, or append the opening scenes or their voiceovers/prompts at the end of the script! The final scene must be completely unique. The loop is created purely by the grammatical flow of the final spoken words leading back to the first spoken words. Do not copy the first scene.`;
@@ -338,7 +338,7 @@ Last spoken lines of previous section: "${lastVoContext}"
 ${charactersPromptGuide}
 
 SCRIPTWRITING & PACING LAWS:
-1. Clear, Simple Storytelling: Use short, punchy, active-voice sentences. Explain complex ideas using simple, everyday language and concrete analogies. Keep descriptions direct and extremely easy to understand. Do not make the explanation overly complex, academic, or philosophical.
+1. Elite Storytelling (Zero Fluff): Every single word must earn its place. Cut out weak verbs, passive voice, and boring academic transitions. Use striking, sensory language. Make the viewer feel the scale, the fear, or the profound awe of the topic. Never be dry or lazy.
 2. Short Voiceovers & Fast Visual Hooking: To maximize user retention, the visual layout MUST update every 1.5 to 3 seconds. Therefore:
    - Keep the voiceover script for any single scene EXTREMELY short (maximum 6 words, ideal is 3 to 5 words per scene).
    - Sentence Splitting Law: If a sentence is long, you MUST split it across multiple consecutive scenes. However, you MUST split only at natural grammatical boundaries (clauses, punctuation, or complete phrases). Never end a scene's voiceover with a hanging conjunction (and, or, but), preposition (of, in, at, with, to), pronoun/article (the, a, an, this, that), or copula verb (is, are, was, were). Each scene's voiceover chunk must sound like a complete, natural spoken phrase on its own when read aloud, without leaving the speaker hanging on a dangling word.
@@ -558,7 +558,7 @@ Return only the corrected prompt text, nothing else.`;
             try {
                 const originalHook = finalScriptData.scenes[0].voiceover;
                 const systemPrompt = "You are an expert hook writer. Reply with ONLY a JSON object: {\"direction\": \"Narrate professionally\", \"text\": \"<rewritten hook>\"}. NO filler, NO explanation.";
-                const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be a highly engaging, simple, and curiosity-inducing opening hook for a YouTube video. The voice direction must be "Narrate professionally" to maintain a consistent, calm, and professional narration tone. Do NOT use urgent, shouting, or whispering tones.`;
+                const prompt = `Original: "${originalHook}"\nVideo title: "${finalScriptData.title}"\nRewrite this to be an elite, top 1% YouTube opening hook. Make it brutal, reality-breaking, and instantly gripping. State a chilling fact or an impossible paradox as an absolute truth. Cut all conversational filler. Do NOT ask weak questions like "Did you know". The voice direction must remain "Narrate professionally" to maintain a chilling, authoritative tone.`;
                 let hookResponse = await callOpenRouter(systemPrompt, prompt, apiKey, creativeModel, true);
                 let cleanHook, hookDirection;
                 try {
