@@ -145,8 +145,33 @@ export function startBackendScriptGeneration(topicTheme, videoType, targetDurati
         addJobLog(`🧠 Model Split: Creative tasks ->  | Scripting/QC tasks -> `);
         addJobLog(`🎬 Mode: ${videoType.toUpperCase()} | Target Length: ${videoType === 'short' ? 'Short (~1 min)' : `${parsedDuration} min`} (Scene count determined dynamically by LLM)`);
         
-        // Stage 1: Niche & Custom Character Design
+        // -------------------------------------------------------------
+        // STAGE 0: MASTER BLUEPRINTING (User-Requested Architecture)
+        // -------------------------------------------------------------
         updateJobStageStatus('design', 'running');
+        addJobLog(`⚡ Starting Stage 0: Master Blueprint Generation (Architecting the concept)...`);
+        
+        let videoBlueprint = "";
+        const blueprintSystem = `You are an elite YouTube Content Architect and Master Storyteller. Your job is to generate a flawless, deeply researched structural blueprint for a viral YouTube video script.`;
+        const blueprintUser = `${topicTheme ? `The user has requested a specific video topic: "${topicTheme}".\nCRITICAL RULE: You MUST strictly build the video around this exact concept. Do NOT invent a completely unrelated story or random experiment (e.g., if the topic is "psychology of luck", do not write a story about a newspaper test. Stick to the actual science/psychology/history of luck). Deeply explore the profound truth behind the user's specific idea.` : `Generate a highly search-friendly, deeply profound and weird niche topic blueprint. Use categories like Evolutionary Anthropology, Behavioral Psychology, Biological Anomalies, or Space Mysteries.`}
+
+Provide a detailed Master Blueprint containing:
+1. Core Thesis (What is the profound truth?)
+2. Narrative Arc (How it hooks, escalates, and resolves)
+3. Key Scientific/Historical/Psychological facts to include.
+
+Return ONLY the text of the blueprint.`;
+
+        addJobLog(`🧠 Routing Stage 0 Blueprint through ${creativeModel}...`);
+        try {
+            videoBlueprint = await callOpenRouter(blueprintSystem, blueprintUser, apiKey, creativeModel, false);
+            addJobLog(`✓ Master Blueprint generated.`);
+        } catch (bpErr) {
+            addJobLog(`⚠️ Stage 0 Blueprint failed, falling back to basic generation: ${bpErr.message}`);
+            videoBlueprint = topicTheme || "Deeply profound and weird niche topic";
+        }
+        
+        // Stage 1: Niche & Custom Character Design
         addJobLog(`⚡ Starting Stage 1: Autonomous Niche & Character Design...`);
         
         const visualDNA = config.visualDNA || "Minimalist hand-drawn 2D vector-style cartoon illustration (similar to YouTube channel Zenn). Clean, smooth, non-jagged black felt-pen outlines and solid flat color fills. Exaggerated comical cartoon expressions (wide cartoon eyes, sweating, gaping mouth). Backgrounds are high-contrast and completely flat: solid white, bright solid yellow, deep solid black, or simple flat colored environments (no gradients, no realistic shading, no 3D rendering). Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and clean, hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, clean, cute cartoon representations of characters, animals, and objects instead of complex or messy sketches. Perfect clean outlines (no messy or pixelated lines, no scribbled draft lines).";
@@ -173,20 +198,13 @@ Art Style Reference Codes: ${Array.isArray(styleReferences) ? styleReferences.jo
 Visual DNA: ${visualDNA}`;
         designSystemPrompt += dynamicStyleInjection;
 
-        const designUserPrompt = `Autonomously select a highly engaging, curiosity-driven niche video topic that strikes a perfect balance between high-volume evergreen search (topics people actively search for year after year like ancient history, cosmic mysteries, human biology) and an irresistible curiosity gap. Avoid topics that are so obscure that no one would search for them. Take a popular topic and find a fascinating, counter-intuitive angle.
-${topicTheme ? `Focus on this theme/keyword: "${topicTheme}". Narrow it down to a highly search-friendly, profound sub-niche. You are free to choose any category or niche that fits this theme.` : `Generate a highly search-friendly, deeply profound and weird niche topic.
+        const designUserPrompt = `Autonomously design the Title, Niche Reason, Characters, and SEO metadata based EXACTLY on this Master Video Blueprint:
 
-Use these categories as inspiration, but you are free to go beyond them:
-1. Evolutionary Anthropology & Ancient Human History
-2. Behavioral Psychology & Famous Social Experiments
-3. Biological Anomalies & Human Body Mysteries
-4. Existential, Cognitive & Scientific Mysteries
-5. Archaeological Mysteries & Lost Civilizations
-6. Survival Psychology & Extreme Environment Biology
-7. Bizarre Historical Events & Mass Hysteria
-8. Military & Technological Blunders
-9. Existential Space & Cosmic Anomalies
-10. Psychology of Beliefs & Secret Societies`}
+=== MASTER BLUEPRINT ===
+${videoBlueprint}
+========================
+
+Do NOT deviate from this blueprint. Design the packaging (Title, Characters, Thumbnail, SEO) specifically for this core concept.
 
 VIRAL TITLE LAWS (Strictly Enforced):
 - Short & Striking: Length must be 5 to 9 words maximum.
@@ -277,7 +295,12 @@ You write scripts in JSON format.
 Channel Tone: Clean, informative, highly professional documentary narration. The narrator explains concepts with clear, authoritative simplicity, making complex topics easy for anyone to understand (think Vsauce, LEMMiNO, or Aperture). No dramatic overacting, no whispering, no anger, and no theatrical voice acting.
 Narrative Clarity & Pacing: Start with a clear, relatable, and grounded premise. Explain the science or history step-by-step using simple, punchy, active-voice sentences. Avoid overly complex academic jargon or convoluted philosophical concepts. Keep the explanation direct, fascinating, and easy to follow.
 Art Style DNA: Whiteboard cartoon illustration style. Hand-drawn felt-pen black outlines, flat solid color fills. Backgrounds are simple and high-contrast: solid white, bright solid yellow, deep solid black, or flat colored environments. Features bold, hand-drawn uppercase text overlays with thick black outlines (typically in bright yellow, red, or white) and simple hand-drawn red pointing arrows or white speech bubbles where appropriate. Simple, cute cartoon representations of animals, people, and objects instead of complex artwork. No gradients, no 3D elements, no realistic shading.
-Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every single frame must exactly depict what the narrator is talking about in that exact moment.`;
+Visual Pacing: The visuals MUST perfectly sync with the spoken words. Every single frame must exactly depict what the narrator is talking about in that exact moment.
+
+CRITICAL INSTRUCTION: You MUST strictly follow this Master Video Blueprint for the story:
+=== MASTER BLUEPRINT ===
+${videoBlueprint}
+========================`;
             actSystemPrompt += dynamicStyleInjection;
 
             let actTitleText = `Act ${j}`;
